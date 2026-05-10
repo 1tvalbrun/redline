@@ -1,13 +1,8 @@
-"use client"
-
-import { Button } from "@/components/ui/button"
-
 const PROMPTS = [
-  "Tell me more about the market risk",
-  "What about the competition?",
-  "How would you price this?",
-  "What's the biggest technical challenge?",
-  "Would you actually use this?",
+  "Our wedge is...",
+  "The reason this is urgent...",
+  "What would change my mind is...",
+  "Counter-argument...",
 ]
 
 type PromptHelpersProps = {
@@ -16,17 +11,19 @@ type PromptHelpersProps = {
 
 export const PromptHelpers = ({ onSelect }: PromptHelpersProps) => {
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-col gap-1.5">
+      <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
+        Prompt Helpers
+      </span>
       {PROMPTS.map((prompt) => (
-        <Button
+        <button
           key={prompt}
-          variant="outline"
-          size="sm"
-          className="text-xs"
+          type="button"
+          className="rounded-lg border border-border px-2.5 py-1.5 text-left text-[11px] leading-snug text-muted-foreground transition-colors hover:border-primary/30 hover:text-foreground"
           onClick={() => onSelect(prompt)}
         >
           {prompt}
-        </Button>
+        </button>
       ))}
     </div>
   )

@@ -1,5 +1,4 @@
-import { Progress } from "@/components/ui/progress"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { RISK_COLOR } from "./constants"
 
 type RiskScores = {
   market?: number
@@ -12,33 +11,38 @@ type RiskMeterProps = {
   scores: RiskScores
 }
 
-const RISK_LABELS: Record<string, string> = {
-  market: "Market",
-  customer: "Customer",
-  technical: "Technical",
-  gtm: "GTM",
-}
+const RISK_ROWS: { key: keyof RiskScores; label: string }[] = [
+  { key: "market", label: "Market risk" },
+  { key: "customer", label: "Customer risk" },
+  { key: "technical", label: "Technical risk" },
+  { key: "gtm", label: "GTM risk" },
+]
 
 export const RiskMeter = ({ scores }: RiskMeterProps) => {
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-sm">Risk Assessment</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {Object.entries(RISK_LABELS).map(([key, label]) => {
-          const value = scores[key as keyof RiskScores] ?? 0
+    <div className="rounded-xl border border-border bg-card p-4">
+      <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
+        Risk Meter
+      </span>
+      <div className="mt-3 space-y-3">
+        {RISK_ROWS.map(({ key, label }) => {
+          const value = scores[key] ?? 0
           return (
             <div key={key} className="space-y-1">
-              <div className="flex justify-between text-xs">
-                <span>{label}</span>
-                <span className="text-muted-foreground">{value}/100</span>
+              <div className="flex items-center justify-between">
+                <span className="text-xs">{label}</span>
+                <span className="text-xs font-medium">{value}</span>
               </div>
-              <Progress value={value} />
+              <div className="h-1.5 rounded-full bg-muted">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${RISK_COLOR(value)}`}
+                  style={{ width: `${value}%` }}
+                />
+              </div>
             </div>
           )
         })}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }
