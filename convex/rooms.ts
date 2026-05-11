@@ -20,11 +20,12 @@ export const create = mutation({
   handler: async (ctx, args) => {
     return await ctx.db.insert("rooms", {
       ...args,
+      activeCharacterId: args.characters[0]?.id,
       transcript: [],
       riskScores: {},
       liveNotes: [],
       round: "overview",
-      status: "pending",
+      status: "live",
     })
   },
 })
