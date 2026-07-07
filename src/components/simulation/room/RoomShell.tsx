@@ -56,7 +56,10 @@ export const RoomShell = ({ simulationId }: RoomShellProps) => {
   const handlePromptSelect = (_prompt: string) => {}
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-background">
+    <div
+      data-surface="dark"
+      className="fixed inset-0 z-50 flex flex-col bg-background"
+    >
       <RoomHeader
         simulationName={simulation?.title ?? ""}
         round="SESSION"
