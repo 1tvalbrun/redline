@@ -2,22 +2,27 @@
 
 import { useEffect, useRef, useState } from "react"
 import { Mic, MicOff } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { Waveform, SELF_WAVE_DELAYS } from "./Waveform"
+
+export type MicState = "live" | "muted" | "blocked" | "ended"
+
+const MIC_LABELS: Record<MicState, { button: string; aria: string }> = {
+  live: { button: "Mute", aria: "Mute microphone" },
+  muted: { button: "Unmute", aria: "Unmute microphone" },
+  blocked: { button: "Mic blocked", aria: "Microphone blocked by browser permissions" },
+  ended: { button: "Mute", aria: "Session ended" },
+}
+
+type CameraState = "starting" | "ready" | "off"
 
 type UserTileProps = {
   userName: string
-  simulationName: string
-  isMicEnabled: boolean
+  micState: MicState
   onToggleMic: () => void
 }
 
-export const UserTile = ({
-  userName,
-  simulationName,
-  isMicEnabled,
-  onToggleMic,
-}: UserTileProps) => {
-  const [cameraReady, setCameraReady] = useState(false)
+export const UserTile = ({ userName, micState, onToggleMic }: UserTileProps) => {
+  const [cameraState, setCameraState] = useState<CameraState>("starting")
   const videoRef = useRef<HTMLVideoElement>(null)
 
   useEffect(() => {
@@ -33,20 +38,24 @@ export const UserTile = ({
         stream = s
         if (videoRef.current) {
           videoRef.current.srcObject = s
-          setCameraReady(true)
+          setCameraState("ready")
         }
       })
-      .catch(() => setCameraReady(false))
+      .catch(() => setCameraState("off"))
     return () => {
       cancelled = true
       stream?.getTracks().forEach((t) => t.stop())
     }
   }, [])
 
+  const micDisabled = micState === "blocked" || micState === "ended"
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="relative flex aspect-square items-center justify-center overflow-hidden rounded-xl bg-[#1C1C1E]">
+    <div>
+      <section
+        aria-label="Your camera"
+        className="relative aspect-[4/3] overflow-hidden border border-line-2 bg-[linear-gradient(165deg,#3a352e,#1a1713)]"
+      >
         <video
           ref={videoRef}
           autoPlay
@@ -54,30 +63,35 @@ export const UserTile = ({
           muted
           className="absolute inset-0 h-full w-full -scale-x-100 object-cover"
         />
-        {!cameraReady && (
-          <div className="relative flex h-12 w-12 items-center justify-center rounded-full border border-white/10">
-            <span className="text-lg font-light text-white/40">
-              {userName[0]}
-            </span>
-          </div>
+        {cameraState !== "ready" && (
+          <p className="absolute inset-0 flex items-center justify-center font-mono text-[9.5px] uppercase tracking-[.08em] text-on-surface-2">
+            {cameraState === "starting" ? "Camera starting…" : "Camera off"}
+          </p>
         )}
-      </div>
-      <div>
-        <p className="text-xs font-medium">{userName}</p>
-        <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
-          Founder · {simulationName}
-        </p>
-      </div>
-      <Button
-        size="sm"
-        variant={isMicEnabled ? "secondary" : "destructive"}
-        className="w-full gap-2 text-xs"
+        <span className="absolute bottom-2 left-[9px] z-[2] font-mono text-[9.5px] uppercase tracking-[.08em] text-on-surface [text-shadow:0_1px_3px_rgba(0,0,0,.5)]">
+          You · {userName}
+        </span>
+        <Waveform
+          active={micState === "live"}
+          delays={SELF_WAVE_DELAYS}
+          barClassName="w-[2px] bg-ok-fg"
+          className="absolute bottom-[9px] right-[9px] z-[2] h-3 gap-[2px]"
+        />
+      </section>
+      <button
+        type="button"
         onClick={onToggleMic}
-        aria-label={isMicEnabled ? "Mute microphone" : "Unmute microphone"}
+        disabled={micDisabled}
+        aria-label={MIC_LABELS[micState].aria}
+        className={`focus-ring mt-3 flex w-full items-center justify-center gap-[9px] border p-[10px] font-mono text-[11px] uppercase tracking-[.08em] transition-colors hover:bg-white/5 disabled:opacity-40 disabled:hover:bg-transparent ${
+          micState === "blocked"
+            ? "border-red-fg text-red-fg"
+            : "border-line-2 text-on-surface"
+        }`}
       >
-        {isMicEnabled ? <Mic className="h-3 w-3" /> : <MicOff className="h-3 w-3" />}
-        {isMicEnabled ? "Mute" : "Unmute"}
-      </Button>
+        {micState === "live" ? <Mic className="h-3.5 w-3.5" /> : <MicOff className="h-3.5 w-3.5" />}
+        {MIC_LABELS[micState].button}
+      </button>
     </div>
   )
 }

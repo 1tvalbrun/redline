@@ -1,26 +1,39 @@
+"use client"
+
+import { useState } from "react"
+import { cn } from "@/lib/utils"
+
 const PROMPTS = [
-  "Our wedge is...",
-  "The reason this is urgent...",
-  "What would change my mind is...",
-  "Counter-argument...",
+  "Our wedge is…",
+  "The reason this is urgent…",
+  "What would change your mind…",
+  "The honest counter-argument…",
 ]
 
-type PromptHelpersProps = {
-  onSelect: (prompt: string) => void
-}
+export const PromptHelpers = ({ className }: { className?: string }) => {
+  const [selected, setSelected] = useState<string | null>(null)
 
-export const PromptHelpers = ({ onSelect }: PromptHelpersProps) => {
+  const handleToggle = (prompt: string) => {
+    setSelected((current) => (current === prompt ? null : prompt))
+  }
+
   return (
-    <div className="flex flex-col gap-1.5">
-      <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
-        Prompt Helpers
-      </span>
+    <div className={className}>
+      <p className="mb-[10px] font-mono text-[9.5px] uppercase tracking-[.16em] text-on-surface-2">
+        Prompt helpers
+      </p>
       {PROMPTS.map((prompt) => (
         <button
           key={prompt}
           type="button"
-          className="rounded-lg border border-border px-2.5 py-1.5 text-left text-[11px] leading-snug text-muted-foreground transition-colors hover:border-primary/30 hover:text-foreground"
-          onClick={() => onSelect(prompt)}
+          aria-pressed={selected === prompt}
+          onClick={() => handleToggle(prompt)}
+          className={cn(
+            "focus-ring mb-[6px] block w-full border px-[11px] py-[9px] text-left text-[12.5px] transition-colors",
+            selected === prompt
+              ? "border-line-2 bg-surface-3 text-on-surface"
+              : "border-line bg-surface-3 text-on-surface-2 hover:border-line-2 hover:text-on-surface"
+          )}
         >
           {prompt}
         </button>

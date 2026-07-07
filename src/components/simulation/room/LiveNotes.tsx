@@ -1,13 +1,18 @@
 import { useEffect, useRef } from "react"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { formatElapsed } from "@/lib/utils"
 
-const NOTE_BORDER_COLORS: Record<string, string> = {
-  follow_up: "border-l-blue-500",
-  event: "border-l-amber-500",
-  strong_answer: "border-l-emerald-500",
-  weak_assumption: "border-l-orange-500",
-  objection: "border-l-red-500",
+// Marker glyph + color per orchestrator note type. Meaning is carried by
+// glyph and sr-only label, never color alone.
+const NOTE_MARKERS: Record<string, { glyph: string; className: string; label: string }> = {
+  strong_answer: { glyph: "✓", className: "text-ok-fg", label: "Strong answer" },
+  weak_assumption: { glyph: "⚠", className: "text-amber-fg", label: "Weak assumption" },
+  objection: { glyph: "✕", className: "text-red-fg", label: "Objection" },
+  follow_up: { glyph: "?", className: "text-amber-fg", label: "Follow-up" },
+  event: { glyph: "→", className: "text-on-surface-2", label: "Event" },
 }
+
+const FALLBACK_MARKER = { glyph: "·", className: "text-on-surface-2", label: "Note" }
 
 type Note = {
   type: string
@@ -17,55 +22,63 @@ type Note = {
 
 type LiveNotesProps = {
   notes: Note[]
-  startedAt?: number
-}
-
-const formatRelative = (ts: number, baseTs: number) => {
-  const seconds = Math.max(0, Math.floor((ts - baseTs) / 1000))
-  const m = Math.floor(seconds / 60)
-  const s = seconds % 60
-  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
+  startedAt: number
 }
 
 export const LiveNotes = ({ notes, startedAt }: LiveNotesProps) => {
   const bottomRef = useRef<HTMLDivElement>(null)
-  const baseTs = startedAt ?? notes[0]?.timestamp ?? Date.now()
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" })
   }, [notes.length])
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-card p-4">
-      <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
-        Live Notes
-      </span>
-      <ScrollArea className="mt-3 flex-1">
-        <div className="space-y-2">
-          {notes.map((note, i) => (
-            <div
-              key={i}
-              className={`rounded-r-lg border-l-2 bg-muted/50 px-3 py-2 animate-in fade-in-0 slide-in-from-right-1 duration-300 ${
-                NOTE_BORDER_COLORS[note.type] ?? "border-l-gray-400"
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                  {note.type.replace("_", " ")}
-                </span>
-                <span className="text-[10px] tabular-nums text-muted-foreground">
-                  · {formatRelative(note.timestamp, baseTs)}
-                </span>
-              </div>
-              <p className="mt-1 text-xs leading-relaxed">{note.text}</p>
-            </div>
-          ))}
-          <div ref={bottomRef} />
-        </div>
+    <section aria-label="Live notes" className="flex h-full min-h-0 flex-col">
+      <div className="flex flex-none items-center justify-between px-[18px] pb-3 pt-[15px]">
+        <span className="font-mono text-[10.5px] uppercase tracking-[.16em] text-on-surface-2">
+          Live notes
+        </span>
+        <span className="font-mono text-[10px] uppercase tracking-[.06em] tabular-nums text-on-surface-2">
+          {notes.length}
+        </span>
+      </div>
+      <ScrollArea className="min-h-0 flex-1 px-[18px]">
+        {notes.length === 0 ? (
+          <p className="py-[11px] text-[12.5px] leading-relaxed text-on-surface-2">
+            Observations will appear here as the panel reacts.
+          </p>
+        ) : (
+          <div role="log" aria-label="Panel observations">
+            {notes.map((note, i) => {
+              const marker = NOTE_MARKERS[note.type] ?? FALLBACK_MARKER
+              return (
+                <div
+                  key={i}
+                  className="flex gap-[10px] border-t border-line py-[11px] first:border-t-0"
+                >
+                  <span
+                    aria-hidden="true"
+                    className={`flex-none font-mono text-[13px] font-semibold leading-[1.4] ${marker.className}`}
+                  >
+                    {marker.glyph}
+                  </span>
+                  <div className="text-[12.5px] leading-normal text-on-surface-2">
+                    <span className="sr-only">{marker.label}: </span>
+                    {note.text}
+                    <span className="mt-[3px] block font-mono text-[9px] tracking-[.06em] tabular-nums">
+                      {formatElapsed(startedAt, note.timestamp)}
+                    </span>
+                  </div>
+                </div>
+              )
+            })}
+            <div ref={bottomRef} />
+          </div>
+        )}
       </ScrollArea>
-      <p className="mt-3 text-[10px] italic text-muted-foreground">
+      <p className="flex-none border-t border-line px-[18px] py-3 font-mono text-[9.5px] italic tracking-[.06em] text-on-surface-2">
         AI-generated observations. Review critically.
       </p>
-    </div>
+    </section>
   )
 }

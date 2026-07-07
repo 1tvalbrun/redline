@@ -14,10 +14,12 @@ test("all-max risk yields zero readiness on every axis", () => {
   assert.equal(r.overall, 0)
 })
 
-test("missing axes fall back to the orchestrator baseline of 50", () => {
-  const r = deriveReadiness({})
-  assert.deepEqual(r.perAxis, { market: 50, customer: 50, technical: 50, gtm: 50 })
-  assert.equal(r.overall, 50)
+test("partially scored sessions average only the scored axes", () => {
+  const r = deriveReadiness({ market: 20 })
+  assert.equal(r.perAxis.market, 80)
+  assert.equal(r.perAxis.customer, null)
+  assert.equal(r.overall, 80)
+  assert.equal(r.underFire, "market")
 })
 
 test("out-of-range risk is clamped into 0-100 readiness", () => {
@@ -47,4 +49,36 @@ test("underFire ties break toward the most recently changed axis", () => {
 test("underFire ties without history fall back to axis order", () => {
   const r = deriveReadiness({ market: 30, customer: 30, technical: 70, gtm: 70 })
   assert.equal(r.underFire, "technical")
+})
+
+test("empty scores object returns the pending value, never NaN", () => {
+  const r = deriveReadiness({})
+  assert.equal(r.overall, null)
+  assert.equal(r.underFire, null)
+  assert.deepEqual(r.perAxis, { market: null, customer: null, technical: null, gtm: null })
+})
+
+test("undefined scores return the pending value", () => {
+  const r = deriveReadiness(undefined)
+  assert.equal(r.overall, null)
+  assert.equal(r.underFire, null)
+})
+
+test("all axes explicitly absent return the pending value", () => {
+  const r = deriveReadiness({
+    market: undefined,
+    customer: undefined,
+    technical: undefined,
+    gtm: undefined,
+  })
+  assert.equal(r.overall, null)
+  assert.equal(r.underFire, null)
+})
+
+test("non-finite values are filtered, not averaged into NaN", () => {
+  const r = deriveReadiness({ market: NaN, customer: 40 })
+  assert.equal(r.perAxis.market, null)
+  assert.equal(r.perAxis.customer, 60)
+  assert.equal(r.overall, 60)
+  assert.equal(r.underFire, "customer")
 })

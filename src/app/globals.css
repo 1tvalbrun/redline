@@ -25,6 +25,7 @@
   --color-ring: var(--ring);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
   --color-surface-raised: var(--surface-raised);
   --color-surface-rail: var(--surface-rail);
   --color-on-surface: var(--on-surface);
@@ -36,8 +37,31 @@
   --color-red-deep: var(--red-deep);
   --color-red-fg: var(--red-fg);
   --color-amber: var(--amber);
+  --color-amber-fg: var(--amber-fg);
   --color-ok: var(--ok);
   --color-ok-fg: var(--ok-fg);
+  --animate-eq: eq 0.9s ease-in-out infinite;
+  --animate-pulse-red: pulse-red 2s infinite;
+  @keyframes eq {
+    0%,
+    100% {
+      height: 20%;
+    }
+    50% {
+      height: 100%;
+    }
+  }
+  @keyframes pulse-red {
+    0% {
+      box-shadow: 0 0 0 0 rgba(206, 43, 34, 0.6);
+    }
+    70% {
+      box-shadow: 0 0 0 7px rgba(206, 43, 34, 0);
+    }
+    100% {
+      box-shadow: 0 0 0 0 rgba(206, 43, 34, 0);
+    }
+  }
   --font-sans: var(--font-plex-sans);
   --font-display: var(--font-archivo);
   --font-display--font-variation-settings: "wdth" 125;
@@ -64,6 +88,7 @@
   /* Redline primitives — extracted from design-reference/redline-{app,flow}.html */
   --surface: #eae8e2; /* paper */
   --surface-2: #dfddd6; /* paper-2 */
+  --surface-3: #dfddd6; /* distinct layer only on dark; mirrors surface-2 on paper */
   --surface-raised: #e4e2dc; /* panel */
   --surface-rail: #e2e0d9; /* rail */
   --on-surface: #18160f; /* ink */
@@ -74,6 +99,7 @@
   --red: #ce2b22;
   --red-deep: #9e1b14;
   --amber: #b0741a;
+  --amber-fg: #b0741a;
   --ok: #4a6b4e;
   --ok-fg: #4a6b4e;
   --red-fg: #ce2b22;
@@ -111,19 +137,21 @@
 
 /* The one dark cinematic surface (the Room subtree). Redefines the same
    primitives, so every semantic var above resolves dark without
-   per-component variants. Dark values from redline-flow.html. */
+   per-component variants. Dark values from redline-room.html. */
 [data-surface="dark"] {
   --surface: #141210; /* dark */
   --surface-2: #100e0b; /* controls strip */
-  --surface-raised: #1e1b16; /* dark-2 */
-  --surface-rail: #1e1b16;
-  --on-surface: #e7e4dd; /* on-dark */
+  --surface-3: #221e18; /* dark-3, helper buttons */
+  --surface-raised: #1c1915; /* dark-2, rails */
+  --surface-rail: #1c1915;
+  --on-surface: #e9e6df; /* on-dark */
   --on-surface-2: #9c968a; /* on-dark-2 */
   --on-surface-3: #6a655c; /* on-dark-3 */
-  --line: rgba(255, 255, 255, 0.07);
-  --line-2: rgba(255, 255, 255, 0.16);
-  --ok-fg: #7fa383;
+  --line: rgba(255, 255, 255, 0.07); /* line-d */
+  --line-2: rgba(255, 255, 255, 0.13); /* line-d2 */
+  --ok-fg: #8fb093;
   --red-fg: #e0655c;
+  --amber-fg: #d19a4e;
 }
 
 @layer base {
@@ -154,4 +182,19 @@
   width: 100% !important;
   height: 100% !important;
   object-fit: cover !important;
+}
+
+@utility focus-ring {
+  &:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
+
+/* Film-grain texture for dark cinematic layers (Room). Callers set
+   position, opacity, and z-index. */
+@utility grain-overlay {
+  pointer-events: none;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
