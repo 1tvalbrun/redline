@@ -1,6 +1,7 @@
 import { v } from "convex/values"
 import { action, mutation, query } from "./_generated/server"
 import { api } from "./_generated/api"
+import type { Id } from "./_generated/dataModel"
 
 export const create = mutation({
   args: {
@@ -75,7 +76,9 @@ const clampInt = (n: unknown, fallback: number) =>
 
 export const generate = action({
   args: { roomId: v.id("rooms") },
-  handler: async (ctx, args) => {
+  // Explicit return type breaks Convex's self-referential inference cycle
+  // (generate → api → generate), which otherwise fails `next build` typechecking.
+  handler: async (ctx, args): Promise<{ reportId: Id<"reports"> }> => {
     const room = await ctx.runQuery(api.rooms.get, { id: args.roomId })
     if (!room) throw new Error("Room not found")
 

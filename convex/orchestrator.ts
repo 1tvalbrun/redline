@@ -18,9 +18,16 @@ const boundDelta = (current: number, proposed: number, maxDelta = 10) => {
   return clamp(current + Math.sign(diff) * maxDelta)
 }
 
+type DecideResult = {
+  scores: { market: number; customer: number; technical: number; gtm: number }
+  note?: { type?: string; text?: string }
+} | null
+
 export const decide = action({
   args: { roomId: v.id("rooms") },
-  handler: async (ctx, args) => {
+  // Explicit return type breaks Convex's self-referential inference cycle
+  // (decide → api → decide), which otherwise fails `next build` typechecking.
+  handler: async (ctx, args): Promise<DecideResult> => {
     const room = await ctx.runQuery(api.rooms.get, { id: args.roomId })
     if (!room || room.status !== "live") return null
     if (room.transcript.length === 0) return null

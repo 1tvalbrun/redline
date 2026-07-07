@@ -141,7 +141,7 @@ export const BriefForm = () => {
         </div>
         <div>
           <label className="mb-2 block text-sm font-medium">Stage</label>
-          <Select value={stage} onValueChange={setStage}>
+          <Select value={stage} onValueChange={(value) => value !== null && setStage(value)}>
             <SelectTrigger className="w-full h-9">
               <SelectValue placeholder="Select a stage" />
             </SelectTrigger>
@@ -173,7 +173,7 @@ export const BriefForm = () => {
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         <div>
           <label className="mb-2 block text-sm font-medium">Target user</label>
-          <Select value={targetUser} onValueChange={setTargetUser}>
+          <Select value={targetUser} onValueChange={(value) => value !== null && setTargetUser(value)}>
             <SelectTrigger className="w-full h-9">
               <SelectValue placeholder="Who is this for?" />
             </SelectTrigger>
@@ -188,7 +188,7 @@ export const BriefForm = () => {
         </div>
         <div>
           <label className="mb-2 block text-sm font-medium">Business model</label>
-          <Select value={businessModel} onValueChange={setBusinessModel}>
+          <Select value={businessModel} onValueChange={(value) => value !== null && setBusinessModel(value)}>
             <SelectTrigger className="w-full h-9">
               <SelectValue placeholder="How do you make money?" />
             </SelectTrigger>
