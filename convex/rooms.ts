@@ -71,9 +71,32 @@ export const addTranscriptEntry = mutation({
   handler: async (ctx, args) => {
     const room = await ctx.db.get(args.id)
     if (!room) throw new Error("Room not found")
+
+    const normalized = args.entry.text.trim().toLowerCase()
+    const recent = room.transcript.slice(-4)
+    if (args.entry.type === "panelist") {
+      const echoesUser = recent.some(
+        (e) =>
+          e.type === "user" &&
+          e.text.trim().toLowerCase() === normalized &&
+          args.entry.timestamp - e.timestamp < 30000
+      )
+      if (echoesUser) return { written: false }
+    }
+    if (args.entry.type === "user") {
+      const echoesPanelist = recent.some(
+        (e) =>
+          e.type === "panelist" &&
+          e.text.trim().toLowerCase() === normalized &&
+          args.entry.timestamp - e.timestamp < 30000
+      )
+      if (echoesPanelist) return { written: false }
+    }
+
     await ctx.db.patch(args.id, {
       transcript: [...room.transcript, args.entry],
     })
+    return { written: true }
   },
 })
 

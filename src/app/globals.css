@@ -44,7 +44,7 @@
 }
 
 :root {
-  --background: hsl(43 33% 95%);
+  --background: hsl(0 0% 100%);
   --foreground: hsl(220 13% 13%);
   --card: hsl(0 0% 100%);
   --card-foreground: hsl(220 13% 13%);
@@ -81,4 +81,10 @@
   body {
     @apply bg-background text-foreground font-sans;
   }
+}
+
+[data-avatar-video] video {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
 }

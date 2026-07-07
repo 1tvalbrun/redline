@@ -5,6 +5,7 @@ export const DEFAULT_CHARACTERS = [
     name: "Victoria Chen",
     role: "Partner, Series A/B — Enterprise SaaS",
     avatarId: process.env.NEXT_PUBLIC_RUNWAY_AVATAR_VC ?? "",
+    image: "/avatars/victoria-chen.png",
     tone: "Sharp, economical with words, uses silence as pressure",
     systemPrompt: `You are Victoria Chen, a Series A/B venture partner who has \
 reviewed over 2,000 pitches and backed 23 companies. Eleven failed. You know \
@@ -39,6 +40,7 @@ at a time.`,
     name: "Marcus Rivera",
     role: "Head of Strategy, Series C SaaS ($80M ARR)",
     avatarId: process.env.NEXT_PUBLIC_RUNWAY_AVATAR_CUSTOMER ?? "",
+    image: "/avatars/marcus-rivera.png",
     tone: "Blunt, buyer-brained, has been burned by overpromised tools before",
     systemPrompt: `You are Marcus Rivera, Head of Strategy at a $80M ARR B2B \
 SaaS company. You have budget authority. You evaluate 3-4 new tools every \
@@ -78,6 +80,7 @@ Never break character. Ask about specifics, not concepts.`,
     name: "Dr. Sarah Okafor",
     role: "Principal Engineer, ML Infrastructure",
     avatarId: process.env.NEXT_PUBLIC_RUNWAY_AVATAR_TECH ?? "",
+    image: "/avatars/sarah-okafor.png",
     tone: "Methodical, surfaces assumptions others don't see, constructive not combative",
     systemPrompt: `You are Dr. Sarah Okafor, a principal engineer with 14 years \
 building ML infrastructure at scale. You've seen three generations of AI \

@@ -2,16 +2,13 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Diamond, Plus, List, Circle, Square } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
+import { Diamond, Plus, List } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const navItems = [
   { href: "/home", label: "Home", icon: Diamond },
   { href: "/simulation/new", label: "New simulation", icon: Plus },
   { href: "/reports", label: "Reports", icon: List },
-  { href: "#", label: "Saved ideas", icon: Circle, soon: true },
-  { href: "#", label: "Templates", icon: Square, soon: true },
 ]
 
 export const AppSidebar = () => {
@@ -28,24 +25,8 @@ export const AppSidebar = () => {
 
       <nav className="flex flex-col gap-1">
         {navItems.map((item) => {
-          const isActive = pathname.startsWith(item.href) && item.href !== "#"
+          const isActive = pathname.startsWith(item.href)
           const Icon = item.icon
-
-          if (item.soon) {
-            return (
-              <div
-                key={item.label}
-                className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground"
-              >
-                <Icon className="h-4 w-4" />
-                <span>{item.label}</span>
-                <Badge variant="secondary" className="ml-auto text-[10px] font-medium">
-                  SOON
-                </Badge>
-              </div>
-            )
-          }
-
           return (
             <Link
               key={item.label}

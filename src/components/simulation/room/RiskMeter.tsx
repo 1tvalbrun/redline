@@ -1,4 +1,8 @@
-import { RISK_COLOR } from "./constants"
+const RISK_COLOR = (score: number) => {
+  if (score >= 70) return "bg-red-500"
+  if (score >= 40) return "bg-amber-500"
+  return "bg-emerald-500"
+}
 
 type RiskScores = {
   market?: number
@@ -31,7 +35,7 @@ export const RiskMeter = ({ scores }: RiskMeterProps) => {
             <div key={key} className="space-y-1">
               <div className="flex items-center justify-between">
                 <span className="text-xs">{label}</span>
-                <span className="text-xs font-medium">{value}</span>
+                <span className="text-xs font-medium tabular-nums">{value}</span>
               </div>
               <div className="h-1.5 rounded-full bg-muted">
                 <div
