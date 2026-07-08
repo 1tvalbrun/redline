@@ -1,12 +1,56 @@
 "use client"
 
+import { useState } from "react"
+import Image from "next/image"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useQuery, useMutation } from "convex/react"
 import { api } from "@convex/_generated/api"
 import { Id } from "@convex/_generated/dataModel"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { cn } from "@/lib/utils"
+import { deriveAuditRiskScores } from "@/lib/preRunScores"
+import { deriveReadiness, AXIS_LABELS, type Axis } from "@/lib/readiness"
+import { FLOW_BTN, StageKicker } from "@/components/simulation/flow/FlowShell"
+import { IdeaNotFound } from "@/components/simulation/flow/IdeaNotFound"
 import { DEFAULT_CHARACTERS } from "../characters"
+
+const ARCHETYPE_ROLES: Record<string, string> = {
+  vc: "The VC",
+  target_customer: "The buyer",
+  technical_architect: "The architect",
+}
+
+// Which interrogator presses hardest on each axis. The buyer owns both
+// customer pain and how organizations actually buy (gtm).
+const AXIS_TO_CHARACTER: Record<Axis, string> = {
+  market: "vc-01",
+  customer: "tc-01",
+  gtm: "tc-01",
+  technical: "ta-01",
+}
+
+const CHARACTER_ATTACK: Record<string, React.ReactNode> = {
+  "vc-01": (
+    <>
+      Will open on <b className="text-on-surface">market size and pricing power</b>:
+      your TAM and why anyone pays.
+    </>
+  ),
+  "tc-01": (
+    <>
+      Plays your real customer. Comes for{" "}
+      <b className="text-on-surface">switching cost and procurement</b>: why he&apos;d
+      rip out what he already has.
+    </>
+  ),
+  "ta-01": (
+    <>
+      Thinks in failure modes. Goes straight at{" "}
+      <b className="text-on-surface">feasibility and reliability</b>: accuracy claims,
+      latency, and what breaks first.
+    </>
+  ),
+}
 
 type PanelSetupProps = {
   simulationId: string
@@ -14,40 +58,143 @@ type PanelSetupProps = {
 
 export const PanelSetup = ({ simulationId }: PanelSetupProps) => {
   const router = useRouter()
-  const simulation = useQuery(api.simulations.get, {
-    id: simulationId as Id<"simulations">,
-  })
+  const typedId = simulationId as Id<"simulations">
+  const simulation = useQuery(api.simulations.get, { id: typedId })
+  const room = useQuery(api.rooms.getBySimulation, { simulationId: typedId })
+  const audit = useQuery(api.audits.getBySimulation, { simulationId: typedId })
   const createRoom = useMutation(api.rooms.create)
+  const [startingId, setStartingId] = useState<string | null>(null)
+  const [enterFailed, setEnterFailed] = useState(false)
 
-  const handleStartRoom = async () => {
-    await createRoom({
-      simulationId: simulationId as Id<"simulations">,
-      characters: DEFAULT_CHARACTERS,
-    })
-    router.push(`/simulation/${simulationId}/room`)
+  const handleEnterRoom = async (characterId: string) => {
+    const character = DEFAULT_CHARACTERS.find((c) => c.id === characterId)
+    if (!character || startingId) return
+    setStartingId(characterId)
+    setEnterFailed(false)
+    const { image: _image, ...charForConvex } = character
+    try {
+      await createRoom({ simulationId: typedId, characters: [charForConvex] })
+      router.push(`/simulation/${simulationId}/room`)
+    } catch {
+      setEnterFailed(true)
+      setStartingId(null)
+    }
   }
 
-  if (!simulation) return <p className="text-muted-foreground">Loading...</p>
+  if (simulation === undefined || room === undefined) return null
+  if (simulation === null) return <IdeaNotFound />
+
+  if (!simulation.context) {
+    return (
+      <div>
+        <StageKicker>Choose your interrogator</StageKicker>
+        <p className="text-[13.5px] text-on-surface-2">
+          Your brief is still being read. The panel needs it before the questions
+          start.{" "}
+          <Link
+            href={`/simulation/${simulationId}/analyze`}
+            className="focus-ring underline hover:text-red-fg"
+          >
+            Back to the read
+          </Link>
+          .
+        </p>
+      </div>
+    )
+  }
+
+  if (room) {
+    return (
+      <div>
+        <StageKicker>Choose your interrogator</StageKicker>
+        <h1 className="max-w-[16ch] font-display text-[clamp(28px,3.6vw,44px)] font-bold leading-[1.06] tracking-[-.02em]">
+          A run is already live.
+        </h1>
+        <p className="mt-3.5 max-w-[52ch] text-[15.5px] leading-[1.55] text-on-surface-2">
+          {room.characters[0]?.name} is in the room for this idea.
+          {room.status === "concluded" && " That session has concluded."} One run per
+          stress test for now.
+        </p>
+        <div className="mt-6">
+          <Link
+            href={`/simulation/${simulationId}/${room.status === "concluded" ? "report" : "room"}`}
+            className={FLOW_BTN}
+          >
+            {room.status === "concluded" ? "View the verdict" : "Rejoin the room"}{" "}
+            <span aria-hidden="true">→</span>
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
+  const weakest =
+    audit?.status === "ready"
+      ? deriveReadiness(deriveAuditRiskScores(audit)).underFire
+      : null
+  const recommendedId = weakest ? AXIS_TO_CHARACTER[weakest] : null
 
   return (
-    <div className="max-w-3xl space-y-6">
-      <div className="grid gap-4 md:grid-cols-3">
+    <div>
+      <StageKicker>Choose your interrogator</StageKicker>
+      <h1 className="max-w-[16ch] font-display text-[clamp(28px,3.6vw,44px)] font-bold leading-[1.06] tracking-[-.02em]">
+        Who do you want to face first?
+      </h1>
+      <p className="mt-3.5 max-w-[52ch] text-[15.5px] leading-[1.55] text-on-surface-2">
+        Each panelist reads your brief before the room opens. Start with whoever you
+        least want to talk to. That&apos;s usually the one worth the most.
+      </p>
+
+      <div className="mt-5 grid gap-[18px] max-md:grid-cols-1 md:grid-cols-3">
         {DEFAULT_CHARACTERS.map((char) => (
-          <Card key={char.id}>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">{char.name}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-xs text-muted-foreground">{char.role}</p>
-              <p className="mt-2 text-xs">{char.tone}</p>
-            </CardContent>
-          </Card>
+          <button
+            key={char.id}
+            type="button"
+            onClick={() => handleEnterRoom(char.id)}
+            disabled={startingId !== null}
+            className={cn(
+              "focus-ring group overflow-hidden border text-left transition-colors duration-200 hover:border-red disabled:pointer-events-none disabled:opacity-60",
+              char.id === recommendedId ? "border-red" : "border-line-2",
+              "bg-surface-raised"
+            )}
+          >
+            {char.id === recommendedId && weakest && (
+              <span className="block bg-red px-3 py-[5px] font-mono text-[9px] uppercase tracking-[.1em] text-white">
+                Recommended · targets your weakest axis ({AXIS_LABELS[weakest]})
+              </span>
+            )}
+            <span className="relative block aspect-[4/3] overflow-hidden bg-[#1C1C1E]">
+              <Image
+                src={char.image}
+                alt=""
+                fill
+                sizes="(max-width: 768px) 100vw, 33vw"
+                className="object-cover"
+              />
+              <span className="absolute bottom-3 left-3.5 font-mono text-[9.5px] uppercase tracking-[.16em] text-white [text-shadow:0_1px_5px_rgba(0,0,0,.5)]">
+                {ARCHETYPE_ROLES[char.archetypeId]}
+              </span>
+            </span>
+            <span className="block p-4">
+              <span className="block font-display text-[19px] font-bold tracking-[-.01em]">
+                {char.name}
+              </span>
+              <span className="mt-[2px] block text-xs text-on-surface-2">{char.role}</span>
+              <span className="mt-3 block text-[13px] leading-[1.5] text-on-surface-2">
+                {CHARACTER_ATTACK[char.id]}
+              </span>
+              <span className="mt-4 flex items-center gap-2 border-t border-line pt-3.5 font-mono text-[11px] uppercase tracking-[.06em] text-on-surface transition-colors group-hover:text-red-fg">
+                {startingId === char.id ? "Entering the room…" : "Enter the room →"}
+              </span>
+            </span>
+          </button>
         ))}
       </div>
-
-      <Button size="lg" onClick={handleStartRoom}>
-        Enter the Room
-      </Button>
+      {enterFailed && (
+        <p role="alert" className="mt-4 text-[13px] text-red-fg">
+          Couldn&apos;t open the room. Check your connection and try again.
+        </p>
+      )}
     </div>
   )
 }

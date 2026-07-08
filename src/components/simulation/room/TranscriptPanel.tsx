@@ -1,88 +1,71 @@
 import { useRef, useEffect } from "react"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { ARCHETYPE_CONFIG } from "./constants"
-import { cn } from "@/lib/utils"
-
-type TranscriptEntry = {
-  speaker: string
-  speakerName: string
-  text: string
-  timestamp: number
-  type: string
-}
-
-type Character = {
-  id: string
-  archetypeId: string
-}
+import { formatElapsed } from "@/lib/utils"
+import type { TranscriptEntry } from "@/types/panel"
 
 type TranscriptPanelProps = {
   transcript: TranscriptEntry[]
-  characters: Character[]
+  startedAt: number
 }
 
-const formatTime = (ts: number, baseTs: number) => {
-  const seconds = Math.floor((ts - baseTs) / 1000)
-  const m = Math.floor(seconds / 60)
-  const s = seconds % 60
-  return `${m}:${String(s).padStart(2, "0")}`
-}
-
-export const TranscriptPanel = ({ transcript, characters }: TranscriptPanelProps) => {
+export const TranscriptPanel = ({ transcript, startedAt }: TranscriptPanelProps) => {
   const bottomRef = useRef<HTMLDivElement>(null)
-  const baseTs = transcript[0]?.timestamp ?? Date.now()
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" })
+    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" })
   }, [transcript.length])
 
-  const getColor = (speakerId: string) => {
-    const char = characters.find((c) => c.id === speakerId)
-    if (!char) return { bg: "bg-gray-400", text: "text-gray-400" }
-    const config = ARCHETYPE_CONFIG[char.archetypeId]
-    return config
-      ? { bg: config.bg, text: config.text }
-      : { bg: "bg-gray-400", text: "text-gray-400" }
-  }
-
   return (
-    <div className="flex h-full flex-col rounded-xl border border-border bg-card">
-      <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
-        <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
-          Live Transcript
+    <section
+      aria-label="Live transcript"
+      className="flex h-full min-h-0 flex-col"
+    >
+      <div className="flex flex-none items-center justify-between px-[18px] pb-3 pt-[15px]">
+        <span className="font-mono text-[10.5px] uppercase tracking-[.16em] text-on-surface-2">
+          Live transcript
         </span>
-        <span className="text-[10px] text-muted-foreground">
+        <span className="font-mono text-[10px] uppercase tracking-[.06em] tabular-nums text-on-surface-2">
           {transcript.length} turns
         </span>
       </div>
-      <ScrollArea className="flex-1 p-4">
-        <div className="space-y-4">
-          {transcript.map((entry, i) => {
-            const color = getColor(entry.speaker)
-            return (
-              <div key={i} className="flex gap-3">
-                <div className={cn("mt-1 h-6 w-6 shrink-0 rounded-full flex items-center justify-center", color.bg)}>
-                  <span className="text-[10px] font-medium text-white">
-                    {entry.speakerName[0]}
-                  </span>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-baseline gap-2">
-                    <span className={cn("text-xs font-semibold", color.text)}>
-                      {entry.speakerName}
-                    </span>
-                    <span className="text-[10px] text-muted-foreground">
-                      {formatTime(entry.timestamp, baseTs)}
+      <ScrollArea className="min-h-0 flex-1 px-[18px] pb-4">
+        {transcript.length === 0 ? (
+          <p className="py-[11px] text-[12.5px] leading-relaxed text-on-surface-2">
+            Your conversation will appear here as you speak.
+          </p>
+        ) : (
+          <div>
+            {transcript.map((entry, i) => {
+              const isUser = entry.type === "user"
+              return (
+                <div
+                  key={i}
+                  className="border-t border-line py-[11px] first:border-t-0"
+                >
+                  <div
+                    className={`mb-[5px] flex justify-between font-mono text-[9.5px] uppercase tracking-[.12em] ${
+                      isUser ? "text-on-surface-2" : "text-red-fg"
+                    }`}
+                  >
+                    <span>{entry.speakerName}</span>
+                    <span className="tracking-[.04em] tabular-nums text-on-surface-2">
+                      {formatElapsed(startedAt, entry.timestamp)}
                     </span>
                   </div>
-                  <p className="mt-0.5 text-sm leading-relaxed">{entry.text}</p>
+                  <p
+                    className={`text-[13.5px] leading-normal ${
+                      isUser ? "text-on-surface-2" : "text-on-surface"
+                    }`}
+                  >
+                    {entry.text}
+                  </p>
                 </div>
-              </div>
-            )
-          })}
-          <div ref={bottomRef} />
-        </div>
+              )
+            })}
+            <div ref={bottomRef} />
+          </div>
+        )}
       </ScrollArea>
-    </div>
+    </section>
   )
 }

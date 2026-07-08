@@ -71,9 +71,32 @@ export const addTranscriptEntry = mutation({
   handler: async (ctx, args) => {
     const room = await ctx.db.get(args.id)
     if (!room) throw new Error("Room not found")
+
+    const normalized = args.entry.text.trim().toLowerCase()
+    const recent = room.transcript.slice(-4)
+    if (args.entry.type === "panelist") {
+      const echoesUser = recent.some(
+        (e) =>
+          e.type === "user" &&
+          e.text.trim().toLowerCase() === normalized &&
+          args.entry.timestamp - e.timestamp < 30000
+      )
+      if (echoesUser) return { written: false }
+    }
+    if (args.entry.type === "user") {
+      const echoesPanelist = recent.some(
+        (e) =>
+          e.type === "panelist" &&
+          e.text.trim().toLowerCase() === normalized &&
+          args.entry.timestamp - e.timestamp < 30000
+      )
+      if (echoesPanelist) return { written: false }
+    }
+
     await ctx.db.patch(args.id, {
       transcript: [...room.transcript, args.entry],
     })
+    return { written: true }
   },
 })
 
@@ -140,5 +163,29 @@ export const conclude = mutation({
       status: "concluded",
       verdict: args.verdict,
     })
+  },
+})
+
+export const list = query({
+  args: {},
+  handler: async (ctx) => {
+    const rooms = await ctx.db.query("rooms").order("desc").take(50)
+    return Promise.all(
+      rooms.map(async (room) => {
+        const simulation = await ctx.db.get(room.simulationId)
+        const lastEntry = room.transcript[room.transcript.length - 1]
+        return {
+          roomId: room._id,
+          simulationId: room.simulationId,
+          ideaName: simulation?.brief.ideaName ?? "Unknown idea",
+          panelist: room.characters[0]?.name ?? null,
+          at: room._creationTime,
+          lastActivityAt: lastEntry?.timestamp ?? room._creationTime,
+          status: room.status,
+          turns: room.transcript.length,
+          decision: room.verdict?.decision ?? null,
+        }
+      })
+    )
   },
 })

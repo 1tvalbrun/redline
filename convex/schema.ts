@@ -1,8 +1,16 @@
 import { defineSchema, defineTable } from "convex/server"
 import { v } from "convex/values"
+import { claimValidator, gapValidator } from "../src/lib/audit"
 
 export default defineSchema({
+  // One durable idea accrues a readiness trajectory across many runs.
+  // _creationTime serves as createdAt.
+  ideas: defineTable({
+    name: v.string(),
+  }).index("by_name", ["name"]),
+
   simulations: defineTable({
+    ideaId: v.optional(v.id("ideas")),
     title: v.string(),
     roomType: v.string(),
     status: v.union(
@@ -18,6 +26,7 @@ export default defineSchema({
       description: v.string(),
       targetUser: v.string(),
       businessModel: v.string(),
+      whyNow: v.optional(v.string()),
       focusAreas: v.array(v.string()),
     }),
     context: v.optional(
@@ -32,7 +41,7 @@ export default defineSchema({
       })
     ),
     version: v.number(),
-  }),
+  }).index("by_idea", ["ideaId"]),
 
   rooms: defineTable({
     simulationId: v.id("simulations"),
@@ -80,6 +89,36 @@ export default defineSchema({
         confidence: v.number(),
       })
     ),
+  }).index("by_simulation", ["simulationId"]),
+
+  // Extracted text from founder materials, keyed to a simulation. Text is
+  // consumed by the audit pipeline server-side and never listed back to the
+  // client wholesale (this is not a data room).
+  materials: defineTable({
+    simulationId: v.id("simulations"),
+    storageId: v.id("_storage"),
+    name: v.string(),
+    fileType: v.union(
+      v.literal("pdf"),
+      v.literal("pptx"),
+      v.literal("xlsx"),
+      v.literal("docx")
+    ),
+    size: v.number(),
+    status: v.union(v.literal("extracting"), v.literal("ready"), v.literal("failed")),
+    failureReason: v.optional(v.string()),
+    text: v.optional(v.string()),
+  }).index("by_simulation", ["simulationId"]),
+
+  // Pre-run audit derived from the founder's materials. Every stored claim
+  // carries a citation that grounding has verified against the extracted
+  // text; ungrounded assertions only exist here as "unsupported" gaps.
+  audits: defineTable({
+    simulationId: v.id("simulations"),
+    status: v.union(v.literal("running"), v.literal("ready"), v.literal("failed")),
+    claims: v.array(claimValidator),
+    gaps: v.array(gapValidator),
+    failureReason: v.optional(v.string()),
   }).index("by_simulation", ["simulationId"]),
 
   reports: defineTable({

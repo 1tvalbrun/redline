@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react"
 import { Pause, Circle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -6,16 +7,29 @@ import { Separator } from "@/components/ui/separator"
 type RoomHeaderProps = {
   simulationName: string
   round: string
-  elapsedTime: string
+  startedAt: number
   onEndSession: () => void
+}
+
+const formatElapsed = (ms: number) => {
+  const seconds = Math.max(0, Math.floor(ms / 1000))
+  const m = Math.floor(seconds / 60)
+  const s = seconds % 60
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
 }
 
 export const RoomHeader = ({
   simulationName,
   round,
-  elapsedTime,
+  startedAt,
   onEndSession,
 }: RoomHeaderProps) => {
+  const [elapsed, setElapsed] = useState(() => Date.now() - startedAt)
+  useEffect(() => {
+    const id = setInterval(() => setElapsed(Date.now() - startedAt), 1000)
+    return () => clearInterval(id)
+  }, [startedAt])
+  const elapsedTime = formatElapsed(elapsed)
   return (
     <header className="flex h-14 items-center justify-between border-b border-border bg-card px-4">
       <div className="flex items-center gap-3">
