@@ -1,10 +1,11 @@
 "use node"
 
 import { v } from "convex/values"
-import { internalAction } from "./_generated/server"
+import { action, internalAction } from "./_generated/server"
 import { api, internal } from "./_generated/api"
 import {
   clampExtractedText,
+  materialFileType,
   ooxmlText,
   type MaterialFileType,
 } from "../src/lib/materials"
@@ -113,6 +114,28 @@ export const extract = internalAction({
       await ctx.scheduler.runAfter(0, api.audits.generate, {
         simulationId: material.simulationId,
       })
+    }
+  },
+})
+
+// Pre-create extraction for the intake deck on-ramp: same extractors, no
+// material row yet (the founder hasn't committed to a simulation).
+export const extractUpload = action({
+  args: { storageId: v.id("_storage"), name: v.string() },
+  handler: async (ctx, args): Promise<{ ok: true; text: string } | { ok: false; reason: string }> => {
+    const fileType = materialFileType(args.name)
+    if (!fileType) return { ok: false, reason: "Only PDF, PPTX, XLSX, and DOCX files are supported." }
+    const blob = await ctx.storage.get(args.storageId)
+    if (!blob) return { ok: false, reason: "The upload didn't reach storage. Try again." }
+    try {
+      const text = await EXTRACTORS[fileType](await blob.arrayBuffer())
+      const hasContent = text.replace(/\[(page|slide|sheet)[^\]]*\]/g, "").trim().length > 0
+      if (!hasContent) {
+        return { ok: false, reason: "No readable text found. Scanned or image-only files can't be read yet." }
+      }
+      return { ok: true, text: clampExtractedText(text) }
+    } catch (error) {
+      return { ok: false, reason: failureReason(error) }
     }
   },
 })

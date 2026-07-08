@@ -74,7 +74,7 @@ export const AnalysisPipeline = ({ simulationId }: AnalysisPipelineProps) => {
 
       <div
         data-surface="dark"
-        className="mt-[26px] min-h-[180px] w-full max-w-[620px] border border-surface-raised bg-surface p-[16px_18px] text-left font-mono text-[12.5px] leading-[1.85] text-on-surface-2"
+        className="mt-[26px] h-[460px] w-full max-w-[620px] overflow-y-auto border border-surface-raised bg-surface p-[16px_18px] text-left font-mono text-[12.5px] leading-[1.85] text-on-surface-2"
         role="log"
         aria-label="Read progress"
       >
@@ -94,8 +94,10 @@ export const AnalysisPipeline = ({ simulationId }: AnalysisPipelineProps) => {
           CONTEXT_FIELDS.map((field, i) => (
             <p
               key={field.key}
+              // Two clamped rows per field keeps the readout inside the fixed
+              // terminal; the full extraction lives on the Audit stage.
               className={cn(
-                "animate-in fade-in-0 slide-in-from-bottom-1 fill-mode-both duration-300",
+                "line-clamp-2 animate-in fade-in-0 slide-in-from-bottom-1 fill-mode-both duration-300",
                 LINE_DELAYS[i]
               )}
             >

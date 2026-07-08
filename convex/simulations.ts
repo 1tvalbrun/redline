@@ -2,6 +2,12 @@ import { v } from "convex/values"
 import { mutation, query, action } from "./_generated/server"
 import { api, internal } from "./_generated/api"
 import { materialFileType, validateMaterialFile } from "../src/lib/materials"
+import { parseExtractedBrief } from "../src/lib/intake"
+import {
+  BUSINESS_MODEL_OPTIONS,
+  STAGE_OPTIONS,
+  TARGET_OPTIONS,
+} from "../src/lib/briefOptions"
 
 export const create = mutation({
   args: {
@@ -13,6 +19,7 @@ export const create = mutation({
       description: v.string(),
       targetUser: v.string(),
       businessModel: v.string(),
+      whyNow: v.optional(v.string()),
       focusAreas: v.array(v.string()),
     }),
     materials: v.optional(
@@ -164,5 +171,51 @@ export const analyze = action({
     })
 
     return context
+  },
+})
+
+// Intake extraction: pitch text (voice transcript or deck text) → honest
+// structured brief. Isolated from analyze — no reads, no writes; the founder
+// reviews the result before anything is created.
+export const extractBrief = action({
+  args: {
+    pitch: v.string(),
+    source: v.union(v.literal("voice"), v.literal("deck")),
+  },
+  handler: async (_ctx, args) => {
+    const { OpenAI } = await import("openai")
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+    const model = process.env.OPENAI_MODEL_FAST ?? "gpt-4o-mini"
+
+    const stageValues = STAGE_OPTIONS.map((o) => o.value).join(" | ")
+    const modelValues = BUSINESS_MODEL_OPTIONS.map((o) => `${o.value} (${o.label})`).join(", ")
+    const targetValues = TARGET_OPTIONS.map((o) => `${o.value} (${o.label})`).join(", ")
+
+    const systemPrompt = `You turn a founder's ${args.source === "voice" ? "spoken pitch transcript" : "pitch deck text"} into a structured brief.
+
+THE HONESTY RULE: extract ONLY what the founder actually said. If a field is not clearly present, return null for it. A thin or vague pitch should produce mostly nulls. Never infer, never fill in plausible content, never polish vagueness into specifics.
+
+Fields:
+- "ideaName": the product or company name, only if stated.
+- "description": what it is and does, 1-3 sentences using the founder's own substance (you may fix grammar, not add facts).
+- "whyNow": why this is the moment, only if the founder addressed timing.
+- "stage": one of ${stageValues} — only if stated or unmistakable.
+- "businessModel": one of these values, only if stated: ${modelValues}.
+- "targetUser": one of these values, only if the audience clearly matches one: ${targetValues}.
+
+Return JSON only: {"ideaName","description","whyNow","stage","businessModel","targetUser"} with null for anything not present.
+
+The pitch:
+${args.pitch.slice(0, 12_000)}`
+
+    const response = await openai.chat.completions.create({
+      model,
+      messages: [{ role: "system", content: systemPrompt }],
+      response_format: { type: "json_object" },
+    })
+
+    const content = response.choices[0]?.message?.content
+    if (!content) throw new Error("Extraction returned nothing")
+    return parseExtractedBrief(JSON.parse(content))
   },
 })

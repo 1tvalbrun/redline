@@ -15,17 +15,20 @@ export const getBySimulation = query({
   },
 })
 
-// Claims a run slot. Returns null when an audit is already running or ready
-// so concurrent triggers (several materials settling at once) collapse to one.
+// Claims a run slot. Returns null when an audit is already running — or
+// ready, unless force (an explicit re-run after brief edits) — so concurrent
+// triggers (several materials settling, stage auto-start, refreshes)
+// collapse to one run.
 export const start = internalMutation({
-  args: { simulationId: v.id("simulations") },
+  args: { simulationId: v.id("simulations"), force: v.optional(v.boolean()) },
   handler: async (ctx, args) => {
     const existing = await ctx.db
       .query("audits")
       .withIndex("by_simulation", (q) => q.eq("simulationId", args.simulationId))
       .first()
     if (existing) {
-      if (existing.status !== "failed") return null
+      if (existing.status === "running") return null
+      if (existing.status === "ready" && !args.force) return null
       await ctx.db.patch(existing._id, {
         status: "running",
         claims: [],
@@ -81,10 +84,11 @@ export const setOutcome = internalMutation({
 })
 
 export const generate = action({
-  args: { simulationId: v.id("simulations") },
+  args: { simulationId: v.id("simulations"), force: v.optional(v.boolean()) },
   handler: async (ctx, args): Promise<void> => {
     const auditId = await ctx.runMutation(internal.audits.start, {
       simulationId: args.simulationId,
+      force: args.force,
     })
     if (!auditId) return
 

@@ -26,6 +26,7 @@ export default defineSchema({
       description: v.string(),
       targetUser: v.string(),
       businessModel: v.string(),
+      whyNow: v.optional(v.string()),
       focusAreas: v.array(v.string()),
     }),
     context: v.optional(
