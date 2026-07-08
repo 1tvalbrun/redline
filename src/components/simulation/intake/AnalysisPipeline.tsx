@@ -69,7 +69,7 @@ export const AnalysisPipeline = ({ simulationId }: AnalysisPipelineProps) => {
     <div className="flex flex-col items-center pt-5 text-center">
       <StageKicker>Reading your brief</StageKicker>
       <h1 className="font-display text-[clamp(24px,3vw,34px)] font-bold tracking-[-.01em]">
-        {ready ? `${ideaName} — read complete.` : `Reading ${ideaName}…`}
+        {ready ? `Finished reading ${ideaName}.` : `Reading ${ideaName}…`}
       </h1>
 
       <div
@@ -100,7 +100,7 @@ export const AnalysisPipeline = ({ simulationId }: AnalysisPipelineProps) => {
               )}
             >
               <span className="text-ok-fg">✓</span>{" "}
-              <b className="font-semibold text-on-surface">{field.label}</b> —{" "}
+              <b className="font-semibold text-on-surface">{field.label}:</b>{" "}
               {simulation.context?.[field.key]}
             </p>
           ))}
@@ -126,7 +126,7 @@ export const AnalysisPipeline = ({ simulationId }: AnalysisPipelineProps) => {
           <p aria-live="polite" className="font-mono text-[10.5px] uppercase tracking-[.14em] text-on-surface-3">
             {simulation.status === "draft"
               ? "Starting the read…"
-              : "The panel's analyst is reading — this is a live model call"}
+              : "The panel's analyst is reading. This is a live model call."}
           </p>
         )}
       </div>

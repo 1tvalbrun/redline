@@ -45,7 +45,7 @@ export const ReadinessGauge = ({ value, className }: ReadinessGaugeProps) => {
       role="img"
       aria-label={
         pending
-          ? "Readiness pending — no score yet"
+          ? "Readiness pending, no score yet"
           : `Readiness ${value} of 100; investor-ready at ${INVESTOR_READY_LINE}`
       }
       className={cn("block", className)}

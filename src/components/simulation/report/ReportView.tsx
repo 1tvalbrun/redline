@@ -7,6 +7,7 @@ import { api } from "@convex/_generated/api"
 import { Id } from "@convex/_generated/dataModel"
 import { cn } from "@/lib/utils"
 import { INVESTOR_READY_LINE } from "@/lib/readiness"
+import { Panel } from "@/components/shared/Panel"
 import { ReadinessGauge, useCountUp } from "@/components/shared/ReadinessGauge"
 import { FLOW_BTN, StageKicker } from "@/components/simulation/flow/FlowShell"
 import { IdeaNotFound } from "@/components/simulation/flow/IdeaNotFound"
@@ -25,23 +26,6 @@ const PRIORITY_COLOR: Record<string, string> = {
 
 const Shimmer = ({ className }: { className?: string }) => (
   <div className={cn("animate-pulse bg-surface-2", className)} />
-)
-
-const VCard = ({
-  title,
-  className,
-  children,
-}: {
-  title: string
-  className?: string
-  children: React.ReactNode
-}) => (
-  <section className={cn("border border-line-2 bg-surface-raised p-5", className)}>
-    <h2 className="mb-3.5 font-mono text-[10.5px] uppercase tracking-[.16em] text-on-surface-2">
-      {title}
-    </h2>
-    {children}
-  </section>
 )
 
 type ReportViewProps = {
@@ -129,7 +113,7 @@ export const ReportView = ({ simulationId }: ReportViewProps) => {
       </div>
 
       <div className="mt-8 grid gap-[26px] max-md:grid-cols-1 md:grid-cols-2">
-        <VCard title="In the room">
+        <Panel title="In the room">
           {report ? (
             <div>
               {report.opportunities.map((text, i) => (
@@ -152,9 +136,9 @@ export const ReportView = ({ simulationId }: ReportViewProps) => {
               <Shimmer className="h-4 w-3/4" />
             </div>
           )}
-        </VCard>
+        </Panel>
 
-        <VCard title="Fix before you re-run · 7-day plan">
+        <Panel title="Fix before you re-run · 7-day plan">
           {report ? (
             <div>
               {report.nextSevenDays.map((d, i) => (
@@ -186,9 +170,9 @@ export const ReportView = ({ simulationId }: ReportViewProps) => {
               <Shimmer className="h-5 w-3/4" />
             </div>
           )}
-        </VCard>
+        </Panel>
 
-        <VCard title="The panel's word" className="md:col-span-2">
+        <Panel title="The panel's word" className="md:col-span-2">
           {panelVerdict ? (
             <div className="flex items-baseline justify-between gap-6 max-md:flex-col">
               <div className="min-w-0">
@@ -214,7 +198,7 @@ export const ReportView = ({ simulationId }: ReportViewProps) => {
               <Shimmer className="h-4 w-3/4" />
             </div>
           )}
-        </VCard>
+        </Panel>
 
         <div
           data-surface="dark"

@@ -20,22 +20,22 @@ const ARCHETYPE_ROLES: Record<string, string> = {
 const CHARACTER_ATTACK: Record<string, React.ReactNode> = {
   "vc-01": (
     <>
-      Will open on <b className="text-on-surface">market size and pricing power</b> —
+      Will open on <b className="text-on-surface">market size and pricing power</b>:
       your TAM and why anyone pays.
     </>
   ),
   "tc-01": (
     <>
       Plays your real customer. Comes for{" "}
-      <b className="text-on-surface">switching cost and procurement</b> — why he&apos;d
-      rip out what he has.
+      <b className="text-on-surface">switching cost and procurement</b>: why he&apos;d
+      rip out what he already has.
     </>
   ),
   "ta-01": (
     <>
       Thinks in failure modes. Goes straight at{" "}
-      <b className="text-on-surface">feasibility and reliability</b> — accuracy claims,
-      latency, what breaks first.
+      <b className="text-on-surface">feasibility and reliability</b>: accuracy claims,
+      latency, and what breaks first.
     </>
   ),
 }
@@ -76,7 +76,7 @@ export const PanelSetup = ({ simulationId }: PanelSetupProps) => {
       <div>
         <StageKicker>Choose your interrogator</StageKicker>
         <p className="text-[13.5px] text-on-surface-2">
-          Your brief is still being read — the panel needs it before the questions
+          Your brief is still being read. The panel needs it before the questions
           start.{" "}
           <Link
             href={`/simulation/${simulationId}/analyze`}
@@ -98,9 +98,9 @@ export const PanelSetup = ({ simulationId }: PanelSetupProps) => {
           A run is already live.
         </h1>
         <p className="mt-3.5 max-w-[52ch] text-[15.5px] leading-[1.55] text-on-surface-2">
-          {room.characters[0]?.name} is in the room for this idea
-          {room.status === "concluded" ? " — the session has concluded" : ""}. One run
-          per stress test for now.
+          {room.characters[0]?.name} is in the room for this idea.
+          {room.status === "concluded" && " That session has concluded."} One run per
+          stress test for now.
         </p>
         <div className="mt-6">
           <Link
@@ -123,7 +123,7 @@ export const PanelSetup = ({ simulationId }: PanelSetupProps) => {
       </h1>
       <p className="mt-3.5 max-w-[52ch] text-[15.5px] leading-[1.55] text-on-surface-2">
         Each panelist reads your brief before the room opens. Start with whoever you
-        least want to talk to — that&apos;s usually the one worth the most.
+        least want to talk to. That&apos;s usually the one worth the most.
       </p>
 
       <div className="mt-5 grid gap-[18px] max-md:grid-cols-1 md:grid-cols-3">
@@ -164,7 +164,7 @@ export const PanelSetup = ({ simulationId }: PanelSetupProps) => {
       </div>
       {enterFailed && (
         <p role="alert" className="mt-4 text-[13px] text-red-fg">
-          Couldn&apos;t open the room — check your connection and try again.
+          Couldn&apos;t open the room. Check your connection and try again.
         </p>
       )}
     </div>

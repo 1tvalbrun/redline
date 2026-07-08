@@ -93,9 +93,16 @@ export const getDetail = query({
       stage: latest?.brief.stage ?? null,
       businessModel: latest?.brief.businessModel ?? null,
       lastRunAt: latest?._creationTime ?? idea._creationTime,
-      runs: runs.map(({ topRisks: _topRisks, ...run }) => run),
+      runs: runs.map((run) => ({
+        simulationId: run.simulationId,
+        at: run.at,
+        score: run.score,
+        verdict: run.verdict,
+        panelist: run.panelist,
+      })),
       topRisks: lastScored?.topRisks ?? [],
       latestRiskScores: latestRoom?.riskScores ?? null,
+      openQuestions: latest?.context?.openQuestions ?? null,
     }
   },
 })
@@ -108,7 +115,11 @@ export const counts = query({
       ctx.db.query("rooms").collect(),
       ctx.db.query("reports").collect(),
     ])
-    return { ideas: ideas.length, sessions: rooms.length, verdicts: reports.length }
+    const best = reports.reduce<number | null>(
+      (max, report) => (max === null || report.overallScore > max ? report.overallScore : max),
+      null
+    )
+    return { ideas: ideas.length, sessions: rooms.length, verdicts: reports.length, best }
   },
 })
 

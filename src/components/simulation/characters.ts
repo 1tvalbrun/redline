@@ -3,7 +3,7 @@ export const DEFAULT_CHARACTERS = [
     id: "vc-01",
     archetypeId: "vc",
     name: "Victoria Chen",
-    role: "Partner, Series A/B — Enterprise SaaS",
+    role: "Partner, Series A/B · Enterprise SaaS",
     avatarId: process.env.NEXT_PUBLIC_RUNWAY_AVATAR_VC ?? "",
     image: "/avatars/victoria-chen.png",
     tone: "Sharp, economical with words, uses silence as pressure",

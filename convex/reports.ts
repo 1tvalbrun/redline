@@ -256,3 +256,24 @@ Be concrete and specific. Each risk/opportunity/task should mention something ti
     return { reportId }
   },
 })
+
+export const list = query({
+  args: {},
+  handler: async (ctx) => {
+    const reports = await ctx.db.query("reports").order("desc").take(100)
+    return Promise.all(
+      reports.map(async (report) => {
+        const simulation = await ctx.db.get(report.simulationId)
+        return {
+          reportId: report._id,
+          simulationId: report.simulationId,
+          ideaName: simulation?.brief.ideaName ?? "Unknown idea",
+          verdict: report.verdict,
+          score: report.overallScore,
+          panelist: report.panelVerdicts[0]?.characterName ?? null,
+          at: report._creationTime,
+        }
+      })
+    )
+  },
+})

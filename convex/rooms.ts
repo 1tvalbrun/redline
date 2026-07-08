@@ -165,3 +165,27 @@ export const conclude = mutation({
     })
   },
 })
+
+export const list = query({
+  args: {},
+  handler: async (ctx) => {
+    const rooms = await ctx.db.query("rooms").order("desc").take(50)
+    return Promise.all(
+      rooms.map(async (room) => {
+        const simulation = await ctx.db.get(room.simulationId)
+        const lastEntry = room.transcript[room.transcript.length - 1]
+        return {
+          roomId: room._id,
+          simulationId: room.simulationId,
+          ideaName: simulation?.brief.ideaName ?? "Unknown idea",
+          panelist: room.characters[0]?.name ?? null,
+          at: room._creationTime,
+          lastActivityAt: lastEntry?.timestamp ?? room._creationTime,
+          status: room.status,
+          turns: room.transcript.length,
+          decision: room.verdict?.decision ?? null,
+        }
+      })
+    )
+  },
+})

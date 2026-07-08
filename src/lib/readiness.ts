@@ -8,6 +8,11 @@ export type Readiness = number & { readonly __brand: "Readiness" }
 
 export const INVESTOR_READY_LINE = 90
 
+export type ReadinessSeverity = "bad" | "warn" | "ok"
+
+export const readinessSeverity = (value: number): ReadinessSeverity =>
+  value < 50 ? "bad" : value < 70 ? "warn" : "ok"
+
 export type ReadinessSnapshot = {
   perAxis: Record<Axis, Readiness | null>
   overall: Readiness | null

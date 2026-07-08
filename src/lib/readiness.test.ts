@@ -1,6 +1,6 @@
 import test from "node:test"
 import assert from "node:assert/strict"
-import { deriveReadiness } from "./readiness.ts"
+import { deriveReadiness, readinessSeverity } from "./readiness.ts"
 
 test("all-zero risk yields full readiness on every axis", () => {
   const r = deriveReadiness({ market: 0, customer: 0, technical: 0, gtm: 0 })
@@ -73,6 +73,13 @@ test("all axes explicitly absent return the pending value", () => {
   })
   assert.equal(r.overall, null)
   assert.equal(r.underFire, null)
+})
+
+test("severity thresholds sit at 50 and 70", () => {
+  assert.equal(readinessSeverity(49), "bad")
+  assert.equal(readinessSeverity(50), "warn")
+  assert.equal(readinessSeverity(69), "warn")
+  assert.equal(readinessSeverity(70), "ok")
 })
 
 test("non-finite values are filtered, not averaged into NaN", () => {

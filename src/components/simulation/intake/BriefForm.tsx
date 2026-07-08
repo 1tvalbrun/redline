@@ -37,9 +37,9 @@ const TARGET_OPTIONS = [
 ]
 
 const BUSINESS_MODEL_OPTIONS = [
-  { value: "saas-seat", label: "SaaS — per-seat pricing" },
-  { value: "saas-usage", label: "SaaS — usage-based pricing" },
-  { value: "saas-tiered", label: "SaaS — tiered subscription" },
+  { value: "saas-seat", label: "SaaS: per-seat pricing" },
+  { value: "saas-usage", label: "SaaS: usage-based pricing" },
+  { value: "saas-tiered", label: "SaaS: tiered subscription" },
   { value: "marketplace", label: "Marketplace / take-rate" },
   { value: "ads", label: "Ad-supported / free with ads" },
   { value: "transactional", label: "Transactional / one-time" },
@@ -152,8 +152,8 @@ export const BriefForm = () => {
         What are we putting under pressure?
       </h1>
       <p className="mt-3.5 max-w-[52ch] text-[15.5px] leading-[1.55] text-on-surface-2">
-        Tell the panel what you&apos;re building. The more you give it, the harder —
-        and more useful — the interrogation.
+        Tell the panel what you&apos;re building. The more you give it, the harder
+        and more useful the interrogation becomes.
       </p>
 
       <div className="mt-[34px] grid items-start gap-[34px] max-md:grid-cols-1 md:grid-cols-[1fr_340px]">
@@ -271,7 +271,7 @@ export const BriefForm = () => {
                 <div>
                   <p className="text-sm font-semibold">Drop a deck, model, one-pager…</p>
                   <p className="mt-[2px] font-mono text-[10px] uppercase tracking-[.06em] text-on-surface-3">
-                    Materials ingest isn&apos;t wired up yet — it arrives with the audit
+                    Materials ingest isn&apos;t wired up yet. It arrives with the audit.
                   </p>
                 </div>
               </div>
@@ -302,7 +302,7 @@ export const BriefForm = () => {
                   {item.done && "✓"}
                 </span>
                 {item.label}
-                <span className="sr-only">{item.done ? " — provided" : " — not yet"}</span>
+                <span className="sr-only">{item.done ? ", provided" : ", not yet"}</span>
               </li>
             ))}
             <li className="flex items-center gap-[10px] py-[7px] text-[13px] text-on-surface-3">
@@ -320,7 +320,7 @@ export const BriefForm = () => {
         </button>
         {submitFailed && (
           <p role="alert" className="mt-3 text-[13px] text-red-fg">
-            Couldn&apos;t start the stress test — check your connection and try again.
+            Couldn&apos;t start the stress test. Check your connection and try again.
           </p>
         )}
       </div>

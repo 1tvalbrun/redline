@@ -40,9 +40,9 @@ export const AuditStage = ({ simulationId }: AuditStageProps) => {
         Here&apos;s what we found.
       </h1>
       <p className="mt-3.5 max-w-[52ch] text-[15.5px] leading-[1.55] text-on-surface-2">
-        Our read of {simulation.brief.ideaName}, straight from your brief — before a
-        single question. The full audit — claims, citations, and the gap map — arrives
-        with materials ingest.
+        Our read of {simulation.brief.ideaName}, straight from your brief and before
+        a single question. The full audit, with claims, citations, and the gap map,
+        arrives with materials ingest.
       </p>
 
       <div className="mt-[26px] grid gap-[26px] max-md:grid-cols-1 md:grid-cols-2">
@@ -79,7 +79,7 @@ export const AuditStage = ({ simulationId }: AuditStageProps) => {
             <p className="text-[13.5px] font-semibold">Arrives with materials ingest</p>
             <p className="mt-[2px] text-[12.5px] leading-[1.5] text-on-surface-2">
               Once you can drop a deck and your numbers into the brief, this column
-              shows what a real diligencer would flag as missing — with citations. The
+              shows what a real diligencer would flag as missing, with citations. The
               panel will press on those first.
             </p>
           </div>
