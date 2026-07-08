@@ -1,6 +1,7 @@
 import { v } from "convex/values"
 import { mutation, query, action } from "./_generated/server"
-import { api } from "./_generated/api"
+import { api, internal } from "./_generated/api"
+import { materialFileType, validateMaterialFile } from "../src/lib/materials"
 
 export const create = mutation({
   args: {
@@ -14,6 +15,15 @@ export const create = mutation({
       businessModel: v.string(),
       focusAreas: v.array(v.string()),
     }),
+    materials: v.optional(
+      v.array(
+        v.object({
+          storageId: v.id("_storage"),
+          name: v.string(),
+          size: v.number(),
+        })
+      )
+    ),
   },
   handler: async (ctx, args) => {
     const existingIdea = await ctx.db
@@ -22,12 +32,34 @@ export const create = mutation({
       .first()
     const ideaId =
       existingIdea?._id ?? (await ctx.db.insert("ideas", { name: args.brief.ideaName }))
-    return await ctx.db.insert("simulations", {
-      ...args,
+    const simulationId = await ctx.db.insert("simulations", {
+      title: args.title,
+      roomType: args.roomType,
+      brief: args.brief,
       ideaId,
       status: "draft",
       version: 1,
     })
+
+    for (const upload of args.materials ?? []) {
+      // The client validates before uploading; anything invalid here is a
+      // bypass, so reject loudly rather than ingest it.
+      const fileType = materialFileType(upload.name)
+      if (fileType === null || validateMaterialFile(upload.name, upload.size) !== null) {
+        throw new Error(`Unsupported material: ${upload.name}`)
+      }
+      const materialId = await ctx.db.insert("materials", {
+        simulationId,
+        storageId: upload.storageId,
+        name: upload.name,
+        fileType,
+        size: upload.size,
+        status: "extracting",
+      })
+      await ctx.scheduler.runAfter(0, internal.ingest.extract, { materialId })
+    }
+
+    return simulationId
   },
 })
 

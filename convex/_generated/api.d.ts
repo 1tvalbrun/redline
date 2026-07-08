@@ -9,6 +9,8 @@
  */
 
 import type * as ideas from "../ideas.js";
+import type * as ingest from "../ingest.js";
+import type * as materials from "../materials.js";
 import type * as orchestrator from "../orchestrator.js";
 import type * as reports from "../reports.js";
 import type * as rooms from "../rooms.js";
@@ -23,6 +25,8 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   ideas: typeof ideas;
+  ingest: typeof ingest;
+  materials: typeof materials;
   orchestrator: typeof orchestrator;
   reports: typeof reports;
   rooms: typeof rooms;

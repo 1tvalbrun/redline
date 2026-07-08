@@ -89,6 +89,25 @@ export default defineSchema({
     ),
   }).index("by_simulation", ["simulationId"]),
 
+  // Extracted text from founder materials, keyed to a simulation. Text is
+  // consumed by the audit pipeline server-side and never listed back to the
+  // client wholesale (this is not a data room).
+  materials: defineTable({
+    simulationId: v.id("simulations"),
+    storageId: v.id("_storage"),
+    name: v.string(),
+    fileType: v.union(
+      v.literal("pdf"),
+      v.literal("pptx"),
+      v.literal("xlsx"),
+      v.literal("docx")
+    ),
+    size: v.number(),
+    status: v.union(v.literal("extracting"), v.literal("ready"), v.literal("failed")),
+    failureReason: v.optional(v.string()),
+    text: v.optional(v.string()),
+  }).index("by_simulation", ["simulationId"]),
+
   reports: defineTable({
     simulationId: v.id("simulations"),
     roomId: v.id("rooms"),

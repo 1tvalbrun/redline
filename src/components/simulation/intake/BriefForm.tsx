@@ -1,11 +1,13 @@
 "use client"
 
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useMutation, useAction } from "convex/react"
-import { Upload } from "lucide-react"
+import { Upload, X } from "lucide-react"
 import { api } from "@convex/_generated/api"
+import { Id } from "@convex/_generated/dataModel"
 import { cn } from "@/lib/utils"
+import { REJECTION_MESSAGES, validateMaterialFile } from "@/lib/materials"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import {
@@ -76,6 +78,15 @@ const FieldLabel = ({
   </label>
 )
 
+type UploadEntry = { key: string; name: string; size: number } & (
+  | { state: "uploading" }
+  | { state: "ready"; storageId: Id<"_storage"> }
+  | { state: "rejected"; reason: string }
+)
+
+const formatSize = (bytes: number) =>
+  bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)}MB` : `${Math.ceil(bytes / 1024)}KB`
+
 const chipClass = (active: boolean) =>
   cn(
     "focus-ring border px-[13px] py-2 font-mono text-[11px] uppercase tracking-[.04em] transition-colors",
@@ -88,6 +99,8 @@ export const BriefForm = () => {
   const router = useRouter()
   const createSimulation = useMutation(api.simulations.create)
   const analyzeSimulation = useAction(api.simulations.analyze)
+  const generateUploadUrl = useMutation(api.materials.generateUploadUrl)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [ideaName, setIdeaName] = useState("")
   const [stage, setStage] = useState("idea")
@@ -95,6 +108,8 @@ export const BriefForm = () => {
   const [targetUser, setTargetUser] = useState("")
   const [businessModel, setBusinessModel] = useState("")
   const [focusAreas, setFocusAreas] = useState<string[]>([])
+  const [uploads, setUploads] = useState<UploadEntry[]>([])
+  const [isDragActive, setIsDragActive] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitFailed, setSubmitFailed] = useState(false)
 
@@ -102,6 +117,62 @@ export const BriefForm = () => {
     setFocusAreas((prev) =>
       prev.includes(area) ? prev.filter((a) => a !== area) : [...prev, area]
     )
+  }
+
+  const uploadFile = async (key: string, file: File) => {
+    const fail = (reason: string) =>
+      setUploads((prev) =>
+        prev.map((entry) =>
+          entry.key === key
+            ? { key, name: file.name, size: file.size, state: "rejected", reason }
+            : entry
+        )
+      )
+    try {
+      const uploadUrl = await generateUploadUrl()
+      const response = await fetch(uploadUrl, {
+        method: "POST",
+        headers: { "Content-Type": file.type || "application/octet-stream" },
+        body: file,
+      })
+      if (!response.ok) return fail("Upload failed. Try again.")
+      const { storageId } = (await response.json()) as { storageId: Id<"_storage"> }
+      setUploads((prev) =>
+        prev.map((entry) =>
+          entry.key === key
+            ? { key, name: file.name, size: file.size, state: "ready", storageId }
+            : entry
+        )
+      )
+    } catch {
+      fail("Upload failed. Check your connection and try again.")
+    }
+  }
+
+  const handleFilesAdded = (files: FileList | null) => {
+    for (const file of Array.from(files ?? [])) {
+      const key = crypto.randomUUID()
+      const rejection = validateMaterialFile(file.name, file.size)
+      if (rejection) {
+        setUploads((prev) => [
+          ...prev,
+          { key, name: file.name, size: file.size, state: "rejected", reason: REJECTION_MESSAGES[rejection] },
+        ])
+        continue
+      }
+      setUploads((prev) => [...prev, { key, name: file.name, size: file.size, state: "uploading" }])
+      uploadFile(key, file)
+    }
+  }
+
+  const handleRemoveUpload = (key: string) => {
+    setUploads((prev) => prev.filter((entry) => entry.key !== key))
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragActive(false)
+    handleFilesAdded(e.dataTransfer.files)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -118,6 +189,12 @@ export const BriefForm = () => {
     const stageLabel =
       STAGE_OPTIONS.find((o) => o.value === stage)?.label ?? stage
 
+    const readyMaterials = uploads.flatMap((entry) =>
+      entry.state === "ready"
+        ? [{ storageId: entry.storageId, name: entry.name, size: entry.size }]
+        : []
+    )
+
     try {
       const id = await createSimulation({
         title: ideaName,
@@ -130,6 +207,7 @@ export const BriefForm = () => {
           businessModel: businessModelLabel,
           focusAreas,
         },
+        materials: readyMaterials.length > 0 ? readyMaterials : undefined,
       })
       router.push(`/simulation/${id}/analyze`)
       analyzeSimulation({ id })
@@ -139,10 +217,17 @@ export const BriefForm = () => {
     }
   }
 
+  const attachedCount = uploads.filter((entry) => entry.state === "ready").length
+  const isUploading = uploads.some((entry) => entry.state === "uploading")
+
   const checklist = [
     { label: "Idea named", done: ideaName.trim().length > 0 },
     { label: "Pitch described", done: description.trim().length > 0 },
     { label: "Focus areas chosen (optional)", done: focusAreas.length > 0 },
+    {
+      label: attachedCount > 0 ? `Materials attached (${attachedCount})` : "Materials attached (optional)",
+      done: attachedCount > 0,
+    },
   ]
 
   return (
@@ -262,19 +347,85 @@ export const BriefForm = () => {
           </fieldset>
 
           <div>
-            <FieldLabel hint="coming with the audit">Materials</FieldLabel>
-            <div className="border border-dashed border-line-2 bg-surface-raised p-5 opacity-60">
-              <div className="flex items-center gap-3">
+            <FieldLabel hint="PDF · PPTX · XLSX · DOCX · 10MB max">Materials</FieldLabel>
+            <div
+              onDrop={handleDrop}
+              onDragOver={(e) => {
+                e.preventDefault()
+                setIsDragActive(true)
+              }}
+              onDragLeave={() => setIsDragActive(false)}
+              className={cn(
+                "border border-dashed p-5 transition-colors",
+                isDragActive ? "border-on-surface bg-surface-2" : "border-line-2 bg-surface-raised"
+              )}
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept=".pdf,.pptx,.xlsx,.docx"
+                className="sr-only"
+                aria-label="Add materials"
+                onChange={(e) => {
+                  handleFilesAdded(e.target.files)
+                  e.target.value = ""
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="focus-ring flex w-full items-center gap-3 text-left"
+              >
                 <span className="flex h-[38px] w-[38px] flex-none items-center justify-center border border-line-2">
                   <Upload aria-hidden="true" className="h-[18px] w-[18px] text-on-surface-2" />
                 </span>
-                <div>
-                  <p className="text-sm font-semibold">Drop a deck, model, one-pager…</p>
-                  <p className="mt-[2px] font-mono text-[10px] uppercase tracking-[.06em] text-on-surface-3">
-                    Materials ingest isn&apos;t wired up yet. It arrives with the audit.
-                  </p>
-                </div>
-              </div>
+                <span>
+                  <span className="block text-sm font-semibold">Drop a deck, model, one-pager…</span>
+                  <span className="mt-[2px] block font-mono text-[10px] uppercase tracking-[.06em] text-on-surface-3">
+                    or click to browse. Read for the audit, never stored as a data room.
+                  </span>
+                </span>
+              </button>
+
+              {uploads.length > 0 && (
+                <ul className="mt-3.5 flex flex-col gap-2">
+                  {uploads.map((entry) => (
+                    <li
+                      key={entry.key}
+                      className="flex items-center gap-2.5 border border-line bg-surface px-[11px] py-[9px] text-[13px]"
+                    >
+                      <span className="flex-none bg-on-surface px-1.5 py-[2px] font-mono text-[9px] tracking-[.06em] text-surface">
+                        {entry.name.split(".").pop()?.toUpperCase().slice(0, 4) ?? "?"}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate">{entry.name}</span>
+                      {entry.state === "uploading" && (
+                        <span className="font-mono text-[10px] uppercase text-on-surface-3">
+                          Uploading…
+                        </span>
+                      )}
+                      {entry.state === "ready" && (
+                        <span className="font-mono text-[10px] uppercase text-on-surface-3">
+                          <span aria-hidden="true" className="text-ok">✓</span> {formatSize(entry.size)}
+                        </span>
+                      )}
+                      {entry.state === "rejected" && (
+                        <span role="alert" className="text-[11.5px] text-red-fg">
+                          {entry.reason}
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveUpload(entry.key)}
+                        aria-label={`Remove ${entry.name}`}
+                        className="focus-ring flex-none text-on-surface-3 hover:text-red-fg"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           </div>
         </div>
@@ -305,17 +456,23 @@ export const BriefForm = () => {
                 <span className="sr-only">{item.done ? ", provided" : ", not yet"}</span>
               </li>
             ))}
-            <li className="flex items-center gap-[10px] py-[7px] text-[13px] text-on-surface-3">
-              <span aria-hidden="true" className="h-[15px] w-[15px] flex-none border border-line-2" />
-              Materials (arrive with the audit)
-            </li>
           </ul>
         </aside>
       </div>
 
       <div className="mt-5">
-        <button type="submit" disabled={isSubmitting || !ideaName || !description} className={FLOW_BTN}>
-          {isSubmitting ? "Starting the read…" : "Read my brief"}
+        <button
+          type="submit"
+          disabled={isSubmitting || isUploading || !ideaName || !description}
+          className={FLOW_BTN}
+        >
+          {isSubmitting
+            ? "Starting the read…"
+            : isUploading
+              ? "Waiting for uploads…"
+              : attachedCount > 0
+                ? "Read my materials"
+                : "Read my brief"}
           <span aria-hidden="true">→</span>
         </button>
         {submitFailed && (
