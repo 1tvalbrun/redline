@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Redline — Pitch it</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#EAE8E2; --paper-2:#DFDDD6; --panel:#E4E2DC;
+    --ink:#18160F; --ink-2:#544F45; --ink-3:#8A857A;
+    --line:rgba(24,22,15,.12); --line-2:rgba(24,22,15,.26);
+    --red:#CE2B22; --red-deep:#9E1B14; --amber:#B0741A; --ok:#4A6B4E;
+    --ease:cubic-bezier(.2,.7,.2,1);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:var(--paper);color:var(--ink);font-family:'IBM Plex Sans',sans-serif;line-height:1.5;overflow:hidden}
+  body::after{content:"";position:fixed;inset:0;z-index:9999;pointer-events:none;opacity:.04;mix-blend-mode:multiply;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");}
+  ::selection{background:var(--red);color:var(--paper)}
+  .mono{font-family:'IBM Plex Mono',monospace}
+  .display{font-family:'Archivo',sans-serif;font-variation-settings:'wdth' 125;letter-spacing:-.02em}
+
+  .app{display:flex;flex-direction:column;height:100vh}
+
+  /* topbar stepper */
+  .topbar{display:flex;align-items:center;gap:26px;padding:13px 26px;border-bottom:1px solid var(--line-2);flex:none}
+  .brand{display:flex;align-items:center;gap:10px;font-family:'Archivo';font-variation-settings:'wdth' 125;font-weight:800;font-size:17px;letter-spacing:-.02em}
+  .mk{width:20px;height:20px;background:var(--ink);border-radius:5px;position:relative;overflow:hidden;flex:none}
+  .mk::before{content:"";position:absolute;left:0;right:0;top:63%;height:2px;background:var(--red)}
+  .stepper{display:flex;align-items:center;flex:1;justify-content:center}
+  .step{display:flex;align-items:center}
+  .step .n{font-family:'IBM Plex Mono';font-size:10px;color:var(--ink-3);margin-right:9px}
+  .step .l{font-family:'IBM Plex Mono';font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3)}
+  .step.active .l{color:var(--ink)}.step.active .n{color:var(--red)}
+  .step .tk{width:30px;height:1px;background:var(--line-2);margin:0 13px}
+  .step.active .tk,.step.done .tk{background:var(--ink)}.step.done .l{color:var(--ink-2)}
+  .step:last-child .tk{display:none}
+  .exit{font-family:'IBM Plex Mono';font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);cursor:pointer}
+  .exit:hover{color:var(--red)}
+
+  .body{flex:1;overflow-y:auto;display:flex;flex-direction:column}
+  .wrap{max-width:760px;width:100%;margin:0 auto;padding:48px 40px 60px;flex:1;display:flex;flex-direction:column}
+
+  .view{display:none;flex:1;flex-direction:column}
+  .view.show{display:flex;animation:fade .5s var(--ease)}
+  @keyframes fade{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+  .eyebrow{font-family:'IBM Plex Mono';font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-3);margin-bottom:18px}
+  h1.display{font-size:clamp(40px,6vw,64px);font-weight:700;line-height:.98}
+  .sub{color:var(--ink-2);font-size:17px;margin-top:16px;max-width:40ch;line-height:1.5}
+
+  /* ===== INVITATION ===== */
+  .invite{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+  .invite .eyebrow{margin-bottom:14px}
+  .invite h1{font-size:clamp(48px,8vw,84px)}
+  .invite .sub{margin:18px auto 46px;font-size:18px}
+  .mic-hero{position:relative;width:132px;height:132px;cursor:pointer;margin-bottom:22px}
+  .mic-hero .ring{position:absolute;inset:0;border-radius:50%;border:1px solid var(--red);opacity:0;animation:ring 2.4s var(--ease) infinite}
+  .mic-hero .ring:nth-child(2){animation-delay:.8s}.mic-hero .ring:nth-child(3){animation-delay:1.6s}
+  @keyframes ring{0%{transform:scale(.72);opacity:.55}100%{transform:scale(1.25);opacity:0}}
+  .mic-hero .core{position:absolute;inset:26px;border-radius:50%;background:var(--ink);display:flex;align-items:center;justify-content:center;transition:background .2s,transform .2s var(--ease)}
+  .mic-hero:hover .core{background:var(--red);transform:scale(1.04)}
+  .mic-hero .core svg{width:34px;height:34px;stroke:var(--paper);stroke-width:1.6;fill:none}
+  .hero-lab{font-family:'Archivo';font-variation-settings:'wdth' 125;font-weight:700;font-size:20px;letter-spacing:-.01em}
+  .hero-hint{font-family:'IBM Plex Mono';font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);margin-top:8px}
+
+  .alts{display:flex;align-items:center;gap:0;margin-top:44px}
+  .alt{display:flex;align-items:center;gap:8px;padding:0 20px;font-family:'IBM Plex Mono';font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-2);cursor:pointer;background:none;border:0;transition:color .18s;position:relative}
+  .alt:not(:last-child)::after{content:"";position:absolute;right:0;top:50%;transform:translateY(-50%);width:1px;height:14px;background:var(--line-2)}
+  .alt:hover{color:var(--red)}
+  .alt svg{width:15px;height:15px;stroke:currentColor;stroke-width:1.7;fill:none}
+
+  /* ===== CAPTURING ===== */
+  .cap{flex:1;display:flex;flex-direction:column}
+  .cap-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:30px}
+  .listening{display:flex;align-items:center;gap:10px;font-family:'IBM Plex Mono';font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--red)}
+  .listening .rd{width:9px;height:9px;border-radius:50%;background:var(--red);box-shadow:0 0 0 0 rgba(206,43,34,.5);animation:pulse 1.8s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(206,43,34,.5)}70%{box-shadow:0 0 0 8px rgba(206,43,34,0)}100%{box-shadow:0 0 0 0 rgba(206,43,34,0)}}
+  .cap-clock{font-family:'IBM Plex Mono';font-size:14px;letter-spacing:.1em;color:var(--ink-2)}
+
+  .wave{display:flex;align-items:center;justify-content:center;gap:4px;height:90px;margin:10px 0 34px}
+  .wave i{width:4px;background:var(--ink);border-radius:2px;height:12%;animation:eq 1s ease-in-out infinite}
+  @keyframes eq{0%,100%{height:12%}50%{height:100%}}
+
+  .capscript{flex:1;font-size:22px;line-height:1.6;color:var(--ink-3);max-width:60ch}
+  .capscript .said{color:var(--ink)}
+  .capscript .caret{display:inline-block;width:9px;height:24px;background:var(--red);vertical-align:-4px;margin-left:3px;animation:blink 1s steps(2) infinite}
+  @keyframes blink{50%{opacity:0}}
+
+  .cue{display:inline-flex;align-items:center;gap:9px;margin-top:26px;padding:10px 15px;border:1px dashed var(--line-2);background:var(--panel);font-size:13px;color:var(--ink-2);align-self:flex-start;animation:fade .4s var(--ease)}
+  .cue b{color:var(--ink);font-weight:600}
+
+  .cap-actions{display:flex;gap:14px;align-items:center;margin-top:34px}
+
+  /* ===== ASSEMBLED BRIEF ===== */
+  .brief-head{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:8px}
+  .source{display:inline-flex;align-items:center;gap:9px;font-family:'IBM Plex Mono';font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2);border:1px solid var(--line-2);background:var(--panel);padding:8px 13px;margin:22px 0 26px;cursor:pointer}
+  .source:hover{border-color:var(--ink)}
+  .source svg{width:13px;height:13px;stroke:currentColor;stroke-width:1.7;fill:none}
+
+  .field{margin-bottom:20px;opacity:0;transform:translateY(12px)}
+  .field.in{opacity:1;transform:none;transition:opacity .5s var(--ease),transform .5s var(--ease)}
+  .field .fl{font-family:'IBM Plex Mono';font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2);margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
+  .field .fl .ex{color:var(--ink-3);letter-spacing:.06em;display:flex;align-items:center;gap:6px}
+  .field .fl .ex .dot{width:5px;height:5px;border-radius:50%;background:var(--ok)}
+  .field .box{width:100%;min-height:52px;background:var(--panel);border:1px solid var(--line-2);padding:14px 16px;font-family:'IBM Plex Sans';font-size:15.5px;color:var(--ink);line-height:1.5;outline:0;resize:none}
+  .field .box:focus{border-color:var(--ink)}
+  .field .box.empty{color:var(--ink-3)}
+  .field.gap .box{border-color:var(--amber);border-style:dashed;background:rgba(176,116,26,.05)}
+  .field.gap .fl .ex{color:var(--amber)}
+  .field.gap .fl .ex .dot{background:var(--amber)}
+  .field .hint{font-size:12.5px;color:var(--amber);margin-top:7px;display:flex;align-items:center;gap:7px}
+
+  .chips-row{display:flex;gap:30px;margin-bottom:26px}
+  .chips-field{flex:1}
+  .chips{display:flex;gap:8px;flex-wrap:wrap}
+  .chip{font-family:'IBM Plex Mono';font-size:11px;letter-spacing:.04em;text-transform:uppercase;padding:8px 13px;border:1px solid var(--line-2);background:var(--panel);color:var(--ink-2);cursor:pointer;transition:all .15s}
+  .chip.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+
+  .brief-cta{display:flex;gap:14px;align-items:center;margin-top:14px;padding-top:24px;border-top:1px solid var(--line)}
+
+  .btn{font-family:'IBM Plex Mono';font-size:12px;font-weight:500;letter-spacing:.04em;text-transform:uppercase;color:var(--paper);background:var(--ink);border:1px solid var(--ink);padding:13px 20px;cursor:pointer;display:inline-flex;gap:10px;align-items:center;transition:all .2s var(--ease)}
+  .btn:hover{background:var(--red);border-color:var(--red)}
+  .btn .arw{transition:transform .2s var(--ease)}.btn:hover .arw{transform:translateX(4px)}
+  .btn.ghost{background:transparent;color:var(--ink)}.btn.ghost:hover{background:var(--ink);color:var(--paper)}
+  .linkbtn{font-family:'IBM Plex Mono';font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2);cursor:pointer;background:none;border:0}
+  .linkbtn:hover{color:var(--red)}
+
+  @media(max-width:640px){.stepper .l,.stepper .n{display:none}.step .tk{width:16px;margin:0 5px}.chips-row{flex-direction:column;gap:20px}.alts{flex-wrap:wrap;gap:10px}.alt{padding:6px 12px}.alt::after{display:none}}
+  @media(prefers-reduced-motion:reduce){*{animation:none!important}.field{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header class="topbar">
+    <div class="brand"><span class="mk"></span>Redline</div>
+    <div class="stepper">
+      <div class="step active"><span class="n">01</span><span class="l">Brief</span><span class="tk"></span></div>
+      <div class="step"><span class="n">02</span><span class="l">Read</span><span class="tk"></span></div>
+      <div class="step"><span class="n">03</span><span class="l">Audit</span><span class="tk"></span></div>
+      <div class="step"><span class="n">04</span><span class="l">Panel</span><span class="tk"></span></div>
+      <div class="step"><span class="n">05</span><span class="l">Room</span><span class="tk"></span></div>
+      <div class="step"><span class="n">06</span><span class="l">Verdict</span><span class="tk"></span></div>
+    </div>
+    <div class="exit">Save &amp; exit ✕</div>
+  </header>
+
+  <div class="body">
+    <div class="wrap">
+
+      <!-- ===== INVITATION ===== -->
+      <section class="view show" id="v-invite">
+        <div class="invite">
+          <div class="eyebrow">New stress test · 01 / 06</div>
+          <h1 class="display">Pitch it.</h1>
+          <p class="sub">Talk it through like you're in the room. We'll shape it into a brief — no blank page to fill.</p>
+
+          <div class="mic-hero" id="startTalk" role="button" tabindex="0" aria-label="Start pitching by voice">
+            <span class="ring"></span><span class="ring"></span><span class="ring"></span>
+            <span class="core"><svg viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></span>
+          </div>
+          <div class="hero-lab">Start pitching</div>
+          <div class="hero-hint">About a minute is plenty</div>
+
+          <div class="alts">
+            <button class="alt" id="altType"><svg viewBox="0 0 20 20"><path d="M4 4h12v12H4z"/><path d="M7 8h6M7 11h4"/></svg>Type it instead</button>
+            <button class="alt" id="altDeck"><svg viewBox="0 0 20 20"><path d="M10 3v9M6 7l4-4 4 4M4 15v2h12v-2"/></svg>Upload a deck</button>
+            <button class="alt" id="altGuide"><svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="7"/><path d="M8 8a2 2 0 1 1 2.5 1.9c-.5.2-.5.6-.5 1.1M10 14h.01"/></svg>Guide me with questions</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== CAPTURING ===== -->
+      <section class="view" id="v-cap">
+        <div class="cap">
+          <div class="cap-top">
+            <span class="listening"><span class="rd"></span>Listening</span>
+            <span class="cap-clock" id="capClock">00:00</span>
+          </div>
+          <div class="wave" id="wave" aria-hidden="true"></div>
+          <div class="capscript"><span class="said" id="said"></span><span class="caret"></span></div>
+          <div id="cueSlot"></div>
+          <div class="cap-actions">
+            <button class="btn" id="finishTalk">✓ That's my pitch</button>
+            <button class="linkbtn" id="cancelTalk">Start over</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== ASSEMBLED BRIEF ===== -->
+      <section class="view" id="v-brief">
+        <div class="brief-head">
+          <div>
+            <div class="eyebrow" id="briefEyebrow">Extracted from your pitch</div>
+            <h1 class="display" style="font-size:clamp(34px,4.4vw,52px)">Here's your brief.</h1>
+          </div>
+        </div>
+        <p class="sub" style="max-width:52ch">Edit anything, fill the gaps we flagged, and you're set. Nothing here is invented — if we didn't hear it, we ask.</p>
+
+        <button class="source" id="sourceChip"><svg viewBox="0 0 20 20"><path d="M4 6h12M4 10h12M4 14h8"/></svg><span id="sourceLabel">From your 38-second pitch</span></button>
+
+        <div id="fields"></div>
+
+        <div class="chips-row" id="chipsRow"></div>
+
+        <div class="brief-cta">
+          <button class="btn" id="continueBtn">Read my brief <span class="arw">→</span></button>
+          <button class="linkbtn" id="restartBtn">Start over</button>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var reduce=matchMedia('(prefers-reduced-motion:reduce)').matches;
+  var timers=[];
+  function later(fn,ms){var id=setTimeout(fn,ms);timers.push(id);return id;}
+  function clearAll(){timers.forEach(clearTimeout);timers=[];clearInterval(clockInt);}
+
+  function show(id){
+    clearAll();
+    document.querySelectorAll('.view').forEach(v=>v.classList.remove('show'));
+    document.getElementById(id).classList.add('show');
+    document.querySelector('.body').scrollTop=0;
+  }
+
+  // waveform bars
+  var wave=document.getElementById('wave');
+  for(var i=0;i<48;i++){var b=document.createElement('i');b.style.animationDelay=(Math.random()*1).toFixed(2)+'s';b.style.animationDuration=(.6+Math.random()*.7).toFixed(2)+'s';wave.appendChild(b);}
+
+  var PITCH="So — we're building Cartograph. It takes all the messy data a company already has sitting in their warehouse and turns it into a single map you can just ask questions of, in plain language. It's for ops teams — mid-market mostly — the people who right now have to file a ticket and wait on data engineering every time they need an answer. It's enterprise SaaS, still really early, idea stage.";
+
+  var clockInt,clockSec=0;
+  function runClock(){clockSec=0;var c=document.getElementById('capClock');clockInt=setInterval(function(){clockSec++;var m=String(Math.floor(clockSec/60)).padStart(2,'0'),s=String(clockSec%60).padStart(2,'0');if(c)c.textContent=m+':'+s;},1000);timers.push(clockInt);}
+
+  function startCapture(guided){
+    show('v-cap');runClock();
+    var said=document.getElementById('said');said.textContent='';
+    document.getElementById('cueSlot').innerHTML='';
+    var i=0;
+    if(reduce){said.textContent=PITCH;return;}
+    (function type(){
+      if(i<=PITCH.length){said.textContent=PITCH.slice(0,i);i+=2;later(type,26);}
+    })();
+    // a gentle guided cue partway through
+    later(function(){
+      var slot=document.getElementById('cueSlot');
+      slot.innerHTML='<div class="cue"><b>Nice.</b> If you can, mention <b>why now</b> — what changed that makes this the moment?</div>';
+    }, guided?1200:5200);
+  }
+
+  var FIELDS=[
+    {k:'What it is',v:"Cartograph turns a company's scattered data warehouse into a single, queryable map of the business — ask questions in plain language, no SQL.",ex:true},
+    {k:"Who it's for",v:"Mid-market ops teams who currently file a ticket and wait on data engineering for every answer.",ex:true},
+    {k:'Why now',v:"",ex:false,gap:true,hint:"We didn't catch this in your pitch — add a line: what changed that makes this urgent?"}
+  ];
+  var CHIPS=[
+    {label:'Stage',opts:['Idea','Pre-seed','Seed','Series A'],on:'Idea'},
+    {label:'Business model',opts:['Enterprise SaaS','B2B SaaS','Marketplace','Consumer'],on:'Enterprise SaaS'}
+  ];
+
+  function buildBrief(mode){
+    show('v-brief');
+    // eyebrow + source vary by on-ramp
+    var eb=document.getElementById('briefEyebrow'), src=document.getElementById('sourceLabel');
+    if(mode==='deck'){eb.textContent='Drafted from your deck';src.textContent='From Cartograph_deck.pdf · 14 slides';}
+    else if(mode==='type'){eb.textContent='Fill it in — three quick fields';src.textContent='Typing from scratch';}
+    else{eb.textContent='Extracted from your pitch';src.textContent='From your 0:38 pitch';}
+
+    var wrap=document.getElementById('fields');wrap.innerHTML='';
+    FIELDS.forEach(function(f,idx){
+      var empty = (mode==='type');
+      var d=document.createElement('div');
+      d.className='field'+(f.gap&&!empty?' gap':'');
+      var exHtml = empty ? '' : '<span class="ex"><span class="dot"></span>'+(f.gap?'not heard':'extracted')+'</span>';
+      var val = empty ? '' : f.v;
+      var placeholder = empty ? ('e.g. '+(idx===0?'what it does, in one line':(idx===1?'who it\'s for':'what changed that makes now the moment'))) : (f.gap?'Add a line here…':'');
+      d.innerHTML='<div class="fl">'+f.k+exHtml+'</div>'+
+        '<div class="box'+(val?'':' empty')+'" contenteditable="true" role="textbox" aria-label="'+f.k+'" data-ph="'+placeholder+'">'+(val||placeholder)+'</div>'+
+        ((f.gap&&!empty)?'<div class="hint">⚠ '+f.hint+'</div>':'');
+      wrap.appendChild(d);
+      var reveal = reduce?0:(idx*240+150);
+      later(function(){d.classList.add('in');}, reveal);
+    });
+
+    var cr=document.getElementById('chipsRow');cr.innerHTML='';
+    CHIPS.forEach(function(c){
+      var f=document.createElement('div');f.className='chips-field';
+      f.innerHTML='<div class="fl" style="font-family:\'IBM Plex Mono\';font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2);margin-bottom:10px">'+c.label+'</div>'+
+        '<div class="chips">'+c.opts.map(function(o){return '<button class="chip'+((o===c.on&&mode!=='type')?' on':'')+'">'+o+'</button>';}).join('')+'</div>';
+      cr.appendChild(f);
+    });
+    // chip toggles
+    cr.querySelectorAll('.chips').forEach(function(g){g.querySelectorAll('.chip').forEach(function(ch){ch.addEventListener('click',function(){g.querySelectorAll('.chip').forEach(function(x){x.classList.remove('on')});ch.classList.add('on');});});});
+    // placeholder behavior for empty/gap boxes
+    wrap.querySelectorAll('.box').forEach(function(b){
+      b.addEventListener('focus',function(){if(b.classList.contains('empty')){b.textContent='';b.classList.remove('empty');}});
+      b.addEventListener('blur',function(){if(!b.textContent.trim()){b.textContent=b.getAttribute('data-ph');b.classList.add('empty');}});
+    });
+  }
+
+  // wiring
+  document.getElementById('startTalk').addEventListener('click',function(){startCapture(false);});
+  document.getElementById('startTalk').addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();startCapture(false);}});
+  document.getElementById('altGuide').addEventListener('click',function(){startCapture(true);});
+  document.getElementById('altType').addEventListener('click',function(){buildBrief('type');});
+  document.getElementById('altDeck').addEventListener('click',function(){buildBrief('deck');});
+  document.getElementById('finishTalk').addEventListener('click',function(){buildBrief('voice');});
+  document.getElementById('cancelTalk').addEventListener('click',function(){show('v-invite');});
+  document.getElementById('restartBtn').addEventListener('click',function(){show('v-invite');});
+  document.getElementById('continueBtn').addEventListener('click',function(){/* → Read stage */});
+})();
+</script>
+</body>
+</html>

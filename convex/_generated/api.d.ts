@@ -8,6 +8,10 @@
  * @module
  */
 
+import type * as audits from "../audits.js";
+import type * as ideas from "../ideas.js";
+import type * as ingest from "../ingest.js";
+import type * as materials from "../materials.js";
 import type * as orchestrator from "../orchestrator.js";
 import type * as reports from "../reports.js";
 import type * as rooms from "../rooms.js";
@@ -21,6 +25,10 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  audits: typeof audits;
+  ideas: typeof ideas;
+  ingest: typeof ingest;
+  materials: typeof materials;
   orchestrator: typeof orchestrator;
   reports: typeof reports;
   rooms: typeof rooms;
