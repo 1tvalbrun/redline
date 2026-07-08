@@ -2,162 +2,171 @@
 
 import { useState } from "react"
 import Image from "next/image"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowRight } from "lucide-react"
 import { useQuery, useMutation } from "convex/react"
 import { api } from "@convex/_generated/api"
 import { Id } from "@convex/_generated/dataModel"
-import { Button } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
+import { FLOW_BTN, StageKicker } from "@/components/simulation/flow/FlowShell"
+import { IdeaNotFound } from "@/components/simulation/flow/IdeaNotFound"
 import { DEFAULT_CHARACTERS } from "../characters"
+
+const ARCHETYPE_ROLES: Record<string, string> = {
+  vc: "The VC",
+  target_customer: "The buyer",
+  technical_architect: "The architect",
+}
+
+const CHARACTER_ATTACK: Record<string, React.ReactNode> = {
+  "vc-01": (
+    <>
+      Will open on <b className="text-on-surface">market size and pricing power</b> —
+      your TAM and why anyone pays.
+    </>
+  ),
+  "tc-01": (
+    <>
+      Plays your real customer. Comes for{" "}
+      <b className="text-on-surface">switching cost and procurement</b> — why he&apos;d
+      rip out what he has.
+    </>
+  ),
+  "ta-01": (
+    <>
+      Thinks in failure modes. Goes straight at{" "}
+      <b className="text-on-surface">feasibility and reliability</b> — accuracy claims,
+      latency, what breaks first.
+    </>
+  ),
+}
 
 type PanelSetupProps = {
   simulationId: string
 }
 
-const CHARACTER_FOCUS: Record<string, string[]> = {
-  "vc-01": ["Market sizing", "Defensibility", "Pricing power", "Round dynamics"],
-  "tc-01": ["Buying process", "Switching cost", "Procurement"],
-  "ta-01": ["Latency", "Reliability", "Build vs buy", "ML infra"],
-}
-
-const CHARACTER_HOOK: Record<string, string> = {
-  "vc-01":
-    "Will challenge market size, moats, defensibility and runway logic.",
-  "tc-01":
-    "Reacts as your real buyer. Pushes on urgency and trust.",
-  "ta-01":
-    "Stress-tests feasibility, cost, latency, and dependency risk.",
-}
-
-const CHARACTER_QUOTE: Record<string, string> = {
-  "vc-01": "\"Sharp. Pattern-matches against 200 portfolio companies.\"",
-  "tc-01": "\"Pragmatic. Three vendors deep, one budget cycle away.\"",
-  "ta-01": "\"Methodical. Has shipped this before, knows where it breaks.\"",
-}
-
 export const PanelSetup = ({ simulationId }: PanelSetupProps) => {
   const router = useRouter()
-  const simulation = useQuery(api.simulations.get, {
-    id: simulationId as Id<"simulations">,
-  })
+  const typedId = simulationId as Id<"simulations">
+  const simulation = useQuery(api.simulations.get, { id: typedId })
+  const room = useQuery(api.rooms.getBySimulation, { simulationId: typedId })
   const createRoom = useMutation(api.rooms.create)
-  const [selected, setSelected] = useState(DEFAULT_CHARACTERS[0].id)
-  const [isStarting, setIsStarting] = useState(false)
+  const [startingId, setStartingId] = useState<string | null>(null)
+  const [enterFailed, setEnterFailed] = useState(false)
 
-  const handleStartRoom = async () => {
-    const character = DEFAULT_CHARACTERS.find((c) => c.id === selected)
-    if (!character) return
-    setIsStarting(true)
+  const handleEnterRoom = async (characterId: string) => {
+    const character = DEFAULT_CHARACTERS.find((c) => c.id === characterId)
+    if (!character || startingId) return
+    setStartingId(characterId)
+    setEnterFailed(false)
     const { image: _image, ...charForConvex } = character
-    await createRoom({
-      simulationId: simulationId as Id<"simulations">,
-      characters: [charForConvex],
-    })
-    router.push(`/simulation/${simulationId}/room`)
+    try {
+      await createRoom({ simulationId: typedId, characters: [charForConvex] })
+      router.push(`/simulation/${simulationId}/room`)
+    } catch {
+      setEnterFailed(true)
+      setStartingId(null)
+    }
   }
 
-  if (!simulation) {
-    return <p className="text-sm text-muted-foreground">Loading...</p>
+  if (simulation === undefined || room === undefined) return null
+  if (simulation === null) return <IdeaNotFound />
+
+  if (!simulation.context) {
+    return (
+      <div>
+        <StageKicker>Choose your interrogator</StageKicker>
+        <p className="text-[13.5px] text-on-surface-2">
+          Your brief is still being read — the panel needs it before the questions
+          start.{" "}
+          <Link
+            href={`/simulation/${simulationId}/analyze`}
+            className="focus-ring underline hover:text-red-fg"
+          >
+            Back to the read
+          </Link>
+          .
+        </p>
+      </div>
+    )
+  }
+
+  if (room) {
+    return (
+      <div>
+        <StageKicker>Choose your interrogator</StageKicker>
+        <h1 className="max-w-[16ch] font-display text-[clamp(28px,3.6vw,44px)] font-bold leading-[1.06] tracking-[-.02em]">
+          A run is already live.
+        </h1>
+        <p className="mt-3.5 max-w-[52ch] text-[15.5px] leading-[1.55] text-on-surface-2">
+          {room.characters[0]?.name} is in the room for this idea
+          {room.status === "concluded" ? " — the session has concluded" : ""}. One run
+          per stress test for now.
+        </p>
+        <div className="mt-6">
+          <Link
+            href={`/simulation/${simulationId}/${room.status === "concluded" ? "report" : "room"}`}
+            className={FLOW_BTN}
+          >
+            {room.status === "concluded" ? "View the verdict" : "Rejoin the room"}{" "}
+            <span aria-hidden="true">→</span>
+          </Link>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <div className="max-w-6xl space-y-10">
-      <header>
-        <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
-          Founder Room · Step 3 of 3 · {simulation.brief.ideaName}
-        </p>
-        <h1 className="mt-2 font-display text-5xl font-semibold tracking-tight">
-          Your panel is ready.
-        </h1>
-        <p className="mt-3 max-w-2xl text-base text-muted-foreground">
-          Three experts, three incentives, three different ways to be wrong about
-          your idea. Pick the panelist to face first.
-        </p>
-      </header>
+    <div>
+      <StageKicker>Choose your interrogator</StageKicker>
+      <h1 className="max-w-[16ch] font-display text-[clamp(28px,3.6vw,44px)] font-bold leading-[1.06] tracking-[-.02em]">
+        Who do you want to face first?
+      </h1>
+      <p className="mt-3.5 max-w-[52ch] text-[15.5px] leading-[1.55] text-on-surface-2">
+        Each panelist reads your brief before the room opens. Start with whoever you
+        least want to talk to — that&apos;s usually the one worth the most.
+      </p>
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-        {DEFAULT_CHARACTERS.map((char) => {
-          const isSelected = selected === char.id
-          const focus = CHARACTER_FOCUS[char.id] ?? []
-          return (
-            <button
-              key={char.id}
-              type="button"
-              onClick={() => setSelected(char.id)}
-              className={cn(
-                "group flex flex-col overflow-hidden rounded-2xl border bg-card text-left transition-all",
-                isSelected
-                  ? "border-primary ring-2 ring-primary/30 shadow-lg"
-                  : "border-border hover:border-primary/40 hover:shadow-sm"
-              )}
-            >
-              <div className="relative aspect-[4/5] overflow-hidden bg-[#1C1C1E]">
-                <Image
-                  src={char.image}
-                  alt={char.name}
-                  fill
-                  className="object-cover transition-transform duration-500 group-hover:scale-[1.02]"
-                />
-                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent p-4">
-                  <p className="text-[10px] font-medium uppercase tracking-widest text-white/80">
-                    The {char.archetypeId === "vc" ? "VC" : char.archetypeId === "target_customer" ? "Target Customer" : "Technical Architect"}
-                  </p>
-                  <p className="mt-1 text-lg font-semibold text-white">
-                    {char.name}
-                  </p>
-                  <p className="text-xs text-white/70">{char.role}</p>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-3 p-5">
-                <p className="text-sm leading-relaxed text-foreground">
-                  {CHARACTER_HOOK[char.id]}
-                </p>
-
-                <div className="flex flex-wrap gap-1.5">
-                  {focus.map((f) => (
-                    <span
-                      key={f}
-                      className="rounded-full border border-border bg-background px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
-                    >
-                      {f}
-                    </span>
-                  ))}
-                </div>
-
-                <div className="mt-1 border-t border-border pt-3">
-                  <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
-                    Tone
-                  </p>
-                  <p className="mt-1 text-xs italic text-muted-foreground">
-                    {CHARACTER_QUOTE[char.id]}
-                  </p>
-                </div>
-              </div>
-            </button>
-          )
-        })}
+      <div className="mt-5 grid gap-[18px] max-md:grid-cols-1 md:grid-cols-3">
+        {DEFAULT_CHARACTERS.map((char) => (
+          <button
+            key={char.id}
+            type="button"
+            onClick={() => handleEnterRoom(char.id)}
+            disabled={startingId !== null}
+            className="focus-ring group overflow-hidden border border-line-2 bg-surface-raised text-left transition-colors duration-200 hover:border-red disabled:pointer-events-none disabled:opacity-60"
+          >
+            <span className="relative block aspect-[4/3] overflow-hidden bg-[#1C1C1E]">
+              <Image
+                src={char.image}
+                alt=""
+                fill
+                sizes="(max-width: 768px) 100vw, 33vw"
+                className="object-cover"
+              />
+              <span className="absolute bottom-3 left-3.5 font-mono text-[9.5px] uppercase tracking-[.16em] text-white [text-shadow:0_1px_5px_rgba(0,0,0,.5)]">
+                {ARCHETYPE_ROLES[char.archetypeId]}
+              </span>
+            </span>
+            <span className="block p-4">
+              <span className="block font-display text-[19px] font-bold tracking-[-.01em]">
+                {char.name}
+              </span>
+              <span className="mt-[2px] block text-xs text-on-surface-2">{char.role}</span>
+              <span className="mt-3 block text-[13px] leading-[1.5] text-on-surface-2">
+                {CHARACTER_ATTACK[char.id]}
+              </span>
+              <span className="mt-4 flex items-center gap-2 border-t border-line pt-3.5 font-mono text-[11px] uppercase tracking-[.06em] text-on-surface transition-colors group-hover:text-red-fg">
+                {startingId === char.id ? "Entering the room…" : "Enter the room →"}
+              </span>
+            </span>
+          </button>
+        ))}
       </div>
-
-      <div className="flex items-center justify-between border-t border-border pt-6">
-        <button
-          type="button"
-          onClick={() => router.back()}
-          className="text-sm text-muted-foreground hover:text-foreground"
-        >
-          ← Back
-        </button>
-        <Button
-          size="lg"
-          onClick={handleStartRoom}
-          disabled={isStarting}
-          className="gap-2"
-        >
-          {isStarting ? "Starting room..." : "Enter the room"}
-          <ArrowRight className="h-4 w-4" />
-        </Button>
-      </div>
+      {enterFailed && (
+        <p role="alert" className="mt-4 text-[13px] text-red-fg">
+          Couldn&apos;t open the room — check your connection and try again.
+        </p>
+      )}
     </div>
   )
 }

@@ -42,6 +42,12 @@
   --color-ok-fg: var(--ok-fg);
   --animate-eq: eq 0.9s ease-in-out infinite;
   --animate-pulse-red: pulse-red 2s infinite;
+  --animate-blink: blink 1s steps(2) infinite;
+  @keyframes blink {
+    50% {
+      opacity: 0;
+    }
+  }
   @keyframes eq {
     0%,
     100% {
@@ -102,7 +108,9 @@
   --amber-fg: #b0741a;
   --ok: #4a6b4e;
   --ok-fg: #4a6b4e;
-  --red-fg: #ce2b22;
+  /* Brand red is 4.3:1 on paper — below AA for small text. Text uses the
+     deep variant; fills/borders/large type keep --red. */
+  --red-fg: #9e1b14;
 
   /* shadcn semantics resolved from the primitives above */
   --background: var(--surface);

@@ -19,6 +19,16 @@ export type SimulationContext = {
   openQuestions: string
 }
 
+export const CONTEXT_FIELDS: { key: keyof SimulationContext; label: string }[] = [
+  { key: 'problem', label: 'Problem' },
+  { key: 'targetCustomer', label: 'Target customer' },
+  { key: 'coreAssumption', label: 'Core assumption' },
+  { key: 'revenueModel', label: 'Revenue model' },
+  { key: 'primaryRisk', label: 'Primary risk' },
+  { key: 'competitors', label: 'Competitors' },
+  { key: 'openQuestions', label: 'Open questions' },
+]
+
 export type Simulation = {
   _id: string
   _creationTime: number

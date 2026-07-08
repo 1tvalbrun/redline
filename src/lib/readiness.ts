@@ -6,6 +6,8 @@ export type RiskScores = Partial<Record<Axis, number>>
 
 export type Readiness = number & { readonly __brand: "Readiness" }
 
+export const INVESTOR_READY_LINE = 90
+
 export type ReadinessSnapshot = {
   perAxis: Record<Axis, Readiness | null>
   overall: Readiness | null

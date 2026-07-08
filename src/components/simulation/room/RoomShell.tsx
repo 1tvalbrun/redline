@@ -2,14 +2,13 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { useQuery, useMutation, useAction } from "convex/react"
+import { useQuery, useAction } from "convex/react"
 import { api } from "@convex/_generated/api"
 import { Id } from "@convex/_generated/dataModel"
 import { AvatarProvider, AvatarVideo } from "@runwayml/avatars-react"
 import { Mic, MicOff, Pause } from "lucide-react"
 import { deriveReadiness, AXIS_LABELS } from "@/lib/readiness"
 import { formatElapsed } from "@/lib/utils"
-import { DEFAULT_CHARACTERS } from "../characters"
 import { UserTile, type MicState } from "./UserTile"
 import { PromptHelpers } from "./PromptHelpers"
 import { TranscriptPanel } from "./TranscriptPanel"
@@ -43,11 +42,8 @@ export const RoomShell = ({ simulationId }: RoomShellProps) => {
   const router = useRouter()
   const typedId = simulationId as Id<"simulations">
   const room = useQuery(api.rooms.getBySimulation, { simulationId: typedId })
-  const createRoom = useMutation(api.rooms.create)
   const generateReport = useAction(api.reports.generate)
-  const initialized = useRef(false)
   const ended = useRef(false)
-  const roomRef = useRef<HTMLDivElement>(null)
 
   const toggleMicRef = useRef<(() => void) | null>(null)
   const [isMicEnabled, setIsMicEnabled] = useState(true)
@@ -57,16 +53,13 @@ export const RoomShell = ({ simulationId }: RoomShellProps) => {
   const [connectAttempt, setConnectAttempt] = useState(0)
   const handleToggleMic = useCallback(() => toggleMicRef.current?.(), [])
 
+  // A room with no chosen panelist means the founder skipped the Panel
+  // stage — send them there instead of defaulting one.
   useEffect(() => {
-    roomRef.current?.focus()
-  }, [])
-
-  useEffect(() => {
-    if (room === null && !initialized.current) {
-      initialized.current = true
-      createRoom({ simulationId: typedId, characters: [DEFAULT_CHARACTERS[0]] })
+    if (room === null) {
+      router.replace(`/simulation/${simulationId}/panel`)
     }
-  }, [room, createRoom, typedId])
+  }, [room, router, simulationId])
 
   if (room === undefined || room === null) return null
 
@@ -101,10 +94,8 @@ export const RoomShell = ({ simulationId }: RoomShellProps) => {
 
   return (
     <div
-      ref={roomRef}
-      tabIndex={-1}
       data-surface="dark"
-      className="fixed inset-0 z-50 grid grid-cols-[244px_1fr_336px] grid-rows-[1fr_auto] bg-surface text-on-surface outline-none"
+      className="relative grid h-full min-h-0 grid-cols-[244px_1fr_336px] grid-rows-[1fr_auto] bg-surface text-on-surface"
     >
       <div aria-hidden="true" className="grain-overlay absolute inset-0 z-50 opacity-5" />
       {!concluded && <UserSpeechBridge roomId={room._id} enabled={micLive} />}

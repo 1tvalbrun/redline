@@ -1,12 +1,11 @@
 "use client"
 
 import { useState } from "react"
-import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useMutation, useAction } from "convex/react"
-import { ArrowRight } from "lucide-react"
+import { Upload } from "lucide-react"
 import { api } from "@convex/_generated/api"
-import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import {
@@ -16,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { FLOW_BTN, StageKicker } from "@/components/simulation/flow/FlowShell"
 
 const STAGE_OPTIONS = [
   { value: "idea", label: "Idea" },
@@ -58,6 +58,32 @@ const FOCUS_OPTIONS = [
   "Fundraising story",
 ]
 
+const FieldLabel = ({
+  htmlFor,
+  hint,
+  children,
+}: {
+  htmlFor?: string
+  hint?: string
+  children: React.ReactNode
+}) => (
+  <label
+    htmlFor={htmlFor}
+    className="mb-[9px] flex justify-between font-mono text-[10.5px] uppercase tracking-[.14em] text-on-surface-2"
+  >
+    {children}
+    {hint && <span className="text-on-surface-3 normal-case tracking-normal">{hint}</span>}
+  </label>
+)
+
+const chipClass = (active: boolean) =>
+  cn(
+    "focus-ring border px-[13px] py-2 font-mono text-[11px] uppercase tracking-[.04em] transition-colors",
+    active
+      ? "border-on-surface bg-on-surface text-surface"
+      : "border-line-2 bg-surface-raised text-on-surface-2 hover:text-on-surface"
+  )
+
 export const BriefForm = () => {
   const router = useRouter()
   const createSimulation = useMutation(api.simulations.create)
@@ -70,6 +96,7 @@ export const BriefForm = () => {
   const [businessModel, setBusinessModel] = useState("")
   const [focusAreas, setFocusAreas] = useState<string[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitFailed, setSubmitFailed] = useState(false)
 
   const handleToggleFocus = (area: string) => {
     setFocusAreas((prev) =>
@@ -81,6 +108,7 @@ export const BriefForm = () => {
     e.preventDefault()
     if (!ideaName || !description) return
     setIsSubmitting(true)
+    setSubmitFailed(false)
 
     const targetUserLabel =
       TARGET_OPTIONS.find((o) => o.value === targetUser)?.label ?? targetUser
@@ -90,157 +118,211 @@ export const BriefForm = () => {
     const stageLabel =
       STAGE_OPTIONS.find((o) => o.value === stage)?.label ?? stage
 
-    const id = await createSimulation({
-      title: ideaName,
-      roomType: "investor_panel",
-      brief: {
-        ideaName,
-        stage: stageLabel,
-        description,
-        targetUser: targetUserLabel,
-        businessModel: businessModelLabel,
-        focusAreas,
-      },
-    })
-    router.push(`/simulation/${id}/analyze`)
-    analyzeSimulation({ id })
+    try {
+      const id = await createSimulation({
+        title: ideaName,
+        roomType: "investor_panel",
+        brief: {
+          ideaName,
+          stage: stageLabel,
+          description,
+          targetUser: targetUserLabel,
+          businessModel: businessModelLabel,
+          focusAreas,
+        },
+      })
+      router.push(`/simulation/${id}/analyze`)
+      analyzeSimulation({ id })
+    } catch {
+      setSubmitFailed(true)
+      setIsSubmitting(false)
+    }
   }
 
+  const checklist = [
+    { label: "Idea named", done: ideaName.trim().length > 0 },
+    { label: "Pitch described", done: description.trim().length > 0 },
+    { label: "Focus areas chosen (optional)", done: focusAreas.length > 0 },
+  ]
+
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-5xl flex-col space-y-10"
-    >
-      <header>
-        <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
-          <Link href="/home" className="hover:text-foreground">← Home</Link>
-          <span className="mx-2">·</span>
-          Founder Room · Step 1 of 3
-        </p>
-        <h1 className="mt-2 font-display text-5xl font-semibold tracking-tight">
-          Brief the room.
-        </h1>
-        <p className="mt-3 max-w-2xl text-base text-muted-foreground">
-          Give the panel enough context to challenge your idea intelligently. Most
-          founders use 90 seconds here.
-        </p>
-      </header>
+    <form onSubmit={handleSubmit}>
+      <StageKicker>New stress test · Step 1 of 6</StageKicker>
+      <h1 className="max-w-[16ch] font-display text-[clamp(28px,3.6vw,44px)] font-bold leading-[1.06] tracking-[-.02em]">
+        What are we putting under pressure?
+      </h1>
+      <p className="mt-3.5 max-w-[52ch] text-[15.5px] leading-[1.55] text-on-surface-2">
+        Tell the panel what you&apos;re building. The more you give it, the harder —
+        and more useful — the interrogation.
+      </p>
 
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+      <div className="mt-[34px] grid items-start gap-[34px] max-md:grid-cols-1 md:grid-cols-[1fr_340px]">
         <div>
-          <label className="mb-2 block text-sm font-medium" htmlFor="ideaName">
-            Idea name
-          </label>
-          <Input
-            id="ideaName"
-            value={ideaName}
-            onChange={(e) => setIdeaName(e.target.value)}
-            placeholder="e.g., Cartograph"
-            required
-          />
-        </div>
-        <div>
-          <label className="mb-2 block text-sm font-medium">Stage</label>
-          <Select value={stage} onValueChange={(value) => value !== null && setStage(value)}>
-            <SelectTrigger className="w-full h-9">
-              <SelectValue placeholder="Select a stage" />
-            </SelectTrigger>
-            <SelectContent>
+          <div className="mb-[22px]">
+            <FieldLabel htmlFor="ideaName">Idea name</FieldLabel>
+            <Input
+              id="ideaName"
+              value={ideaName}
+              onChange={(e) => setIdeaName(e.target.value)}
+              placeholder="e.g., Cartograph"
+              className="bg-surface-raised"
+              required
+            />
+          </div>
+
+          <div className="mb-[22px]">
+            <FieldLabel htmlFor="pitch" hint="plain language is fine">
+              The idea
+            </FieldLabel>
+            <Textarea
+              id="pitch"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="What it does, who it's for, and the bet that has to be right for it to work."
+              className="min-h-[120px] bg-surface-raised p-4 text-[15px] leading-[1.55]"
+              required
+            />
+          </div>
+
+          <fieldset className="mb-[22px]">
+            <legend className="mb-[9px] block w-full font-mono text-[10.5px] uppercase tracking-[.14em] text-on-surface-2">
+              Stage
+            </legend>
+            <div className="flex flex-wrap gap-2">
               {STAGE_OPTIONS.map((o) => (
-                <SelectItem key={o.value} value={o.value}>
+                <button
+                  key={o.value}
+                  type="button"
+                  aria-pressed={stage === o.value}
+                  onClick={() => setStage(o.value)}
+                  className={chipClass(stage === o.value)}
+                >
                   {o.label}
-                </SelectItem>
+                </button>
               ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+            </div>
+          </fieldset>
 
-      <div>
-        <label className="mb-2 block text-sm font-medium" htmlFor="description">
-          Describe your idea
-        </label>
-        <Textarea
-          id="description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          placeholder="In 2–3 sentences: what does it do, who is it for, and what's the bet that has to be right for it to work?"
-          rows={4}
-          required
-        />
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        <div>
-          <label className="mb-2 block text-sm font-medium">Target user</label>
-          <Select value={targetUser} onValueChange={(value) => value !== null && setTargetUser(value)}>
-            <SelectTrigger className="w-full h-9">
-              <SelectValue placeholder="Who is this for?" />
-            </SelectTrigger>
-            <SelectContent>
-              {TARGET_OPTIONS.map((o) => (
-                <SelectItem key={o.value} value={o.value}>
-                  {o.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <label className="mb-2 block text-sm font-medium">Business model</label>
-          <Select value={businessModel} onValueChange={(value) => value !== null && setBusinessModel(value)}>
-            <SelectTrigger className="w-full h-9">
-              <SelectValue placeholder="How do you make money?" />
-            </SelectTrigger>
-            <SelectContent>
-              {BUSINESS_MODEL_OPTIONS.map((o) => (
-                <SelectItem key={o.value} value={o.value}>
-                  {o.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      <div>
-        <label className="mb-3 block text-sm font-medium">
-          What do you want challenged most?
-        </label>
-        <div className="flex flex-wrap gap-2">
-          {FOCUS_OPTIONS.map((area) => {
-            const active = focusAreas.includes(area)
-            return (
-              <button
-                key={area}
-                type="button"
-                onClick={() => handleToggleFocus(area)}
-                className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
-                  active
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"
-                }`}
+          <div className="mb-[22px] grid gap-[22px] md:grid-cols-2">
+            <div>
+              <FieldLabel htmlFor="targetUser">Target user</FieldLabel>
+              <Select
+                value={targetUser}
+                onValueChange={(value) => value !== null && setTargetUser(value)}
               >
-                {area}
-              </button>
-            )
-          })}
+                <SelectTrigger id="targetUser" className="h-9 w-full bg-surface-raised">
+                  <SelectValue placeholder="Who is this for?" />
+                </SelectTrigger>
+                <SelectContent>
+                  {TARGET_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>
+                      {o.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <FieldLabel htmlFor="businessModel">Business model</FieldLabel>
+              <Select
+                value={businessModel}
+                onValueChange={(value) => value !== null && setBusinessModel(value)}
+              >
+                <SelectTrigger id="businessModel" className="h-9 w-full bg-surface-raised">
+                  <SelectValue placeholder="How do you make money?" />
+                </SelectTrigger>
+                <SelectContent>
+                  {BUSINESS_MODEL_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>
+                      {o.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <fieldset className="mb-[22px]">
+            <legend className="mb-[9px] block w-full font-mono text-[10.5px] uppercase tracking-[.14em] text-on-surface-2">
+              What do you want challenged most?
+            </legend>
+            <div className="flex flex-wrap gap-2">
+              {FOCUS_OPTIONS.map((area) => (
+                <button
+                  key={area}
+                  type="button"
+                  aria-pressed={focusAreas.includes(area)}
+                  onClick={() => handleToggleFocus(area)}
+                  className={chipClass(focusAreas.includes(area))}
+                >
+                  {area}
+                </button>
+              ))}
+            </div>
+          </fieldset>
+
+          <div>
+            <FieldLabel hint="coming with the audit">Materials</FieldLabel>
+            <div className="border border-dashed border-line-2 bg-surface-raised p-5 opacity-60">
+              <div className="flex items-center gap-3">
+                <span className="flex h-[38px] w-[38px] flex-none items-center justify-center border border-line-2">
+                  <Upload aria-hidden="true" className="h-[18px] w-[18px] text-on-surface-2" />
+                </span>
+                <div>
+                  <p className="text-sm font-semibold">Drop a deck, model, one-pager…</p>
+                  <p className="mt-[2px] font-mono text-[10px] uppercase tracking-[.06em] text-on-surface-3">
+                    Materials ingest isn&apos;t wired up yet — it arrives with the audit
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
+
+        <aside className="sticky top-5 border border-line-2 bg-surface-raised p-[22px]">
+          <h2 className="mb-4 font-mono text-[10.5px] uppercase tracking-[.16em] text-on-surface-2">
+            Intake signal
+          </h2>
+          <ul className="border-t border-line">
+            {checklist.map((item) => (
+              <li
+                key={item.label}
+                className={cn(
+                  "flex items-center gap-[10px] py-[7px] text-[13px]",
+                  item.done ? "text-on-surface-2" : "text-on-surface-3"
+                )}
+              >
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    "flex h-[15px] w-[15px] flex-none items-center justify-center border text-[10px] text-white",
+                    item.done ? "border-ok bg-ok" : "border-line-2"
+                  )}
+                >
+                  {item.done && "✓"}
+                </span>
+                {item.label}
+                <span className="sr-only">{item.done ? " — provided" : " — not yet"}</span>
+              </li>
+            ))}
+            <li className="flex items-center gap-[10px] py-[7px] text-[13px] text-on-surface-3">
+              <span aria-hidden="true" className="h-[15px] w-[15px] flex-none border border-line-2" />
+              Materials (arrive with the audit)
+            </li>
+          </ul>
+        </aside>
       </div>
 
-      <div className="mt-auto flex items-center justify-between border-t border-border pt-6">
-        <p className="text-xs text-muted-foreground">
-          Step 1 of 3 — Brief · Analyze · Panel
-        </p>
-        <Button
-          type="submit"
-          size="lg"
-          disabled={isSubmitting || !ideaName || !description}
-          className="gap-2"
-        >
-          {isSubmitting ? "Creating..." : "Continue to analysis"}
-          <ArrowRight className="h-4 w-4" />
-        </Button>
+      <div className="mt-5">
+        <button type="submit" disabled={isSubmitting || !ideaName || !description} className={FLOW_BTN}>
+          {isSubmitting ? "Starting the read…" : "Read my brief"}
+          <span aria-hidden="true">→</span>
+        </button>
+        {submitFailed && (
+          <p role="alert" className="mt-3 text-[13px] text-red-fg">
+            Couldn&apos;t start the stress test — check your connection and try again.
+          </p>
+        )}
       </div>
     </form>
   )
