@@ -7,6 +7,9 @@ import { useRouter } from "next/navigation"
 import { useQuery, useMutation } from "convex/react"
 import { api } from "@convex/_generated/api"
 import { Id } from "@convex/_generated/dataModel"
+import { cn } from "@/lib/utils"
+import { deriveAuditRiskScores } from "@/lib/preRunScores"
+import { deriveReadiness, AXIS_LABELS, type Axis } from "@/lib/readiness"
 import { FLOW_BTN, StageKicker } from "@/components/simulation/flow/FlowShell"
 import { IdeaNotFound } from "@/components/simulation/flow/IdeaNotFound"
 import { DEFAULT_CHARACTERS } from "../characters"
@@ -15,6 +18,15 @@ const ARCHETYPE_ROLES: Record<string, string> = {
   vc: "The VC",
   target_customer: "The buyer",
   technical_architect: "The architect",
+}
+
+// Which interrogator presses hardest on each axis. The buyer owns both
+// customer pain and how organizations actually buy (gtm).
+const AXIS_TO_CHARACTER: Record<Axis, string> = {
+  market: "vc-01",
+  customer: "tc-01",
+  gtm: "tc-01",
+  technical: "ta-01",
 }
 
 const CHARACTER_ATTACK: Record<string, React.ReactNode> = {
@@ -49,6 +61,7 @@ export const PanelSetup = ({ simulationId }: PanelSetupProps) => {
   const typedId = simulationId as Id<"simulations">
   const simulation = useQuery(api.simulations.get, { id: typedId })
   const room = useQuery(api.rooms.getBySimulation, { simulationId: typedId })
+  const audit = useQuery(api.audits.getBySimulation, { simulationId: typedId })
   const createRoom = useMutation(api.rooms.create)
   const [startingId, setStartingId] = useState<string | null>(null)
   const [enterFailed, setEnterFailed] = useState(false)
@@ -115,6 +128,12 @@ export const PanelSetup = ({ simulationId }: PanelSetupProps) => {
     )
   }
 
+  const weakest =
+    audit?.status === "ready"
+      ? deriveReadiness(deriveAuditRiskScores(audit)).underFire
+      : null
+  const recommendedId = weakest ? AXIS_TO_CHARACTER[weakest] : null
+
   return (
     <div>
       <StageKicker>Choose your interrogator</StageKicker>
@@ -133,8 +152,17 @@ export const PanelSetup = ({ simulationId }: PanelSetupProps) => {
             type="button"
             onClick={() => handleEnterRoom(char.id)}
             disabled={startingId !== null}
-            className="focus-ring group overflow-hidden border border-line-2 bg-surface-raised text-left transition-colors duration-200 hover:border-red disabled:pointer-events-none disabled:opacity-60"
+            className={cn(
+              "focus-ring group overflow-hidden border text-left transition-colors duration-200 hover:border-red disabled:pointer-events-none disabled:opacity-60",
+              char.id === recommendedId ? "border-red" : "border-line-2",
+              "bg-surface-raised"
+            )}
           >
+            {char.id === recommendedId && weakest && (
+              <span className="block bg-red px-3 py-[5px] font-mono text-[9px] uppercase tracking-[.1em] text-white">
+                Recommended · targets your weakest axis ({AXIS_LABELS[weakest]})
+              </span>
+            )}
             <span className="relative block aspect-[4/3] overflow-hidden bg-[#1C1C1E]">
               <Image
                 src={char.image}

@@ -136,11 +136,14 @@ The materials (the ONLY citable evidence). Location markers look like [page 3], 
 
 ${materialSections}
 
-TASK 1 — CLAIMS. List the concrete, diligence-relevant claims the materials actually make (metrics, traction, market size, pricing, technology). For each: "text" (the claim, under 20 words), "source" (the exact file name), "location" (a marker that appears in that file, e.g. "page 2", "slide 1", "sheet ARR"; use "document" for files without markers). Only include claims you can point to in the materials. If the materials are thin, few or zero claims is the correct answer — do not invent.
+Every claim and gap is tagged with the diligence axis it bears on:
+"market" (TAM, demand, timing), "customer" (pain severity, willingness to pay, switching cost), "technical" (feasibility, reliability, scalability), "gtm" (distribution, sales motion, pricing execution).
 
-TASK 2 — GAPS. What a competent diligencer expects but cannot find. Each: "severity" ("blocker" = would stall a real process; "gap" = weakens the story), "kind" ("absent" = expected but in no material; "unsupported" = stated in the brief or materials with no backing evidence), "title" (under 8 words), "detail" (under 25 words). 3 to 8 gaps.
+TASK 1 — CLAIMS. List the concrete, diligence-relevant claims the materials actually make (metrics, traction, market size, pricing, technology). For each: "text" (the claim, under 20 words), "source" (the exact file name), "location" (a marker that appears in that file, e.g. "page 2", "slide 1", "sheet ARR"; use "document" for files without markers), "axis". Only include claims you can point to in the materials. If the materials are thin, few or zero claims is the correct answer — do not invent.
 
-Return JSON only: {"claims":[{"text","source","location"}],"gaps":[{"severity","kind","title","detail"}]}`
+TASK 2 — GAPS. What a competent diligencer expects but cannot find. Each: "severity" ("blocker" = would stall a real process; "gap" = weakens the story), "kind" ("absent" = expected but in no material; "unsupported" = stated in the brief or materials with no backing evidence), "title" (under 8 words), "detail" (under 25 words), "axis". 3 to 8 gaps.
+
+Return JSON only: {"claims":[{"text","source","location","axis"}],"gaps":[{"severity","kind","title","detail","axis"}]}`
 
       const response = await openai.chat.completions.create({
         model,

@@ -39,7 +39,19 @@ export const ReportView = ({ simulationId }: ReportViewProps) => {
   const report = useQuery(api.reports.getBySimulation, {
     simulationId: simulationId as Id<"simulations">,
   })
+  const ideaDetail = useQuery(
+    api.ideas.getDetail,
+    simulation?.ideaId ? { ideaId: simulation.ideaId } : "skip"
+  )
   const displayedScore = useCountUp(report ? report.overallScore : null)
+
+  const previousScore = (() => {
+    if (!report || !ideaDetail) return null
+    const earlierScored = ideaDetail.runs.filter(
+      (run) => run.simulationId !== simulationId && run.at < report._creationTime && run.score !== null
+    )
+    return earlierScored.length > 0 ? earlierScored[earlierScored.length - 1].score : null
+  })()
 
   const heroUrl =
     report?.generatedMedia?.successVideo ?? report?.generatedMedia?.failureVideo
@@ -101,6 +113,17 @@ export const ReportView = ({ simulationId }: ReportViewProps) => {
             <p className="font-display text-[54px] font-extrabold leading-none tracking-[-.03em] tabular-nums">
               {displayedScore ?? "—"}
             </p>
+            {report && previousScore !== null && report.overallScore !== previousScore && (
+              <p
+                className={cn(
+                  "mt-1.5 font-mono text-xs uppercase tracking-[.06em]",
+                  report.overallScore > previousScore ? "text-ok" : "text-red-fg"
+                )}
+              >
+                {report.overallScore > previousScore ? "▲ up" : "▼ down"}{" "}
+                {Math.abs(report.overallScore - previousScore)} from the last run
+              </p>
+            )}
             <p className="mt-1.5 font-mono text-[10px] uppercase tracking-[.1em] text-on-surface-3">
               {report
                 ? report.overallScore >= INVESTOR_READY_LINE
