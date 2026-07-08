@@ -2,7 +2,14 @@ import { defineSchema, defineTable } from "convex/server"
 import { v } from "convex/values"
 
 export default defineSchema({
+  // One durable idea accrues a readiness trajectory across many runs.
+  // _creationTime serves as createdAt.
+  ideas: defineTable({
+    name: v.string(),
+  }).index("by_name", ["name"]),
+
   simulations: defineTable({
+    ideaId: v.optional(v.id("ideas")),
     title: v.string(),
     roomType: v.string(),
     status: v.union(
@@ -32,7 +39,7 @@ export default defineSchema({
       })
     ),
     version: v.number(),
-  }),
+  }).index("by_idea", ["ideaId"]),
 
   rooms: defineTable({
     simulationId: v.id("simulations"),

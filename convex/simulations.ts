@@ -16,8 +16,15 @@ export const create = mutation({
     }),
   },
   handler: async (ctx, args) => {
+    const existingIdea = await ctx.db
+      .query("ideas")
+      .withIndex("by_name", (q) => q.eq("name", args.brief.ideaName))
+      .first()
+    const ideaId =
+      existingIdea?._id ?? (await ctx.db.insert("ideas", { name: args.brief.ideaName }))
     return await ctx.db.insert("simulations", {
       ...args,
+      ideaId,
       status: "draft",
       version: 1,
     })
