@@ -1,5 +1,6 @@
 import { defineSchema, defineTable } from "convex/server"
 import { v } from "convex/values"
+import { claimValidator, gapValidator } from "../src/lib/audit"
 
 export default defineSchema({
   // One durable idea accrues a readiness trajectory across many runs.
@@ -106,6 +107,17 @@ export default defineSchema({
     status: v.union(v.literal("extracting"), v.literal("ready"), v.literal("failed")),
     failureReason: v.optional(v.string()),
     text: v.optional(v.string()),
+  }).index("by_simulation", ["simulationId"]),
+
+  // Pre-run audit derived from the founder's materials. Every stored claim
+  // carries a citation that grounding has verified against the extracted
+  // text; ungrounded assertions only exist here as "unsupported" gaps.
+  audits: defineTable({
+    simulationId: v.id("simulations"),
+    status: v.union(v.literal("running"), v.literal("ready"), v.literal("failed")),
+    claims: v.array(claimValidator),
+    gaps: v.array(gapValidator),
+    failureReason: v.optional(v.string()),
   }).index("by_simulation", ["simulationId"]),
 
   reports: defineTable({

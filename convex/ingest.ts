@@ -2,7 +2,7 @@
 
 import { v } from "convex/values"
 import { internalAction } from "./_generated/server"
-import { internal } from "./_generated/api"
+import { api, internal } from "./_generated/api"
 import {
   clampExtractedText,
   ooxmlText,
@@ -102,6 +102,17 @@ export const extract = internalAction({
       await setResult({ status: "ready", text: clampExtractedText(text) })
     } catch (error) {
       await setResult({ status: "failed", failureReason: failureReason(error) })
+    }
+
+    // Kick the pre-run audit once the last material settles; audits.start
+    // collapses concurrent triggers to a single run.
+    const settled = await ctx.runQuery(internal.materials.allSettled, {
+      simulationId: material.simulationId,
+    })
+    if (settled) {
+      await ctx.scheduler.runAfter(0, api.audits.generate, {
+        simulationId: material.simulationId,
+      })
     }
   },
 })

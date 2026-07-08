@@ -39,4 +39,6 @@ Use CSS custom properties: var(--color-primary), var(--font-display) etc.
 - Over-engineer
 - Leave TODOs or placeholders
 - Use useState for data that belongs in Convex
-- Auto-commit — developer reviews and commits all changes manually
+- Commit. Ever. The developer is the only one who commits, after reviewing
+  the diff. No git add/commit/stash workarounds — leave work uncommitted in
+  the tree and stop for review.

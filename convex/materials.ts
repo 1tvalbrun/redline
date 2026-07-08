@@ -27,3 +27,14 @@ export const setExtractionResult = internalMutation({
     await ctx.db.patch(args.materialId, args.result)
   },
 })
+
+export const allSettled = internalQuery({
+  args: { simulationId: v.id("simulations") },
+  handler: async (ctx, args) => {
+    const materials = await ctx.db
+      .query("materials")
+      .withIndex("by_simulation", (q) => q.eq("simulationId", args.simulationId))
+      .collect()
+    return materials.every((material) => material.status !== "extracting")
+  },
+})
