@@ -65,6 +65,7 @@ export const addTranscriptEntry = mutation({
       speakerName: v.string(),
       text: v.string(),
       timestamp: v.number(),
+      spokenAt: v.optional(v.number()),
       type: v.string(),
     }),
   },

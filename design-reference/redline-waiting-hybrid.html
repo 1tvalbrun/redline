@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Redline — Read (hybrid)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#EAE8E2; --paper-2:#DFDDD6; --panel:#E4E2DC;
+    --ink:#18160F; --ink-2:#544F45; --ink-3:#8A857A;
+    --line:rgba(24,22,15,.12); --line-2:rgba(24,22,15,.26);
+    --red:#CE2B22; --amber:#B0741A; --ok:#4A6B4E;
+    --ease:cubic-bezier(.2,.7,.2,1);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--paper);color:var(--ink);font-family:'IBM Plex Sans',sans-serif;line-height:1.5}
+  body::after{content:"";position:fixed;inset:0;z-index:9999;pointer-events:none;opacity:.04;mix-blend-mode:multiply;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");}
+  .display{font-family:'Archivo',sans-serif;font-variation-settings:'wdth' 125;letter-spacing:-.02em}
+
+  .switcher{position:sticky;top:0;z-index:100;background:var(--ink);color:var(--paper);padding:11px 24px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .switcher .lab{font-family:'IBM Plex Mono';font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:#9C968A}
+  .switcher button{font-family:'IBM Plex Mono';font-size:11px;letter-spacing:.06em;text-transform:uppercase;padding:8px 14px;border:1px solid rgba(255,255,255,.25);background:transparent;color:var(--paper);cursor:pointer}
+  .switcher button.on{background:var(--red);border-color:var(--red)}
+  .switcher .replay{margin-left:auto;border-style:dashed}
+
+  .stepbar{padding:13px 26px;border-bottom:1px solid var(--line-2);display:flex;justify-content:center}
+  .step{display:flex;align-items:center}
+  .step .n{font-family:'IBM Plex Mono';font-size:10px;color:var(--ink-3);margin-right:8px}
+  .step .l{font-family:'IBM Plex Mono';font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3)}
+  .step.done .l{color:var(--ink-2)}.step.active .l{color:var(--ink)}.step.active .n{color:var(--red)}
+  .step .tk{width:28px;height:1px;background:var(--line-2);margin:0 12px}
+  .step.done .tk,.step.active .tk{background:var(--ink)}
+  .step:last-child .tk{display:none}
+
+  .wrap{max-width:1080px;margin:0 auto;padding:44px 40px 60px}
+  .kicker{font-family:'IBM Plex Mono';font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--red);margin-bottom:16px;display:flex;align-items:center;gap:9px}
+  .kicker .dot{width:7px;height:7px;border-radius:50%;background:var(--red);animation:pul 1.8s infinite}
+  @keyframes pul{0%,100%{opacity:1}50%{opacity:.35}}
+  h1{font-size:clamp(30px,3.8vw,46px);font-weight:700;line-height:1.02}
+  .lead{color:var(--ink-2);font-size:15.5px;margin-top:14px;max-width:56ch}
+
+  .grid{display:grid;grid-template-columns:1fr 320px;gap:34px;margin-top:36px;align-items:start}
+
+  /* field rows — anticipatory, not extracted */
+  .rows{border-top:1px solid var(--line-2)}
+  .row{display:grid;grid-template-columns:150px 1fr 22px;gap:18px;padding:18px 0;border-bottom:1px solid var(--line);align-items:center;
+       opacity:.32;transition:opacity .45s var(--ease)}
+  .row.reading{opacity:1}
+  .row.done{opacity:1}
+  .row .k{font-family:'IBM Plex Mono';font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);transition:color .3s}
+  .row.reading .k{color:var(--red)}
+  .row.done .k{color:var(--ink-2)}
+  .row .v{font-size:15px;color:var(--ink-3);min-height:1.5em;position:relative}
+  .row.reading .v{color:var(--ink)}
+  .row.done .v{color:var(--ink-2)}
+  .row .mark{font-family:'IBM Plex Mono';font-size:13px;color:var(--ink-3);text-align:right;opacity:0;transition:opacity .3s}
+  .row.done .mark{opacity:1;color:var(--ok)}
+  .caret{display:inline-block;width:7px;height:1.05em;background:var(--red);vertical-align:-2px;margin-left:2px;animation:blink 1s steps(2) infinite}
+  @keyframes blink{50%{opacity:0}}
+
+  /* skeleton shimmer for not-yet-reached rows */
+  .skel{display:block;height:9px;width:62%;background:linear-gradient(90deg,var(--line) 0%,rgba(24,22,15,.05) 40%,var(--line) 80%);background-size:200% 100%;animation:sh 1.6s linear infinite;border-radius:2px}
+  .row.reading .skel,.row.done .skel{display:none}
+  @keyframes sh{0%{background-position:120% 0}100%{background-position:-40% 0}}
+
+  /* working sidecar */
+  .sidecar{border:1px solid var(--line-2);background:var(--panel);padding:20px;position:sticky;top:88px}
+  .sc-t{font-family:'IBM Plex Mono';font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-2);margin-bottom:16px}
+  .prog{height:2px;background:var(--line);position:relative;overflow:hidden;margin-bottom:18px}
+  .prog span{position:absolute;left:0;top:0;bottom:0;width:0;background:var(--red);transition:width .7s var(--ease)}
+  .sc-line{display:flex;gap:10px;align-items:flex-start;padding:9px 0;font-family:'IBM Plex Mono';font-size:11.5px;color:var(--ink-3);opacity:.4;transition:opacity .3s,color .3s;line-height:1.45}
+  .sc-line.active{opacity:1;color:var(--ink)}
+  .sc-line.done{opacity:1;color:var(--ink-2)}
+  .sc-line .m{width:12px;flex:none}
+  .sc-line.done .m{color:var(--ok)}
+  .sc-line.active .m{color:var(--red)}
+  .sc-foot{margin-top:20px;padding-top:16px;border-top:1px solid var(--line);font-size:12.5px;color:var(--ink-2);line-height:1.55;min-height:3.6em;position:relative}
+  .sc-foot div{position:absolute;left:0;right:0;opacity:0;transform:translateY(8px)}
+  .sc-foot div.in{opacity:1;transform:none;transition:opacity .45s var(--ease),transform .45s var(--ease)}
+  .sc-foot div.out{opacity:0;transform:translateY(-8px);transition:opacity .3s,transform .3s}
+
+  .note{max-width:1080px;margin:0 auto;padding:26px 40px 60px;color:var(--ink-2);font-size:14px;border-top:1px solid var(--line)}
+  .note b{color:var(--ink)}
+
+  @media(max-width:900px){.grid{grid-template-columns:1fr}.sidecar{position:static}}
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}.row{opacity:1}}
+</style>
+</head>
+<body>
+
+<div class="switcher">
+  <span class="lab">Read stage · hybrid</span>
+  <button class="on" data-m="read">Reading your brief</button>
+  <button data-m="audit">Auditing (same pattern)</button>
+  <button class="replay" id="replay">↻ Replay</button>
+</div>
+
+<div class="stepbar" id="stepbar"></div>
+
+<div class="wrap">
+  <div class="kicker"><span class="dot"></span><span id="kick">Reading your brief</span></div>
+  <h1 class="display" id="head">Going through what you gave us.</h1>
+  <p class="lead" id="lead">The panel's analyst reads every line before a single question. This takes a few seconds.</p>
+
+  <div class="grid">
+    <div class="rows" id="rows"></div>
+
+    <aside class="sidecar">
+      <div class="sc-t">Working</div>
+      <div class="prog"><span id="prog"></span></div>
+      <div id="scLines"></div>
+      <div class="sc-foot" id="scFoot"></div>
+    </aside>
+  </div>
+</div>
+
+<div class="note">
+  <p><b>The hybrid.</b> Same layout and rhythm as the streamed version, but the rows carry <b>anticipatory text about what's being examined</b> — never fake "extracted" values. Honest whether the founder typed, uploaded, or spoke. Each row lights, reads, then checks off. The sidecar shows real work-in-progress and rotates the product's philosophy.</p>
+  <p style="margin-top:10px"><b>No fabricated data. No counters.</b> Nothing here claims to have heard or found anything — it only says what it's <em>looking at</em>.</p>
+</div>
+
+<script>
+(function(){
+  var reduce=matchMedia('(prefers-reduced-motion:reduce)').matches;
+  var timers=[];
+  function later(fn,ms){var id=setTimeout(fn,ms);timers.push(id);return id;}
+  function clearAll(){timers.forEach(clearTimeout);timers=[];}
+
+  var STEPS=['Brief','Read','Audit','Panel','Room','Verdict'];
+  function stepbar(active){
+    var el=document.getElementById('stepbar');el.innerHTML='';
+    STEPS.forEach(function(s,i){
+      var d=document.createElement('div');
+      d.className='step'+(i<active?' done':'')+(i===active?' active':'');
+      d.innerHTML='<span class="n">0'+(i+1)+'</span><span class="l">'+s+'</span><span class="tk"></span>';
+      el.appendChild(d);
+    });
+  }
+
+  /* ---- READ mode: rows = the brief's own fields, anticipatory copy ---- */
+  var READ_ROWS=[
+    ['Idea name','Registering what you\u2019re building\u2026'],
+    ['What it is','Reading the shape of the product\u2026'],
+    ['Who it\u2019s for','Working out who actually buys this\u2026'],
+    ['Why now','Looking for what changed to make this urgent\u2026'],
+    ['Stage','Placing you on the maturity curve\u2026'],
+    ['Business model','Tracing how the money is meant to work\u2026']
+  ];
+  var READ_WORK=[
+    'Parsing your brief',
+    'Mapping the problem space',
+    'Surfacing core assumptions',
+    'Naming the primary risk',
+    'Drafting the open questions'
+  ];
+  var READ_FOOT=[
+    'We only work with what you actually gave us.',
+    'Nothing gets invented \u2014 if we didn\u2019t catch it, we ask.',
+    'A gap is a finding, not a failure.',
+    'The panel reads this before you walk in.'
+  ];
+
+  /* ---- AUDIT mode: same pattern, different subject ---- */
+  var AUDIT_ROWS=[
+    ['Claims','Pulling out every claim you\u2019ve made\u2026'],
+    ['Citations','Tracing each one back to a page\u2026'],
+    ['Evidence','Checking what\u2019s actually backed\u2026'],
+    ['Omissions','Finding what a diligencer expects and can\u2019t see\u2026'],
+    ['Severity','Sorting blockers from gaps\u2026'],
+    ['Axes','Weighing market, customer, technical, go-to-market\u2026']
+  ];
+  var AUDIT_WORK=[
+    'Reading your materials',
+    'Extracting stated claims',
+    'Verifying each against a source',
+    'Assembling the gap map',
+    'Scoring the four axes'
+  ];
+  var AUDIT_FOOT=[
+    'Every claim has to trace to a source.',
+    'If it can\u2019t be cited, it becomes a gap.',
+    'Gaps are what the panel presses on first.',
+    'This is the read before a single question.'
+  ];
+
+  var MODES={
+    read:{kick:'Reading your brief',head:'Going through what you gave us.',
+      lead:'The panel\u2019s analyst reads every line before a single question. This takes a few seconds.',
+      rows:READ_ROWS,work:READ_WORK,foot:READ_FOOT,step:1},
+    audit:{kick:'The audit \u00b7 before the panel pushes',head:'Reading Cartograph against a diligence framework.',
+      lead:'We check every claim for backing, and note everything a real diligencer would ask for.',
+      rows:AUDIT_ROWS,work:AUDIT_WORK,foot:AUDIT_FOOT,step:2}
+  };
+
+  var current='read';
+
+  function run(mode){
+    clearAll();
+    current=mode;
+    var M=MODES[mode];
+    stepbar(M.step);
+    document.getElementById('kick').textContent=M.kick;
+    document.getElementById('head').textContent=M.head;
+    document.getElementById('lead').textContent=M.lead;
+    document.querySelectorAll('.switcher button[data-m]').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-m')===mode);});
+
+    /* rows */
+    var rows=document.getElementById('rows');rows.innerHTML='';
+    M.rows.forEach(function(r){
+      var d=document.createElement('div');d.className='row';
+      d.innerHTML='<div class="k">'+r[0]+'</div><div class="v"><span class="skel"></span><span class="txt"></span></div><div class="mark">\u2713</div>';
+      rows.appendChild(d);
+    });
+    var rowEls=rows.querySelectorAll('.row');
+
+    /* sidecar */
+    var sc=document.getElementById('scLines');sc.innerHTML='';
+    M.work.forEach(function(w){
+      var d=document.createElement('div');d.className='sc-line';
+      d.innerHTML='<span class="m">\u25CB</span><span>'+w+'</span>';
+      sc.appendChild(d);
+    });
+    var scEls=sc.querySelectorAll('.sc-line');
+    document.getElementById('prog').style.width='0%';
+
+    /* footer philosophy ticker */
+    var ft=document.getElementById('scFoot');ft.innerHTML='';
+    M.foot.forEach(function(t,i){
+      var d=document.createElement('div');d.textContent=t;ft.appendChild(d);
+      later(function(){d.classList.add('in');},500+i*2100);
+      later(function(){d.classList.remove('in');d.classList.add('out');},500+i*2100+1700);
+    });
+
+    /* sequence rows: skeleton -> reading (typewriter) -> done */
+    var STEP=reduce?120:1250;
+    M.rows.forEach(function(r,i){
+      later(function(){
+        var el=rowEls[i];
+        el.classList.add('reading');
+        var txt=el.querySelector('.txt');
+        var full=r[1],ci=0;
+        if(reduce){txt.textContent=full;}
+        else{(function type(){
+          if(ci<=full.length){txt.innerHTML=full.slice(0,ci)+'<span class="caret"></span>';ci+=2;later(type,14);}
+          else{txt.textContent=full;}
+        })();}
+        /* finish previous */
+        if(i>0){rowEls[i-1].classList.remove('reading');rowEls[i-1].classList.add('done');}
+        /* sidecar sync */
+        var si=Math.min(i,scEls.length-1);
+        scEls.forEach(function(s,j){
+          s.classList.remove('active');
+          if(j<si){s.classList.add('done');s.querySelector('.m').textContent='\u2713';}
+        });
+        if(scEls[si]){scEls[si].classList.add('active');scEls[si].querySelector('.m').textContent='\u25CF';}
+        document.getElementById('prog').style.width=Math.round((i+1)/M.rows.length*100)+'%';
+      }, 500+i*STEP);
+    });
+
+    /* final: close last row + last worker */
+    later(function(){
+      var last=rowEls[M.rows.length-1];
+      if(last){last.classList.remove('reading');last.classList.add('done');}
+      scEls.forEach(function(s){s.classList.remove('active');s.classList.add('done');s.querySelector('.m').textContent='\u2713';});
+      document.getElementById('prog').style.width='100%';
+    }, 500+M.rows.length*STEP);
+  }
+
+  document.querySelectorAll('.switcher button[data-m]').forEach(function(b){
+    b.addEventListener('click',function(){run(b.getAttribute('data-m'));});
+  });
+  document.getElementById('replay').addEventListener('click',function(){run(current);});
+
+  run('read');
+})();
+</script>
+</body>
+</html>
