@@ -2,6 +2,7 @@ import { v } from "convex/values"
 import { action, mutation, query } from "./_generated/server"
 import { api } from "./_generated/api"
 import type { Id } from "./_generated/dataModel"
+import { bySpokenTime } from "../src/lib/transcript"
 
 export const create = mutation({
   args: {
@@ -97,7 +98,7 @@ export const generate = action({
 
     const transcript =
       room.transcript.length > 0
-        ? room.transcript
+        ? bySpokenTime(room.transcript)
             .map((e) =>
               e.type === "user"
                 ? `FOUNDER: ${e.text}`

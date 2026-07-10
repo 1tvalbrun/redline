@@ -1,6 +1,7 @@
 import { v } from "convex/values"
 import { action } from "./_generated/server"
 import { api } from "./_generated/api"
+import { bySpokenTime } from "../src/lib/transcript"
 
 const NOTE_TYPES = new Set([
   "follow_up",
@@ -40,7 +41,10 @@ export const decide = action({
     const character = room.characters[0]
     if (!character) return null
 
-    const recent = room.transcript
+    // Speech order, not arrival order: an avatar turn's final arrives only
+    // when her next turn starts, so unsorted the model reads answers before
+    // their questions and late finals push true turns out of the window.
+    const recent = bySpokenTime(room.transcript)
       .slice(-12)
       .map((e) =>
         e.type === "user"

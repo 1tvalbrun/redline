@@ -13,6 +13,10 @@ const turnMessageSchema = z.object({
   transcript: z.string(),
   end_of_turn: z.boolean(),
   turn_is_formatted: z.boolean(),
+  // Word timings in ms relative to the start of the streamed audio.
+  words: z
+    .array(z.object({ start: z.number(), end: z.number() }))
+    .optional(),
 })
 
 const terminationMessageSchema = z.object({ type: z.literal("Termination") })
@@ -27,8 +31,10 @@ export type FounderTranscriptionStatus =
 export type FounderTranscriptionHandlers = {
   // Fired exactly once per committed turn, in speech order (a turn commits on
   // AssemblyAI's formatted end-of-turn event, or when a session flushes on
-  // stop / mid-stream drop so no heard speech is ever lost).
-  onFinalTurn: (text: string) => void
+  // stop / mid-stream drop so no heard speech is ever lost). spokenAt is the
+  // wall-clock ms the turn's first word was spoken — word offsets anchored to
+  // when this session's audio stream began — or null if timing was missing.
+  onFinalTurn: (text: string, spokenAt: number | null) => void
   // Latest in-progress (not yet committed) text; "" when it commits or clears.
   onInterim: (text: string) => void
   // "denied"/"error" are terminal; "ended" means the stream stopped itself
@@ -68,9 +74,23 @@ export const startFounderTranscription = (
   let flushTimeout: ReturnType<typeof setTimeout> | null = null
   let resolveStop: (() => void) | null = null
 
+  // Word offsets are relative to the audio this socket's session has
+  // received, which begins with the first PCM chunk actually sent while the
+  // socket is open — chunks produced earlier are dropped, so getUserMedia
+  // time is NOT the anchor. Reset per session (reconnects restart offsets).
+  let audioAnchor: number | null = null
+
   // Uncommitted turns for the current socket session; turn_order restarts
   // per session, so the map flushes whenever a session ends.
-  const turns = new Map<number, { text: string; final: boolean }>()
+  const turns = new Map<
+    number,
+    { text: string; final: boolean; spokenAt: number | null }
+  >()
+
+  const spokenAtFor = (words?: { start: number }[]) =>
+    audioAnchor !== null && words && words.length > 0
+      ? audioAnchor + words[0].start
+      : null
 
   const pendingText = () =>
     [...turns.entries()]
@@ -85,18 +105,25 @@ export const startFounderTranscription = (
       .sort(([a], [b]) => a - b)
     turns.clear()
     if (disposed) return
-    for (const [, turn] of pending) handlers.onFinalTurn(turn.text)
+    for (const [, turn] of pending) handlers.onFinalTurn(turn.text, turn.spokenAt)
     handlers.onInterim("")
   }
 
-  const teardown = () => {
-    if (flushTimeout) clearTimeout(flushTimeout)
+  // Releasing capture is separate from teardown so stop() can free the mic
+  // (browser recording indicator included) immediately, while the socket
+  // stays open for the server flush.
+  const releaseCapture = () => {
     workletNode?.disconnect()
     workletNode = null
     audioContext?.close().catch(() => {})
     audioContext = null
     stream?.getTracks().forEach((track) => track.stop())
     stream = null
+  }
+
+  const teardown = () => {
+    if (flushTimeout) clearTimeout(flushTimeout)
+    releaseCapture()
     if (socket) {
       socket.onclose = null
       if (socket.readyState === WebSocket.OPEN) {
@@ -132,13 +159,15 @@ export const startFounderTranscription = (
     const turn = turnMessageSchema.safeParse(data)
     if (turn.success) {
       const text = turn.data.transcript.trim()
+      const spokenAt = spokenAtFor(turn.data.words)
       if (turn.data.end_of_turn && turn.data.turn_is_formatted) {
         turns.delete(turn.data.turn_order)
-        if (text.length > 0) handlers.onFinalTurn(text)
+        if (text.length > 0) handlers.onFinalTurn(text, spokenAt)
       } else {
         turns.set(turn.data.turn_order, {
           text,
           final: turn.data.end_of_turn,
+          spokenAt,
         })
       }
       handlers.onInterim(pendingText())
@@ -181,6 +210,7 @@ export const startFounderTranscription = (
       })
       const ws = new WebSocket(`${STREAM_URL}?${params.toString()}`)
       ws.onopen = () => {
+        audioAnchor = null
         if (disposed || finished || stopping) return
         // A live session proves the path works; give future drops a fresh
         // retry budget so long room sessions survive more than two blips.
@@ -208,8 +238,12 @@ export const startFounderTranscription = (
       if (!disposed) handlers.onStatus("denied")
       return
     }
-    if (disposed) {
+    // stop()/dispose() can complete while getUserMedia is still pending
+    // (StrictMode's throwaway mount does exactly this) — the late-arriving
+    // stream must be stopped here or the mic stays live with no owner.
+    if (disposed || finished || stopping) {
       stream.getTracks().forEach((track) => track.stop())
+      stream = null
       return
     }
     // Mic revoked mid-stream (track.stop() in teardown does not fire this):
@@ -234,7 +268,12 @@ export const startFounderTranscription = (
       }
       void audioContext.resume().catch(() => {})
       await audioContext.audioWorklet.addModule("/pcm-recorder.worklet.js")
-      if (disposed) return
+      // Same late-arrival race as above: capture opened during the await
+      // must be released if the stream was stopped meanwhile.
+      if (disposed || finished || stopping) {
+        releaseCapture()
+        return
+      }
       const source = audioContext.createMediaStreamSource(stream)
       workletNode = new AudioWorkletNode(audioContext, "pcm-recorder", {
         numberOfOutputs: 0,
@@ -249,6 +288,7 @@ export const startFounderTranscription = (
           handlers.onAudioLevel(Math.sqrt(sumOfSquares / pcm.length) / 32768)
         }
         if (!stopping && socket?.readyState === WebSocket.OPEN) {
+          if (audioAnchor === null) audioAnchor = Date.now()
           socket.send(event.data)
         }
       }
@@ -268,6 +308,10 @@ export const startFounderTranscription = (
     if (finished) return Promise.resolve()
     if (stopPromise) return stopPromise
     stopping = true
+    // Free the mic now — the indicator must clear on stop, not after the
+    // flush. No transcript is lost: audio was never sent while stopping,
+    // and the server flush drains what it already received.
+    releaseCapture()
     stopPromise = new Promise<void>((resolve) => {
       resolveStop = resolve
       if (socket && socket.readyState === WebSocket.OPEN) {
