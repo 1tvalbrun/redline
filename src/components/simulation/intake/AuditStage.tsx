@@ -10,6 +10,7 @@ import { deriveAuditRiskScores } from "@/lib/preRunScores"
 import { deriveReadiness, AXIS_LABELS, INVESTOR_READY_LINE, AXES } from "@/lib/readiness"
 import { cn } from "@/lib/utils"
 import { FLOW_BTN, StageKicker } from "@/components/simulation/flow/FlowShell"
+import { WaitingScreen, AUDIT_WAIT } from "@/components/simulation/flow/WaitingScreen"
 import { IdeaNotFound } from "@/components/simulation/flow/IdeaNotFound"
 
 const KIND_LABELS: Record<Gap["kind"], string> = {
@@ -105,9 +106,9 @@ export const AuditStage = ({ simulationId }: AuditStageProps) => {
     const failed = audit?.status === "failed" || startFailed
     return (
       <div>
-        <StageKicker>The audit · before the panel pushes</StageKicker>
         {failed ? (
           <>
+            <StageKicker>The audit · before the panel pushes</StageKicker>
             <h1 className="max-w-[16ch] font-display text-[clamp(28px,3.6vw,44px)] font-bold leading-[1.06] tracking-[-.02em]">
               The audit hit a wall.
             </h1>
@@ -123,17 +124,12 @@ export const AuditStage = ({ simulationId }: AuditStageProps) => {
             </div>
           </>
         ) : (
-          <>
-            <h1 className="max-w-[16ch] font-display text-[clamp(28px,3.6vw,44px)] font-bold leading-[1.06] tracking-[-.02em]">
-              Auditing {simulation.brief.ideaName}…
-            </h1>
-            <p aria-live="polite" className="mt-3.5 flex items-center gap-2 text-[15.5px] text-on-surface-2">
-              {audit === null
-                ? "Starting the audit."
-                : "Reading your materials against a diligence framework. This is a live model call."}
-              <span aria-hidden="true" className="inline-block h-[15px] w-[7px] animate-blink bg-red" />
-            </p>
-          </>
+          <WaitingScreen
+            kicker="The audit · before the panel pushes"
+            heading={`Reading ${simulation.brief.ideaName} against a diligence framework.`}
+            lead="We check every claim for backing, and note everything a real diligencer would ask for."
+            {...AUDIT_WAIT}
+          />
         )}
       </div>
     )

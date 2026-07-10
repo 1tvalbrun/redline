@@ -5,15 +5,18 @@ import type { TranscriptEntry } from "@/types/panel"
 
 type TranscriptPanelProps = {
   transcript: TranscriptEntry[]
+  // The founder's in-progress (uncommitted) speech; replaced by the final
+  // turn when it lands. Display-only.
+  interim?: string
   startedAt: number
 }
 
-export const TranscriptPanel = ({ transcript, startedAt }: TranscriptPanelProps) => {
+export const TranscriptPanel = ({ transcript, interim, startedAt }: TranscriptPanelProps) => {
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" })
-  }, [transcript.length])
+  }, [transcript.length, interim])
 
   return (
     <section
@@ -29,13 +32,14 @@ export const TranscriptPanel = ({ transcript, startedAt }: TranscriptPanelProps)
         </span>
       </div>
       <ScrollArea className="min-h-0 flex-1 px-[18px] pb-4">
-        {transcript.length === 0 ? (
+        {transcript.length === 0 && !interim ? (
           <p className="py-[11px] text-[12.5px] leading-relaxed text-on-surface-2">
             Your conversation will appear here as you speak.
           </p>
         ) : (
           <div>
-            {transcript.map((entry, i) => {
+            <div aria-live="polite">
+              {transcript.map((entry, i) => {
               const isUser = entry.type === "user"
               return (
                 <div
@@ -61,7 +65,23 @@ export const TranscriptPanel = ({ transcript, startedAt }: TranscriptPanelProps)
                   </p>
                 </div>
               )
-            })}
+              })}
+            </div>
+            {interim && (
+              // In-progress speech, replaced by the final turn when it lands.
+              // Outside the live region so screen readers aren't flooded.
+              <div
+                aria-hidden="true"
+                className="border-t border-line py-[11px] first:border-t-0"
+              >
+                <div className="mb-[5px] font-mono text-[9.5px] uppercase tracking-[.12em] text-on-surface-3">
+                  You · speaking…
+                </div>
+                <p className="text-[13.5px] italic leading-normal text-on-surface-3">
+                  {interim}
+                </p>
+              </div>
+            )}
             <div ref={bottomRef} />
           </div>
         )}

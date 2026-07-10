@@ -51,6 +51,7 @@ export const RoomShell = ({ simulationId }: RoomShellProps) => {
   const [isAvatarSpeaking, setIsAvatarSpeaking] = useState(false)
   const [avatarError, setAvatarError] = useState<Error | null>(null)
   const [connectAttempt, setConnectAttempt] = useState(0)
+  const [userInterim, setUserInterim] = useState("")
   const handleToggleMic = useCallback(() => toggleMicRef.current?.(), [])
 
   // A room with no chosen panelist means the founder skipped the Panel
@@ -65,7 +66,6 @@ export const RoomShell = ({ simulationId }: RoomShellProps) => {
 
   const character = room.characters[0]
   const concluded = room.status === "concluded"
-  const turns = room.transcript.length
   const underFire = deriveReadiness(room.riskScores).underFire
 
   const handleEndSession = () => {
@@ -98,7 +98,9 @@ export const RoomShell = ({ simulationId }: RoomShellProps) => {
       className="relative grid h-full min-h-0 grid-cols-[244px_1fr_336px] grid-rows-[1fr_auto] bg-surface text-on-surface"
     >
       <div aria-hidden="true" className="grain-overlay absolute inset-0 z-50 opacity-5" />
-      {!concluded && <UserSpeechBridge roomId={room._id} enabled={micLive} />}
+      {!concluded && (
+        <UserSpeechBridge roomId={room._id} enabled={micLive} onInterim={setUserInterim} />
+      )}
 
       <aside className="col-start-1 row-span-2 row-start-1 flex flex-col gap-[18px] border-r border-line bg-surface-raised px-4 py-5">
         <UserTile userName="Founder" micState={micState} onToggleMic={handleToggleMic} />
@@ -240,10 +242,11 @@ export const RoomShell = ({ simulationId }: RoomShellProps) => {
         >
           <Pause className="h-[18px] w-[18px]" />
         </button>
-        <span className="font-mono text-[11px] uppercase tracking-[.1em] text-on-surface-2">
-          <b className="font-semibold text-on-surface tabular-nums">{turns}</b> turns
-          {underFire && ` · ${AXIS_LABELS[underFire]} under discussion`}
-        </span>
+        {underFire && (
+          <span className="font-mono text-[11px] uppercase tracking-[.1em] text-on-surface-2">
+            {AXIS_LABELS[underFire]} under discussion
+          </span>
+        )}
         <button
           type="button"
           onClick={handleEndSession}
@@ -255,7 +258,11 @@ export const RoomShell = ({ simulationId }: RoomShellProps) => {
 
       <aside className="col-start-3 row-span-2 row-start-1 flex min-h-0 flex-col border-l border-line bg-surface-raised">
         <div className="min-h-0 flex-[1.25] border-b border-line">
-          <TranscriptPanel transcript={room.transcript} startedAt={room._creationTime} />
+          <TranscriptPanel
+            transcript={room.transcript}
+            interim={userInterim}
+            startedAt={room._creationTime}
+          />
         </div>
         <div className="min-h-0 flex-1">
           <LiveNotes notes={room.liveNotes} startedAt={room._creationTime} />
