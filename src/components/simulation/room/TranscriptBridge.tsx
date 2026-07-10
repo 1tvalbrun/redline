@@ -17,6 +17,12 @@ export const TranscriptBridge = ({ roomId, character }: TranscriptBridgeProps) =
   useTranscription((entry) => {
     if (!entry.final) return
     if (entry.participantIdentity.startsWith("user:")) return
+    // The engine also replays the FOUNDER's turns over the data channel
+    // (id `runway-transcription-user-<n>`), stamped with the avatar's
+    // identity and delayed until the next founder turn — without this they
+    // land as duplicated panelist entries. The avatar's own speech arrives
+    // via LiveKit native transcription and is untouched.
+    if (entry.id.startsWith("runway-transcription-user-")) return
     void (async () => {
       const result = await addTranscriptEntry({
         id: roomId,

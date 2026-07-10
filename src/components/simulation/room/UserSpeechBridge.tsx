@@ -1,50 +1,37 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
 import { useMutation, useAction } from "convex/react"
 import { api } from "@convex/_generated/api"
 import { Id } from "@convex/_generated/dataModel"
+import { startFounderTranscription } from "@/lib/founderTranscription"
 
 type UserSpeechBridgeProps = {
   roomId: Id<"rooms">
   enabled: boolean
+  // In-progress (uncommitted) speech for display only — never written to
+  // Convex, never sent to the orchestrator.
+  onInterim: (text: string) => void
 }
 
-const CHUNK_MS = 6000
-const MIN_TRANSCRIPT_LENGTH = 4
-
-export const UserSpeechBridge = ({ roomId, enabled }: UserSpeechBridgeProps) => {
+// Streams the founder's speech through the shared transcription core and
+// writes each final turn to the room transcript. The avatar's own speech is
+// transcribed by Runway (TranscriptBridge) — this bridge is founder-only.
+export const UserSpeechBridge = ({ roomId, enabled, onInterim }: UserSpeechBridgeProps) => {
   const addTranscriptEntry = useMutation(api.rooms.addTranscriptEntry)
   const decide = useAction(api.orchestrator.decide)
 
+  const onInterimRef = useRef(onInterim)
   useEffect(() => {
-    if (!enabled) {
-      console.log("[UserSpeechBridge] disabled (mic off)")
-      return
-    }
+    onInterimRef.current = onInterim
+  }, [onInterim])
 
-    let cancelled = false
-    let stream: MediaStream | null = null
-    let activeRecorder: MediaRecorder | null = null
-    let chunkTimer: ReturnType<typeof setTimeout> | null = null
+  useEffect(() => {
+    if (!enabled) return
+    let stopped = false
 
-    const processBlob = async (blob: Blob) => {
+    const writeFinalTurn = async (text: string) => {
       try {
-        const form = new FormData()
-        form.append("audio", blob, "chunk.webm")
-        const res = await fetch("/api/transcribe", {
-          method: "POST",
-          body: form,
-        })
-        if (!res.ok) {
-          console.warn("[UserSpeechBridge] /api/transcribe", res.status)
-          return
-        }
-        const data = (await res.json()) as { text?: string }
-        const text = (data.text ?? "").trim()
-        if (text.length < MIN_TRANSCRIPT_LENGTH) return
-
-        console.log("[UserSpeechBridge] transcribed:", text)
         const result = await addTranscriptEntry({
           id: roomId,
           entry: {
@@ -61,62 +48,30 @@ export const UserSpeechBridge = ({ roomId, enabled }: UserSpeechBridgeProps) => 
           )
         }
       } catch (err) {
-        console.warn("[UserSpeechBridge] transcribe error:", err)
+        console.warn("[UserSpeechBridge] transcript write failed:", err)
       }
     }
 
-    const recordChunk = () => {
-      if (cancelled || !stream) return
-      const chunks: Blob[] = []
-      let rec: MediaRecorder
-      try {
-        rec = new MediaRecorder(stream, { mimeType: "audio/webm" })
-      } catch (err) {
-        console.warn("[UserSpeechBridge] MediaRecorder unsupported:", err)
-        return
-      }
-      activeRecorder = rec
-      rec.ondataavailable = (e) => {
-        if (e.data.size > 0) chunks.push(e.data)
-      }
-      rec.onstop = () => {
-        if (chunks.length > 0 && !cancelled) {
-          const blob = new Blob(chunks, { type: "audio/webm" })
-          void processBlob(blob)
+    const stream = startFounderTranscription({
+      // Finals keep flowing through the stop-flush so in-flight speech is
+      // written; interims stop at unmount so no ghost line lingers.
+      onFinalTurn: (text) => void writeFinalTurn(text),
+      onInterim: (text) => {
+        if (!stopped) onInterimRef.current(text)
+      },
+      onStatus: (status) => {
+        if (status === "denied" || status === "error") {
+          console.warn("[UserSpeechBridge] transcription unavailable:", status)
         }
-        if (!cancelled) recordChunk()
-      }
-      rec.start()
-      chunkTimer = setTimeout(() => {
-        try {
-          rec.stop()
-        } catch {}
-      }, CHUNK_MS)
-    }
-
-    navigator.mediaDevices
-      .getUserMedia({ audio: true })
-      .then((s) => {
-        if (cancelled) {
-          s.getTracks().forEach((t) => t.stop())
-          return
-        }
-        stream = s
-        console.log("[UserSpeechBridge] mic acquired, streaming 6s chunks to AssemblyAI")
-        recordChunk()
-      })
-      .catch((err) => {
-        console.warn("[UserSpeechBridge] mic access failed:", err)
-      })
+      },
+    })
 
     return () => {
-      cancelled = true
-      if (chunkTimer) clearTimeout(chunkTimer)
-      try {
-        activeRecorder?.stop()
-      } catch {}
-      stream?.getTracks().forEach((t) => t.stop())
-      console.log("[UserSpeechBridge] stopped")
+      stopped = true
+      onInterimRef.current("")
+      // Graceful stop (not dispose): speech in flight when the mic goes off
+      // or the room concludes still flushes into the transcript.
+      void stream.stop()
     }
   }, [roomId, enabled, addTranscriptEntry, decide])
 
