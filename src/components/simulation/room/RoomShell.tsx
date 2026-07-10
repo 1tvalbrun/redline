@@ -23,6 +23,13 @@ type RoomShellProps = {
   simulationId: string
 }
 
+// Display-only hold on the founder's finalized turns so both sides land at
+// one rhythm: the avatar's transcript inherently lags several seconds behind
+// his speech (measured ~8-10s in live sessions), the founder's commits
+// ~0.7s after theirs. Scoring is NOT delayed — orchestrator.decide reads
+// Convex directly. Tune the cadence here.
+const FOUNDER_TRANSCRIPT_DELAY_MS = 6000
+
 const SessionClock = ({ startedAt }: { startedAt: number }) => {
   const [now, setNow] = useState(() => Date.now())
 
@@ -65,7 +72,6 @@ export const RoomShell = ({ simulationId }: RoomShellProps) => {
 
   const character = room.characters[0]
   const concluded = room.status === "concluded"
-  const turns = room.transcript.length
   const underFire = deriveReadiness(room.riskScores).underFire
 
   const handleEndSession = () => {
@@ -240,10 +246,11 @@ export const RoomShell = ({ simulationId }: RoomShellProps) => {
         >
           <Pause className="h-[18px] w-[18px]" />
         </button>
-        <span className="font-mono text-[11px] uppercase tracking-[.1em] text-on-surface-2">
-          <b className="font-semibold text-on-surface tabular-nums">{turns}</b> turns
-          {underFire && ` · ${AXIS_LABELS[underFire]} under discussion`}
-        </span>
+        {underFire && (
+          <span className="font-mono text-[11px] uppercase tracking-[.1em] text-on-surface-2">
+            {AXIS_LABELS[underFire]} under discussion
+          </span>
+        )}
         <button
           type="button"
           onClick={handleEndSession}
@@ -255,7 +262,11 @@ export const RoomShell = ({ simulationId }: RoomShellProps) => {
 
       <aside className="col-start-3 row-span-2 row-start-1 flex min-h-0 flex-col border-l border-line bg-surface-raised">
         <div className="min-h-0 flex-[1.25] border-b border-line">
-          <TranscriptPanel transcript={room.transcript} startedAt={room._creationTime} />
+          <TranscriptPanel
+            transcript={room.transcript}
+            startedAt={room._creationTime}
+            delayUserMs={concluded ? undefined : FOUNDER_TRANSCRIPT_DELAY_MS}
+          />
         </div>
         <div className="min-h-0 flex-1">
           <LiveNotes notes={room.liveNotes} startedAt={room._creationTime} />

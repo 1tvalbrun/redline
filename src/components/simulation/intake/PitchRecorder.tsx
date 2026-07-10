@@ -1,36 +1,48 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
-import { cn, formatElapsed } from "@/lib/utils"
+import { useCallback, useEffect, useRef, useState } from "react"
+import { formatElapsed } from "@/lib/utils"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { FLOW_BTN } from "@/components/simulation/flow/FlowShell"
+import { usePitchTranscription } from "./usePitchTranscription"
 
-const CHUNK_MS = 6000
 const MAX_PITCH_MS = 90_000
 const CUE_AFTER_MS = 12_000
-const MIN_CHUNK_TEXT = 4
+const BAR_COUNT = 48
+// sqrt compresses the RMS range so quiet speech still registers; the gain
+// puts a normal speaking level near full height. Silence stays at baseline.
+const barHeight = (rms: number) => `${6 + Math.min(1, Math.sqrt(rms) * 2.4) * 94}%`
 
-// Static classes so Tailwind compiles them; cycled across the 48 bars.
-const BAR_DELAYS = [
-  "",
-  "[animation-delay:.12s]",
-  "[animation-delay:.24s]",
-  "[animation-delay:.36s]",
-  "[animation-delay:.48s]",
-  "[animation-delay:.6s]",
-  "[animation-delay:.72s]",
-  "[animation-delay:.84s]",
-]
-const BAR_DURATIONS = [
-  "[animation-duration:.7s]",
-  "[animation-duration:.9s]",
-  "[animation-duration:1.1s]",
-  "[animation-duration:1.3s]",
-]
-const BARS = Array.from({ length: 48 }, (_, i) =>
-  cn("w-1 rounded-[2px] bg-on-surface animate-eq h-[12%]", BAR_DELAYS[i % 8], BAR_DURATIONS[(i * 7) % 4])
-)
+const paintBars = (container: HTMLDivElement, levels: number[]) => {
+  const offset = BAR_COUNT - levels.length
+  for (let i = 0; i < levels.length; i++) {
+    ;(container.children[offset + i] as HTMLElement).style.height = barHeight(levels[i])
+  }
+}
 
-type RecorderState = "starting" | "denied" | "recording" | "finishing" | "silent"
+const resetBars = (container: HTMLDivElement) => {
+  for (const bar of container.children) {
+    ;(bar as HTMLElement).style.height = ""
+  }
+}
+
+const BLOCKED_MESSAGES = {
+  denied:
+    "We can't hear you — microphone access is blocked. Allow it in your browser and try again, or type your pitch instead.",
+  silent:
+    "We couldn't catch any speech in that take. Try again a little closer to the mic, or type it instead.",
+  error:
+    "We hit a problem with the transcription connection. Try again, or type your pitch instead.",
+}
 
 type PitchRecorderProps = {
   guided: boolean
@@ -41,135 +53,80 @@ type PitchRecorderProps = {
 }
 
 export const PitchRecorder = ({ guided, onComplete, onCancel, onRetry }: PitchRecorderProps) => {
-  const [state, setState] = useState<RecorderState>("starting")
   const [elapsedMs, setElapsedMs] = useState(0)
-  const [heard, setHeard] = useState<string[]>([])
-  const stopRef = useRef<() => void>(() => {})
+  const [silent, setSilent] = useState(false)
+  const [confirmingDiscard, setConfirmingDiscard] = useState(false)
+  const elapsedRef = useRef(0)
+  const barsRef = useRef<HTMLDivElement>(null)
+  const levelsRef = useRef<number[]>([])
+  const listeningRef = useRef(false)
+  const reduceMotionRef = useRef(false)
+  useEffect(() => {
+    reduceMotionRef.current = matchMedia("(prefers-reduced-motion: reduce)").matches
+  }, [])
 
-  // Latest-ref: the recording lifecycle must survive parent re-renders, so
-  // the media effect runs once per mount and reads the current callback here.
+  // Latest-ref: the transcription lifecycle runs once per mount and must
+  // survive parent re-renders, so it reads the current callback here.
   const onCompleteRef = useRef(onComplete)
   useEffect(() => {
     onCompleteRef.current = onComplete
   }, [onComplete])
 
-  useEffect(() => {
-    let cancelled = false
-    let stream: MediaStream | null = null
-    let recorder: MediaRecorder | null = null
-    let tick: ReturnType<typeof setInterval> | null = null
-    let chunkIndex = 0
-    let elapsed = 0
-    let pending = 0
-    let stopRequested = false
-    let recorderStopped = false
-    const chunks: string[] = []
-
-    const finalizeIfDone = () => {
-      if (cancelled || !stopRequested || !recorderStopped || pending > 0) return
-      const transcript = chunks.filter(Boolean).join(" ").trim()
-      if (transcript.length === 0) {
-        setState("silent")
-      } else {
-        onCompleteRef.current(transcript, Math.round(elapsed / 1000))
-      }
-    }
-
-    const transcribeChunk = async (blob: Blob, index: number) => {
-      pending += 1
-      try {
-        const form = new FormData()
-        form.append("audio", blob, "chunk.webm")
-        const response = await fetch("/api/transcribe", { method: "POST", body: form })
-        if (response.ok) {
-          const { text } = (await response.json()) as { text: string }
-          if (text.trim().length >= MIN_CHUNK_TEXT) {
-            chunks[index] = text.trim()
-            if (!cancelled) setHeard(chunks.filter(Boolean))
-          }
-        }
-      } catch {
-        // A dropped chunk loses a few seconds of speech; the founder reviews
-        // and edits the assembled brief, so keep going rather than abort.
-      } finally {
-        pending -= 1
-        finalizeIfDone()
-      }
-    }
-
-    const recordChunk = () => {
-      if (cancelled || stopRequested || !stream) return
-      recorder = new MediaRecorder(stream, { mimeType: "audio/webm" })
-      const index = chunkIndex++
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) transcribeChunk(e.data, index)
-      }
-      recorder.onstop = () => {
-        if (stopRequested) {
-          recorderStopped = true
-          finalizeIfDone()
-        } else {
-          recordChunk()
-        }
-      }
-      recorder.start()
-      setTimeout(() => {
-        if (recorder?.state === "recording") recorder.stop()
-      }, CHUNK_MS)
-    }
-
-    const requestStop = () => {
-      if (stopRequested || cancelled) return
-      stopRequested = true
-      if (tick) clearInterval(tick)
-      setState("finishing")
-      if (recorder?.state === "recording") {
-        recorder.stop()
-      } else {
-        recorderStopped = true
-        finalizeIfDone()
-      }
-    }
-    stopRef.current = requestStop
-
-    navigator.mediaDevices
-      .getUserMedia({ audio: true })
-      .then((s) => {
-        if (cancelled) {
-          s.getTracks().forEach((t) => t.stop())
-          return
-        }
-        stream = s
-        setState("recording")
-        recordChunk()
-        tick = setInterval(() => {
-          elapsed += 1000
-          setElapsedMs(elapsed)
-          if (elapsed >= MAX_PITCH_MS) requestStop()
-        }, 1000)
-      })
-      .catch(() => {
-        if (!cancelled) setState("denied")
-      })
-
-    return () => {
-      cancelled = true
-      if (tick) clearInterval(tick)
-      stopRequested = true
-      if (recorder?.state === "recording") recorder.stop()
-      stream?.getTracks().forEach((t) => t.stop())
+  const handleFinished = useCallback((transcript: string) => {
+    if (transcript.length === 0) {
+      setSilent(true)
+    } else {
+      onCompleteRef.current(transcript, Math.round(elapsedRef.current / 1000))
     }
   }, [])
 
-  const cueVisible = state === "recording" && (guided || elapsedMs >= CUE_AFTER_MS)
+  // Scrolls a per-chunk amplitude history across the bars (newest at the
+  // right) by writing heights directly — audio arrives ~10×/s and must not
+  // re-render React; the CSS height transition smooths between updates.
+  const handleAudioLevel = useCallback((rms: number) => {
+    const bars = barsRef.current
+    if (!bars || !listeningRef.current || reduceMotionRef.current) return
+    const levels = levelsRef.current
+    levels.push(rms)
+    if (levels.length > BAR_COUNT) levels.shift()
+    paintBars(bars, levels)
+  }, [])
 
-  if (state === "denied" || state === "silent") {
+  const { status, finals, heardSpeech, stop } = usePitchTranscription(handleFinished, handleAudioLevel)
+
+  useEffect(() => {
+    listeningRef.current = status === "listening"
+    if (listeningRef.current || !barsRef.current) return
+    levelsRef.current = []
+    resetBars(barsRef.current)
+  }, [status])
+
+  const handleStartOver = () => {
+    if (heardSpeech) {
+      setConfirmingDiscard(true)
+    } else {
+      onCancel()
+    }
+  }
+
+  useEffect(() => {
+    if (status !== "listening") return
+    const tick = setInterval(() => {
+      elapsedRef.current += 1000
+      setElapsedMs(elapsedRef.current)
+      if (elapsedRef.current >= MAX_PITCH_MS) stop()
+    }, 1000)
+    return () => clearInterval(tick)
+  }, [status, stop])
+
+  const cueVisible = status === "listening" && (guided || elapsedMs >= CUE_AFTER_MS)
+  const blocked = silent ? "silent" : status === "denied" || status === "error" ? status : null
+
+  if (blocked) {
     return (
       <div className="flex flex-1 flex-col items-start justify-center">
         <p role="alert" className="max-w-[44ch] text-[17px] leading-[1.5] text-on-surface">
-          {state === "denied"
-            ? "We can't hear you — microphone access is blocked. Allow it in your browser and try again, or type your pitch instead."
-            : "We couldn't catch any speech in that take. Try again a little closer to the mic, or type it instead."}
+          {BLOCKED_MESSAGES[blocked]}
         </p>
         <div className="mt-7 flex items-center gap-3.5">
           <button type="button" onClick={onRetry} className={FLOW_BTN}>
@@ -190,23 +147,35 @@ export const PitchRecorder = ({ guided, onComplete, onCancel, onRetry }: PitchRe
   return (
     <div className="flex flex-1 flex-col">
       <div className="mb-7 flex items-center justify-between">
-        <span className="flex items-center gap-2.5 font-mono text-xs uppercase tracking-[.14em] text-red-fg">
+        <span
+          role="status"
+          className="flex items-center gap-2.5 font-mono text-xs uppercase tracking-[.14em] text-red-fg"
+        >
           <span aria-hidden="true" className="h-[9px] w-[9px] animate-pulse-red rounded-full bg-red" />
-          {state === "starting" ? "Requesting microphone…" : state === "finishing" ? "Wrapping up…" : "Listening"}
+          {status === "connecting" ? "Requesting microphone…" : status === "finishing" ? "Wrapping up…" : "Listening"}
         </span>
         <span className="font-mono text-sm tracking-[.1em] tabular-nums text-on-surface-2">
           {formatElapsed(0, elapsedMs)}
         </span>
       </div>
 
-      <div aria-hidden="true" className="my-2.5 mb-8 flex h-[90px] items-center justify-center gap-1">
-        {BARS.map((barClass, i) => (
-          <span key={i} className={cn(barClass, state !== "recording" && "animate-none")} />
+      <div
+        ref={barsRef}
+        aria-hidden="true"
+        className="my-2.5 mb-8 flex h-[90px] items-center justify-center gap-1"
+      >
+        {Array.from({ length: BAR_COUNT }, (_, i) => (
+          <span
+            key={i}
+            className="h-[6%] w-1 rounded-[2px] bg-on-surface transition-[height] duration-150 ease-out"
+          />
         ))}
       </div>
 
-      <div aria-live="polite" className="min-h-[120px] max-w-[60ch] flex-1 text-[22px] leading-[1.6]">
-        <span className="text-on-surface">{heard.join(" ")}</span>
+      <div className="min-h-[120px] max-w-[60ch] flex-1 text-[22px] leading-[1.6]">
+        <span aria-live="polite" className="text-on-surface">
+          {finals.join(" ")}
+        </span>
         <span aria-hidden="true" className="ml-[3px] inline-block h-6 w-[9px] animate-blink bg-red align-[-4px]" />
       </div>
 
@@ -220,20 +189,37 @@ export const PitchRecorder = ({ guided, onComplete, onCancel, onRetry }: PitchRe
       <div className="mt-8 flex items-center gap-3.5">
         <button
           type="button"
-          onClick={() => stopRef.current()}
-          disabled={state !== "recording"}
+          onClick={stop}
+          disabled={status !== "listening"}
           className={FLOW_BTN}
         >
           ✓ That&apos;s my pitch
         </button>
         <button
           type="button"
-          onClick={onCancel}
+          onClick={handleStartOver}
           className="focus-ring font-mono text-[11px] uppercase tracking-[.06em] text-on-surface-2 hover:text-red-fg"
         >
           Start over
         </button>
       </div>
+
+      <AlertDialog open={confirmingDiscard} onOpenChange={setConfirmingDiscard}>
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Discard this pitch?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Your recording so far will be lost.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep recording</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={onCancel}>
+              Discard
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

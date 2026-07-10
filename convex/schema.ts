@@ -64,6 +64,11 @@ export default defineSchema({
         speakerName: v.string(),
         text: v.string(),
         timestamp: v.number(),
+        // Measured speech onset (wall-clock ms). Entries arrive out of
+        // speech order — finals land long after speaking begins — so
+        // consumers sort on this, falling back to timestamp (write time)
+        // for rows that predate the field.
+        spokenAt: v.optional(v.number()),
         type: v.string(),
       })
     ),

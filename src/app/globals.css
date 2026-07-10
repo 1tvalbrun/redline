@@ -43,6 +43,15 @@
   --animate-eq: eq 0.9s ease-in-out infinite;
   --animate-pulse-red: pulse-red 2s infinite;
   --animate-blink: blink 1s steps(2) infinite;
+  --animate-shimmer: shimmer 1.6s linear infinite;
+  @keyframes shimmer {
+    0% {
+      background-position: 120% 0;
+    }
+    100% {
+      background-position: -40% 0;
+    }
+  }
   @keyframes blink {
     50% {
       opacity: 0;
@@ -194,6 +203,19 @@
   ::selection {
     background: var(--red);
     color: #eae8e2; /* paper — constant on both surfaces, per mocks */
+  }
+  /* Chrome paints autofilled fields with its own pale background via an
+     internal style that normal `background` rules can't override. The inset
+     box-shadow trick repaints it with the form surface without disabling
+     autofill itself. */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  textarea:-webkit-autofill,
+  select:-webkit-autofill {
+    -webkit-box-shadow: 0 0 0 1000px var(--surface-raised) inset;
+    -webkit-text-fill-color: var(--on-surface);
+    caret-color: var(--on-surface);
   }
 }
 
