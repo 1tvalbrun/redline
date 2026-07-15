@@ -9,7 +9,7 @@ import { api } from "@convex/_generated/api"
 import { Id } from "@convex/_generated/dataModel"
 import { cn } from "@/lib/utils"
 import { deriveAuditRiskScores } from "@/lib/preRunScores"
-import { deriveReadiness, AXIS_LABELS, type Axis } from "@/lib/readiness"
+import { deriveReadiness, AXIS_LABELS, AXIS_TO_CHARACTER } from "@/lib/readiness"
 import { FLOW_BTN, StageKicker } from "@/components/simulation/flow/FlowShell"
 import { IdeaNotFound } from "@/components/simulation/flow/IdeaNotFound"
 import { DEFAULT_CHARACTERS } from "../characters"
@@ -18,15 +18,6 @@ const ARCHETYPE_ROLES: Record<string, string> = {
   vc: "The VC",
   target_customer: "The buyer",
   technical_architect: "The architect",
-}
-
-// Which interrogator presses hardest on each axis. The buyer owns both
-// customer pain and how organizations actually buy (gtm).
-const AXIS_TO_CHARACTER: Record<Axis, string> = {
-  market: "vc-01",
-  customer: "tc-01",
-  gtm: "tc-01",
-  technical: "ta-01",
 }
 
 const CHARACTER_ATTACK: Record<string, React.ReactNode> = {

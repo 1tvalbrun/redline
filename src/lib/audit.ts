@@ -53,12 +53,12 @@ export const locationsIn = (materialText: string): Set<string> => {
 
 type GroundingMaterial = { name: string; text: string }
 
-const field = (entry: unknown, key: string): unknown =>
+export const field = (entry: unknown, key: string): unknown =>
   typeof entry === "object" && entry !== null
     ? (entry as Record<string, unknown>)[key]
     : undefined
 
-const asString = (value: unknown): string | null =>
+export const asString = (value: unknown): string | null =>
   typeof value === "string" && value.trim().length > 0 ? value.trim() : null
 
 const parseSeverity = (value: string | undefined): Gap["severity"] =>

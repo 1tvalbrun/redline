@@ -1,6 +1,6 @@
 import test from "node:test"
 import assert from "node:assert/strict"
-import { deriveReadiness, readinessSeverity } from "./readiness.ts"
+import { deriveReadiness, readinessSeverity, selectVerdictSpeaker } from "./readiness.ts"
 
 test("all-zero risk yields full readiness on every axis", () => {
   const r = deriveReadiness({ market: 0, customer: 0, technical: 0, gtm: 0 })
@@ -88,4 +88,31 @@ test("non-finite values are filtered, not averaged into NaN", () => {
   assert.equal(r.perAxis.customer, 60)
   assert.equal(r.overall, 60)
   assert.equal(r.underFire, "customer")
+})
+
+test("verdict speaker: a lone panelist always delivers", () => {
+  const only = [{ id: "vc-01" }]
+  assert.equal(selectVerdictSpeaker(only, { technical: 90 }), only[0])
+  assert.equal(selectVerdictSpeaker([], { market: 50 }), null)
+})
+
+test("verdict speaker: multiple panelists → the weakest-axis owner delivers", () => {
+  const panel = [{ id: "vc-01" }, { id: "tc-01" }, { id: "ta-01" }]
+  // technical is the highest risk → lowest readiness → ta-01 owns it
+  assert.equal(
+    selectVerdictSpeaker(panel, { market: 20, customer: 30, technical: 85, gtm: 10 })?.id,
+    "ta-01"
+  )
+  // gtm weakest → the buyer owns gtm
+  assert.equal(
+    selectVerdictSpeaker(panel, { market: 20, gtm: 70 })?.id,
+    "tc-01"
+  )
+})
+
+test("verdict speaker: no scores or absent owner falls back to who was faced first", () => {
+  const panel = [{ id: "vc-01" }, { id: "ta-01" }]
+  assert.equal(selectVerdictSpeaker(panel, undefined)?.id, "vc-01")
+  // customer axis weakest but tc-01 not on the panel
+  assert.equal(selectVerdictSpeaker(panel, { customer: 90, market: 10 })?.id, "vc-01")
 })

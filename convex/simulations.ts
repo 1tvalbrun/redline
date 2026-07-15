@@ -1,5 +1,5 @@
 import { v } from "convex/values"
-import { mutation, query, action } from "./_generated/server"
+import { internalMutation, mutation, query, action } from "./_generated/server"
 import { api, internal } from "./_generated/api"
 import { materialFileType, validateMaterialFile } from "../src/lib/materials"
 import { parseExtractedBrief } from "../src/lib/intake"
@@ -84,7 +84,9 @@ export const list = query({
   },
 })
 
-export const setStatus = mutation({
+// Internal: status transitions are driven by simulations.analyze, never the
+// client.
+export const setStatus = internalMutation({
   args: {
     id: v.id("simulations"),
     status: v.union(
@@ -100,7 +102,8 @@ export const setStatus = mutation({
   },
 })
 
-export const setContext = mutation({
+// Internal: written only by simulations.analyze.
+export const setContext = internalMutation({
   args: {
     id: v.id("simulations"),
     context: v.object({
@@ -134,7 +137,7 @@ export const analyze = action({
     const simulation = await ctx.runQuery(api.simulations.get, { id: args.id })
     if (!simulation) throw new Error("Simulation not found")
 
-    await ctx.runMutation(api.simulations.setStatus, {
+    await ctx.runMutation(internal.simulations.setStatus, {
       id: args.id,
       status: "analyzing",
     })
@@ -164,7 +167,7 @@ export const analyze = action({
 
     const context = JSON.parse(content)
 
-    await ctx.runMutation(api.simulations.setContext, {
+    await ctx.runMutation(internal.simulations.setContext, {
       id: args.id,
       context,
       status: "ready",

@@ -1,6 +1,6 @@
 import { v } from "convex/values"
 import { action } from "./_generated/server"
-import { api } from "./_generated/api"
+import { api, internal } from "./_generated/api"
 import { bySpokenTime } from "../src/lib/transcript"
 
 const NOTE_TYPES = new Set([
@@ -137,7 +137,7 @@ Respond with JSON only, exactly this shape:
       gtm: typeof r.gtm === "number" ? boundDelta(current.gtm, r.gtm) : current.gtm,
     }
 
-    await ctx.runMutation(api.rooms.updateRiskScores, {
+    await ctx.runMutation(internal.rooms.updateRiskScores, {
       id: args.roomId,
       scores,
     })
@@ -150,7 +150,7 @@ Respond with JSON only, exactly this shape:
       typeof note.type === "string" &&
       NOTE_TYPES.has(note.type)
     ) {
-      await ctx.runMutation(api.rooms.addLiveNote, {
+      await ctx.runMutation(internal.rooms.addLiveNote, {
         id: args.roomId,
         note: { type: note.type, text: note.text.trim() },
       })

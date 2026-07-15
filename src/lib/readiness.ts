@@ -26,6 +26,30 @@ export const AXIS_LABELS: Record<Axis, string> = {
   gtm: "Go-to-market",
 }
 
+// Which interrogator presses hardest on each axis. The buyer owns both
+// customer pain and how organizations actually buy (gtm). Shared by the
+// Panel recommendation and verdict-speaker selection — one definition.
+export const AXIS_TO_CHARACTER: Record<Axis, string> = {
+  market: "vc-01",
+  customer: "tc-01",
+  gtm: "tc-01",
+  technical: "ta-01",
+}
+
+// Who delivers the spoken verdict: the panelist the founder faced, or —
+// when they faced several — the one who owns the weakest axis.
+export const selectVerdictSpeaker = <T extends { id: string }>(
+  characters: T[],
+  risk: RiskScores | undefined
+): T | null => {
+  if (characters.length <= 1) return characters[0] ?? null
+  const weakest = deriveReadiness(risk).underFire
+  const owner = weakest
+    ? characters.find((c) => c.id === AXIS_TO_CHARACTER[weakest])
+    : undefined
+  return owner ?? characters[0]
+}
+
 const toReadiness = (value: number): Readiness =>
   Math.max(0, Math.min(100, Math.round(value))) as Readiness
 
