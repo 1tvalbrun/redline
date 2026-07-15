@@ -1,6 +1,5 @@
 "use client"
 
-import Image from "next/image"
 import Link from "next/link"
 import { useQuery } from "convex/react"
 import { api } from "@convex/_generated/api"
@@ -11,6 +10,7 @@ import { Panel } from "@/components/shared/Panel"
 import { ReadinessGauge, useCountUp } from "@/components/shared/ReadinessGauge"
 import { FLOW_BTN, StageKicker } from "@/components/simulation/flow/FlowShell"
 import { IdeaNotFound } from "@/components/simulation/flow/IdeaNotFound"
+import { VerdictStage } from "./VerdictStage"
 
 const VERDICT_STYLE: Record<string, { label: string; className: string }> = {
   advance: { label: "Advance", className: "border-ok text-ok" },
@@ -52,16 +52,6 @@ export const ReportView = ({ simulationId }: ReportViewProps) => {
     )
     return earlierScored.length > 0 ? earlierScored[earlierScored.length - 1].score : null
   })()
-
-  const heroUrl =
-    report?.generatedMedia?.successVideo ?? report?.generatedMedia?.failureVideo
-  const heroReady = report?.mediaStatus === "complete" && !!heroUrl
-  const mediaStatus = report?.mediaStatus ?? ""
-  const heroFailed = mediaStatus.startsWith("failed") || mediaStatus === "skipped"
-  const heroErrorReason =
-    heroFailed && mediaStatus.startsWith("failed: ")
-      ? mediaStatus.slice("failed: ".length)
-      : null
 
   const verdict = report ? VERDICT_STYLE[report.verdict] ?? VERDICT_STYLE.iterate : null
   const panelVerdict = report?.panelVerdicts[0]
@@ -135,10 +125,29 @@ export const ReportView = ({ simulationId }: ReportViewProps) => {
         </div>
       </div>
 
-      <div className="mt-8 grid gap-[26px] max-md:grid-cols-1 md:grid-cols-2">
+      <VerdictStage
+        className="mt-8"
+        video={report ? report.verdictVideo ?? null : undefined}
+        pendingSince={report?._creationTime}
+        ideaName={simulation?.brief.ideaName ?? "Your idea"}
+        verdictLabel={verdict?.label ?? null}
+      />
+
+      <div className="mt-[26px] grid gap-[26px] max-md:grid-cols-1 md:grid-cols-2">
         <Panel title="In the room">
           {report ? (
             <div>
+              {report.opportunities.length === 0 && (
+                <div className="flex gap-[11px] border-t border-line py-[11px] text-[13.5px] leading-[1.5] text-on-surface-2 first:border-t-0">
+                  <span aria-hidden="true" className="flex-none font-mono font-semibold">
+                    ○
+                  </span>
+                  <span>
+                    Nothing held up. The panel heard no claim that survived
+                    pressure.
+                  </span>
+                </div>
+              )}
               {report.opportunities.map((text, i) => (
                 <div key={`ok-${i}`} className="flex gap-[11px] border-t border-line py-[11px] text-[13.5px] leading-[1.5] first:border-t-0">
                   <span aria-hidden="true" className="flex-none font-mono font-semibold text-ok">✓</span>
@@ -223,49 +232,6 @@ export const ReportView = ({ simulationId }: ReportViewProps) => {
           )}
         </Panel>
 
-        <div
-          data-surface="dark"
-          className="grid overflow-hidden border border-on-surface bg-surface text-on-surface max-md:grid-cols-1 md:col-span-2 md:grid-cols-[1.2fr_1fr]"
-        >
-          <div className="relative aspect-video bg-[#1a1712]">
-            {heroReady ? (
-              <Image
-                src={heroUrl!}
-                alt={`Generated scene for the ${verdict?.label ?? ""} verdict`}
-                fill
-                className="object-cover"
-                unoptimized
-              />
-            ) : heroFailed ? (
-              <div className="absolute inset-x-4 bottom-4 border border-line-2 bg-surface-raised px-3 py-2 text-xs text-on-surface-2">
-                <span className="font-semibold text-on-surface">Scene generation failed</span>
-                {heroErrorReason && <>: {heroErrorReason}</>}
-              </div>
-            ) : (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-                <div
-                  aria-hidden="true"
-                  className="h-8 w-8 animate-spin rounded-full border-2 border-line-2 border-t-on-surface"
-                />
-                <p className="font-mono text-[10.5px] uppercase tracking-[.14em] text-on-surface-2">
-                  {report ? "Generating scene…" : "Waiting for the verdict…"}
-                </p>
-              </div>
-            )}
-          </div>
-          <div className="flex flex-col justify-center p-6">
-            <p className="mb-2.5 font-mono text-[10px] uppercase tracking-[.16em] text-on-surface-3">
-              Your verdict · scene
-            </p>
-            <h2 className="font-display text-[22px] font-bold tracking-[-.01em]">
-              The room, rendered.
-            </h2>
-            <p className="mt-2.5 text-[13.5px] leading-[1.55] text-on-surface-2">
-              A cinematic still generated from this run&apos;s verdict. The spoken video
-              debrief arrives in a later cut.
-            </p>
-          </div>
-        </div>
       </div>
 
       <div className="mt-[30px] flex flex-wrap items-center gap-3.5">

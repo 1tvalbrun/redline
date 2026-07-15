@@ -142,6 +142,8 @@ export default defineSchema({
       })
     ),
     topRisks: v.array(v.string()),
+    // "Held up" findings. Populated only through groundHeldUp — every entry
+    // traces to a verbatim founder quote; empty means nothing survived.
     opportunities: v.array(v.string()),
     nextSevenDays: v.array(
       v.object({
@@ -150,12 +152,47 @@ export default defineSchema({
         priority: v.string(),
       })
     ),
+    // Legacy scene-image pipeline (removed — the verdict video replaced
+    // it). Kept optional so reports generated before the removal still
+    // validate; new reports write neither field.
     generatedMedia: v.optional(
       v.object({
         successVideo: v.optional(v.string()),
         failureVideo: v.optional(v.string()),
       })
     ),
-    mediaStatus: v.string(),
+    mediaStatus: v.optional(v.string()),
+    // The verdict film (M5): the act_two full-room cut — the whole panel in
+    // one shot, the speaker delivering the one-line verdict. Absent on
+    // reports that predate the feature or whose speaker has no Runway
+    // avatar/room scene — the verdict screen falls back to the still
+    // composite. Generated exactly once, when the report is created; url is
+    // a durable Convex storage URL.
+    verdictVideo: v.optional(
+      v.object({
+        status: v.union(
+          v.literal("pending"),
+          v.literal("ready"),
+          v.literal("failed")
+        ),
+        url: v.optional(v.string()),
+        speakerId: v.string(),
+        speakerName: v.string(),
+        script: v.string(),
+        // Legacy two-stage shape (removed): these docs hold the film here
+        // and a talking-head clip in url. Kept optional so they still
+        // validate; new reports write the film to url and never this.
+        roomVideo: v.optional(
+          v.object({
+            status: v.union(
+              v.literal("pending"),
+              v.literal("ready"),
+              v.literal("failed")
+            ),
+            url: v.optional(v.string()),
+          })
+        ),
+      })
+    ),
   }).index("by_simulation", ["simulationId"]),
 })

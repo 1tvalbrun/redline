@@ -1,5 +1,5 @@
 import { v } from "convex/values"
-import { mutation, query } from "./_generated/server"
+import { internalMutation, query } from "./_generated/server"
 
 export const listWithStats = query({
   args: {},
@@ -123,8 +123,9 @@ export const counts = query({
   },
 })
 
-// One-shot grouping for simulations created before ideaId existed.
-export const backfillLegacy = mutation({
+// One-shot grouping for simulations created before ideaId existed. Internal:
+// an ops migration, run via `npx convex run`, never client-callable.
+export const backfillLegacy = internalMutation({
   args: {},
   handler: async (ctx) => {
     const sims = await ctx.db.query("simulations").collect()

@@ -1,5 +1,5 @@
 import { v } from "convex/values"
-import { mutation, query } from "./_generated/server"
+import { internalMutation, mutation, query } from "./_generated/server"
 
 export const create = mutation({
   args: {
@@ -47,16 +47,6 @@ export const getBySimulation = query({
   },
 })
 
-export const setActiveSpeaker = mutation({
-  args: {
-    id: v.id("rooms"),
-    activeCharacterId: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    await ctx.db.patch(args.id, { activeCharacterId: args.activeCharacterId })
-  },
-})
-
 export const addTranscriptEntry = mutation({
   args: {
     id: v.id("rooms"),
@@ -101,7 +91,8 @@ export const addTranscriptEntry = mutation({
   },
 })
 
-export const updateRiskScores = mutation({
+// Internal: written only by orchestrator.decide as it scores the live room.
+export const updateRiskScores = internalMutation({
   args: {
     id: v.id("rooms"),
     scores: v.object({
@@ -120,7 +111,8 @@ export const updateRiskScores = mutation({
   },
 })
 
-export const addLiveNote = mutation({
+// Internal: written only by orchestrator.decide.
+export const addLiveNote = internalMutation({
   args: {
     id: v.id("rooms"),
     note: v.object({
@@ -140,17 +132,8 @@ export const addLiveNote = mutation({
   },
 })
 
-export const setRound = mutation({
-  args: {
-    id: v.id("rooms"),
-    round: v.string(),
-  },
-  handler: async (ctx, args) => {
-    await ctx.db.patch(args.id, { round: args.round })
-  },
-})
-
-export const conclude = mutation({
+// Internal: written only by reports.generate when the session ends.
+export const conclude = internalMutation({
   args: {
     id: v.id("rooms"),
     verdict: v.object({
