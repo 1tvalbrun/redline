@@ -53,7 +53,7 @@ export const FlowShell = ({ stage, simulationId, fullBleed, children }: FlowShel
   return (
     <div className="flex h-dvh flex-col bg-surface">
       <header className="flex flex-none items-center gap-[26px] border-b border-line-2 bg-surface px-7 py-3.5">
-        <Link href="/home" className="focus-ring flex items-center gap-[10px]">
+        <Link href="/" className="focus-ring flex items-center gap-[10px]">
           <span aria-hidden="true" className="relative h-5 w-5 flex-none overflow-hidden rounded-[5px] bg-on-surface">
             <span className="absolute inset-x-0 top-[63%] h-[2px] bg-red" />
           </span>
@@ -120,7 +120,7 @@ export const FlowShell = ({ stage, simulationId, fullBleed, children }: FlowShel
         </nav>
 
         <Link
-          href="/home"
+          href="/"
           className="focus-ring font-mono text-[11px] uppercase tracking-[.1em] text-on-surface-3 transition-colors hover:text-red-fg"
         >
           Save &amp; exit ✕

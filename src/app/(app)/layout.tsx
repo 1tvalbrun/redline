@@ -8,7 +8,6 @@ import { INVESTOR_READY_LINE } from "@/lib/readiness"
 import { AppRail } from "@/components/layout/AppRail"
 
 const CRUMBS: Record<string, string> = {
-  home: "Overview",
   ideas: "Ideas",
   sessions: "Sessions",
   reports: "Verdicts",
