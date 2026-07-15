@@ -239,7 +239,7 @@ export const ReportView = ({ simulationId }: ReportViewProps) => {
           Close the gaps · re-run <span aria-hidden="true">→</span>
         </Link>
         <Link
-          href="/home"
+          href="/"
           className="focus-ring font-mono text-[11px] uppercase tracking-[.06em] text-on-surface-2 hover:text-red-fg"
         >
           Back to overview

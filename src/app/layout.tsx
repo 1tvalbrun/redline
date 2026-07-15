@@ -25,7 +25,7 @@ const plexMono = IBM_Plex_Mono({
 })
 
 export const metadata: Metadata = {
-  title: "Redline · AI Panel Simulation",
+  title: "Redline · AI Panel Stress Test",
   description: "Stress-test your ideas against live AI expert panels",
 }
 

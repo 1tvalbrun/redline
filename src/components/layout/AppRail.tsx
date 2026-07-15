@@ -85,7 +85,11 @@ const NavGroup = ({ label, items, pathname }: { label: string; items: NavItem[];
     </p>
     <ul>
       {items.map((item) => (
-        <NavLink key={item.href} item={item} active={pathname.startsWith(item.href)} />
+        <NavLink
+          key={item.href}
+          item={item}
+          active={item.href === "/" ? pathname === "/" : pathname.startsWith(item.href)}
+        />
       ))}
     </ul>
   </div>
@@ -108,7 +112,7 @@ export const AppRail = ({ counts }: { counts: NavCounts | undefined }) => {
   }, [router])
 
   const workspace: NavItem[] = [
-    { href: "/home", label: "Overview", icon: LayoutGrid },
+    { href: "/", label: "Overview", icon: LayoutGrid },
     { href: "/ideas", label: "Ideas", icon: SquareStack, count: counts?.ideas },
     { href: "/sessions", label: "Sessions", icon: Clock, count: counts?.sessions },
     { href: "/reports", label: "Verdicts", icon: FileText, count: counts?.verdicts },
@@ -127,7 +131,7 @@ export const AppRail = ({ counts }: { counts: NavCounts | undefined }) => {
 
   return (
     <aside className="flex w-[260px] flex-none flex-col border-r border-line-2 bg-surface-rail px-3.5 pb-3 pt-[18px]">
-      <Link href="/home" className="focus-ring flex items-center gap-[11px] px-2 pb-4 pt-1.5">
+      <Link href="/" className="focus-ring flex items-center gap-[11px] px-2 pb-4 pt-1.5">
         <span aria-hidden="true" className="relative h-[22px] w-[22px] flex-none overflow-hidden rounded-[5px] bg-on-surface">
           <span className="absolute inset-x-0 top-[63%] h-[2px] bg-red" />
         </span>

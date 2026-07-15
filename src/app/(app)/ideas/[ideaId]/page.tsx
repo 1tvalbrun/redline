@@ -54,7 +54,7 @@ const IdeaDetailPage = ({ params }: { params: Promise<{ ideaId: string }> }) => 
   return (
     <div>
       <Link
-        href="/home"
+        href="/"
         className="focus-ring mb-[18px] flex w-fit items-center gap-2 font-mono text-[11px] uppercase tracking-[.1em] text-on-surface-2 hover:text-red-fg"
       >
         ← Back to overview
