@@ -1,24 +1,41 @@
 "use client"
 
 import { useEffect, useRef } from "react"
-import { useLocalMedia, useTranscription } from "@runwayml/avatars-react"
+import { useAvatarStatus, useLocalMedia, useTranscription } from "@runwayml/avatars-react"
 import { isAvatarSpeech } from "@/lib/transcript"
+
+// The avatar session's connection phases, surfaced so the room can detect
+// a session that never produces an avatar (status stuck before "ready").
+export type AvatarStatus =
+  | "connecting"
+  | "waiting"
+  | "ready"
+  | "ending"
+  | "ended"
+  | "error"
 
 type SessionStatusBridgeProps = {
   onSpeakingChange: (speaking: boolean) => void
   onMicError: (error: Error | null) => void
+  onAvatarStatus: (status: AvatarStatus) => void
 }
 
 export const SessionStatusBridge = ({
   onSpeakingChange,
   onMicError,
+  onAvatarStatus,
 }: SessionStatusBridgeProps) => {
   const { micError } = useLocalMedia()
+  const { status } = useAvatarStatus()
   const silenceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     onMicError(micError)
   }, [micError, onMicError])
+
+  useEffect(() => {
+    onAvatarStatus(status)
+  }, [status, onAvatarStatus])
 
   // The SDK exposes no audio-level API, so streaming transcription is the
   // speaking signal. A turn's first interim arrives at speech onset (its

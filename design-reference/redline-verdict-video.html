@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Redline — Verdict video moment</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#EAE8E2; --panel:#E4E2DC;
+    --ink:#18160F; --ink-2:#544F45; --ink-3:#8A857A;
+    --line:rgba(24,22,15,.12); --line-2:rgba(24,22,15,.26);
+    --red:#CE2B22; --amber:#B0741A; --ok:#4A6B4E;
+    --dark:#100E0A; --on-dark:#E7E4DD; --on-dark-2:#9C968A; --on-dark-3:#615C54;
+    --ease:cubic-bezier(.2,.7,.2,1);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--paper);color:var(--ink);font-family:'IBM Plex Sans',sans-serif;line-height:1.5}
+  body::after{content:"";position:fixed;inset:0;z-index:9999;pointer-events:none;opacity:.04;mix-blend-mode:multiply;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");}
+  .display{font-family:'Archivo',sans-serif;font-variation-settings:'wdth' 125;letter-spacing:-.02em}
+  .mono{font-family:'IBM Plex Mono',monospace}
+
+  .switcher{position:sticky;top:0;z-index:100;background:var(--ink);color:var(--paper);padding:11px 24px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .switcher .lab{font-family:'IBM Plex Mono';font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--on-dark-2)}
+  .switcher button{font-family:'IBM Plex Mono';font-size:11px;letter-spacing:.06em;text-transform:uppercase;padding:8px 14px;border:1px solid rgba(255,255,255,.25);background:transparent;color:var(--paper);cursor:pointer}
+  .switcher button.on{background:var(--red);border-color:var(--red)}
+  .switcher .replay{margin-left:auto;border-style:dashed}
+
+  .wrap{max-width:1180px;margin:0 auto;padding:40px 40px 80px}
+
+  /* the video stage */
+  .stage{position:relative;width:100%;aspect-ratio:21/9;background:var(--dark);overflow:hidden;border:1px solid var(--line-2)}
+  .scene{display:none}
+  .scene.show{display:block}
+
+  /* three composed panelists */
+  .trio{position:absolute;inset:0;display:grid;grid-template-columns:1fr 1.25fr 1fr}
+  .seat{position:relative;overflow:hidden;filter:grayscale(.25)}
+  .seat img{width:100%;height:100%;object-fit:cover;object-position:center 28%;opacity:.62;transition:opacity 1.2s var(--ease),filter 1.2s var(--ease)}
+  .seat::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 40%,rgba(16,14,10,.75) 100%)}
+  .seat .name{position:absolute;left:20px;bottom:18px;z-index:3;font-family:'IBM Plex Mono';font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--on-dark-2)}
+  /* the speaker */
+  .seat.speaker{filter:grayscale(0)}
+  .seat.speaker img{opacity:1}
+  .seat.speaker::before{content:"";position:absolute;inset:0;z-index:2;box-shadow:inset 0 0 0 2px var(--red);opacity:0;animation:spk 2.6s var(--ease) infinite}
+  @keyframes spk{0%,100%{opacity:.15}50%{opacity:.55}}
+  .seat.speaker .name{color:var(--on-dark)}
+  .seat.speaker .name::before{content:"● ";color:var(--red)}
+
+  /* the spoken line */
+  .caption{position:absolute;left:0;right:0;bottom:0;z-index:4;padding:34px 44px 30px;background:linear-gradient(180deg,transparent,rgba(16,14,10,.92) 60%)}
+  .caption .eyebrow{font-family:'IBM Plex Mono';font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--red);margin-bottom:12px;display:flex;align-items:center;gap:9px}
+  .caption .eyebrow .who{color:var(--on-dark-2)}
+  .caption .line{font-family:'Archivo';font-variation-settings:'wdth' 115;font-weight:600;font-size:clamp(22px,2.9vw,38px);letter-spacing:-.01em;color:var(--on-dark);line-height:1.12;max-width:20ch}
+  .caption .line .w{opacity:0;display:inline-block;animation:word .4s var(--ease) forwards}
+  @keyframes word{to{opacity:1}}
+
+  /* subtle scanline / grade for cinematic feel */
+  .grade{position:absolute;inset:0;z-index:1;pointer-events:none;background:radial-gradient(120% 90% at 50% 20%,transparent 55%,rgba(16,14,10,.5) 100%)}
+
+  /* recording chrome */
+  .rec{position:absolute;top:16px;left:20px;z-index:5;display:flex;align-items:center;gap:8px;font-family:'IBM Plex Mono';font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--on-dark-2)}
+  .rec .dot{width:7px;height:7px;border-radius:50%;background:var(--red)}
+  .verdict-tag{position:absolute;top:16px;right:20px;z-index:5;font-family:'IBM Plex Mono';font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--on-dark-2)}
+
+  /* ===== restraint B: dossier (motion-graphic, minimal avatars) ===== */
+  .dossier{position:absolute;inset:0;background:var(--dark);display:flex;flex-direction:column;justify-content:center;padding:0 8%}
+  .dossier .row{display:flex;align-items:center;gap:28px;margin-bottom:5%}
+  .dsr-gauge{width:210px;height:140px;flex:none;position:relative}
+  .dsr-num{position:absolute;left:50%;top:66%;transform:translateX(-50%);font-family:'Archivo';font-variation-settings:'wdth' 125;font-weight:800;font-size:40px;color:var(--on-dark)}
+  .dsr-num small{font-size:15px;color:var(--on-dark-3)}
+  .dsr-verdict{font-family:'Archivo';font-variation-settings:'wdth' 115;font-weight:600;font-size:clamp(24px,3.2vw,40px);color:var(--on-dark);line-height:1.1;max-width:16ch}
+  .dsr-stamp{display:inline-block;border:2px solid var(--amber);color:var(--amber);font-family:'IBM Plex Mono';font-size:13px;letter-spacing:.18em;text-transform:uppercase;padding:8px 16px;transform:rotate(-3deg);opacity:0;animation:stamp .5s var(--ease) .8s forwards}
+  @keyframes stamp{0%{opacity:0;transform:rotate(-3deg) scale(1.4)}100%{opacity:1;transform:rotate(-3deg) scale(1)}}
+  .dsr-mini{display:flex;gap:6px;margin-top:22px}
+  .dsr-mini .m{width:44px;height:44px;border-radius:2px;overflow:hidden;filter:grayscale(1);opacity:.4}
+  .dsr-mini .m.on{filter:grayscale(0);opacity:1;box-shadow:0 0 0 1px var(--red)}
+  .dsr-mini .m img{width:100%;height:100%;object-fit:cover;object-position:center 25%}
+  .dsr-cap{font-family:'IBM Plex Mono';font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--on-dark-3);margin-top:12px}
+
+  /* text verdict below (shared, shows this isn't the whole screen) */
+  .below{margin-top:26px;display:grid;grid-template-columns:1.4fr 1fr;gap:30px;opacity:.55}
+  .below .b-t{font-family:'IBM Plex Mono';font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3);margin-bottom:12px}
+  .below h2{font-size:22px;font-weight:700}
+  .below p{font-size:14px;color:var(--ink-2);margin-top:8px;line-height:1.6}
+  .below .plan div{font-size:13px;color:var(--ink-2);padding:8px 0;border-bottom:1px solid var(--line);display:flex;gap:10px}
+  .below .plan .n{font-family:'IBM Plex Mono';color:var(--red);font-size:11px}
+
+  .note{max-width:1180px;margin:0 auto;padding:0 40px 60px;color:var(--ink-2);font-size:14px;border-top:1px solid var(--line);padding-top:22px}
+  .note b{color:var(--ink)}
+  .cta{display:inline-flex;gap:10px;align-items:center;margin-top:8px;font-family:'IBM Plex Mono';font-size:11px;letter-spacing:.06em;text-transform:uppercase;background:var(--ink);color:var(--paper);padding:12px 18px;border:0;cursor:pointer}
+
+  @media(max-width:820px){.below{grid-template-columns:1fr}.trio{grid-template-columns:1fr 1fr 1fr}}
+  @media(prefers-reduced-motion:reduce){*{animation:none!important}.caption .line .w{opacity:1}.dsr-stamp{opacity:1}}
+</style>
+</head>
+<body>
+
+<div class="switcher">
+  <span class="lab">Verdict video · restraint levels</span>
+  <button class="on" data-s="cinematic">A · The panel delivers</button>
+  <button data-s="dossier">B · The dossier</button>
+  <span class="mono" style="color:var(--on-dark-2);font-size:10px">speaker = who you faced / weakest axis</span>
+  <button class="replay" id="replay">↻ Replay</button>
+</div>
+
+<div class="wrap">
+
+  <!-- ============ A: THE PANEL DELIVERS ============ -->
+  <section class="scene show" id="cinematic">
+    <div class="stage">
+      <div class="rec"><span class="dot"></span>Your verdict · rendered</div>
+      <div class="verdict-tag">Marlowe · Iterate</div>
+      <div class="trio">
+        <div class="seat"><div class="name">Victoria Chen</div></div>
+        <div class="seat speaker" id="spk"><div class="name">Marcus Rivera</div></div>
+        <div class="seat"><div class="name">Dr. Okafor</div></div>
+      </div>
+      <div class="grade"></div>
+      <div class="caption">
+        <div class="eyebrow">The panel's verdict <span class="who">· delivered by Marcus Rivera</span></div>
+        <div class="line" id="line"></div>
+      </div>
+    </div>
+
+    <div class="below">
+      <div>
+        <div class="b-t">The panel's word</div>
+        <h2>62 / 100 · Iterate</h2>
+        <p>Real traction, but three unproven areas — forecast accuracy, compliance posture, and production reliability — need concrete, time-bound answers before a growth round. The full breakdown, axis scores, and 7-day plan live here in text.</p>
+      </div>
+      <div>
+        <div class="b-t">Fix before you re-run</div>
+        <div class="plan">
+          <div><span class="n">01</span> Draft the HIPAA/SOC2 remediation plan with owners + dates.</div>
+          <div><span class="n">02</span> Design a controlled forecast-validation study.</div>
+          <div><span class="n">03</span> Run an initial load test at 500 + 2,000 connections.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ B: THE DOSSIER ============ -->
+  <section class="scene" id="dossier">
+    <div class="stage">
+      <div class="rec"><span class="dot"></span>Your verdict · rendered</div>
+      <div class="verdict-tag">Marlowe · Iterate</div>
+      <div class="dossier">
+        <div class="row">
+          <div class="dsr-gauge"><svg id="dsrGauge" viewBox="0 0 210 140"></svg><div class="dsr-num" id="dsrNum">0<small>/100</small></div></div>
+          <div>
+            <span class="dsr-stamp">Iterate</span>
+            <div class="dsr-verdict" style="margin-top:14px">Promising traction, unproven where it counts.</div>
+            <div class="dsr-mini">
+              <div class="m"><div style="width:100%;height:100%;background:#3a3a3a"></div></div>
+              <div class="m on"><div style="width:100%;height:100%;background:#4a4038"></div></div>
+              <div class="m"><div style="width:100%;height:100%;background:#3a3a3a"></div></div>
+            </div>
+            <div class="dsr-cap" id="dsrCap">Marcus Rivera delivers · targets your weakest axis</div>
+          </div>
+        </div>
+      </div>
+      <div class="grade"></div>
+    </div>
+
+    <div class="below">
+      <div>
+        <div class="b-t">The panel's word</div>
+        <h2>62 / 100 · Iterate</h2>
+        <p>Same text verdict sits below either treatment. The video's job is the <em>moment</em> of judgment; the text carries the substance.</p>
+      </div>
+      <div>
+        <div class="b-t">Fix before you re-run</div>
+        <div class="plan">
+          <div><span class="n">01</span> Draft the HIPAA/SOC2 remediation plan.</div>
+          <div><span class="n">02</span> Design a controlled forecast-validation study.</div>
+          <div><span class="n">03</span> Run an initial load test.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<div class="note">
+  <p><b>A — The panel delivers.</b> All three composed in the room; the one you faced (or, after multiple, the one who owns your weakest axis) is lit and speaks the one-line verdict, lip-synced. The other two are present but silent — the panel that concurred. Short and conclusive; the full breakdown stays in text below. This is what Gen-4.5 generates: a ~6–8s spoken cinematic beat. <b>Uses the avatar images.</b></p>
+  <p style="margin-top:10px"><b>B — The dossier.</b> Barely a talking-head at all: the score strikes the gauge, the verdict stamp lands, the delivering panelist is a small lit marker. Most restrained, most "professional instrument," least AI-theater — but it doesn't use the spoken/lip-synced avatar you asked for, so it's here mainly as the far end of the restraint dial for comparison.</p>
+  <p style="margin-top:10px"><b>Note:</b> avatar seats here are placeholders — real build drops in the three committed avatar images. The greyed/lit treatment is the mechanic: silent panelists desaturated, speaker in full color with the red active frame.</p>
+</div>
+
+<script>
+(function(){
+  var reduce=matchMedia('(prefers-reduced-motion:reduce)').matches;
+  var NS='http://www.w3.org/2000/svg';
+  var timers=[];
+  function later(fn,ms){timers.push(setTimeout(fn,ms));}
+  function clearAll(){timers.forEach(clearTimeout);timers=[];}
+  function el(t,a){var e=document.createElementNS(NS,t);for(var k in a)e.setAttribute(k,a[k]);return e;}
+
+  var LINE="Promising traction — but not fundable until the rigor catches up.";
+
+  function runCinematic(){
+    var line=document.getElementById('line');line.innerHTML='';
+    var words=LINE.split(' ');
+    if(reduce){line.textContent=LINE;return;}
+    words.forEach(function(w,i){
+      var s=document.createElement('span');s.className='w';s.textContent=w+' ';
+      s.style.animationDelay=(0.5+i*0.13)+'s';line.appendChild(s);
+    });
+  }
+
+  function gauge(to){
+    var svg=document.getElementById('dsrGauge');if(!svg)return;svg.innerHTML='';
+    var cx=105,cy=118,R=82,start=160,sweep=220;
+    function pol(t,r){var a=(start+t*sweep)*Math.PI/180;return[cx+r*Math.cos(a),cy+r*Math.sin(a)];}
+    for(var i=0;i<=40;i++){var t=i/40,mj=(i%5===0),p1=pol(t,R),p2=pol(t,mj?R-11:R-6);
+      svg.appendChild(el('line',{x1:p1[0],y1:p1[1],x2:p2[0],y2:p2[1],stroke:(t>=.9?'var(--red)':(mj?'var(--on-dark-2)':'var(--on-dark-3)')),'stroke-width':mj?1.6:1,'stroke-linecap':'round'}));}
+    var nd=pol(0,R-14);
+    var needle=el('line',{x1:cx,y1:cy,x2:nd[0],y2:nd[1],stroke:'var(--on-dark)','stroke-width':2.4,'stroke-linecap':'round',transform:'rotate('+start+' '+cx+' '+cy+')'});
+    svg.appendChild(needle);svg.appendChild(el('circle',{cx:cx,cy:cy,r:4.5,fill:'var(--on-dark)'}));
+    var lab=el('text',{x:cx,y:cy+14,'text-anchor':'middle','font-family':'IBM Plex Mono','font-size':6.5,'letter-spacing':'1.3',fill:'var(--red)'});
+    lab.textContent='INVESTOR-READY 90';svg.appendChild(lab);
+    var num=document.getElementById('dsrNum');
+    if(reduce){needle.setAttribute('transform','rotate('+(start+(to/100)*sweep)+' '+cx+' '+cy+')');num.innerHTML=to+'<small>/100</small>';return;}
+    var t0=null;
+    (function s(ts){if(!t0)t0=ts;var p=Math.min((ts-t0)/1100,1),e=1-Math.pow(1-p,3),v=to*e;
+      needle.setAttribute('transform','rotate('+(start+(v/100)*sweep)+' '+cx+' '+cy+')');
+      num.innerHTML=Math.round(v)+'<small>/100</small>';if(p<1)requestAnimationFrame(s);})();
+  }
+
+  function show(id){
+    clearAll();
+    document.querySelectorAll('.scene').forEach(function(s){s.classList.remove('show');});
+    document.getElementById(id).classList.add('show');
+    document.querySelectorAll('.switcher button[data-s]').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-s')===id);});
+    window.scrollTo(0,0);
+    if(id==='cinematic')runCinematic(); else later(function(){gauge(62);},300);
+  }
+  document.querySelectorAll('.switcher button[data-s]').forEach(function(b){b.addEventListener('click',function(){show(b.getAttribute('data-s'));});});
+  document.getElementById('replay').addEventListener('click',function(){var on=document.querySelector('.scene.show').id;show(on);});
+  show('cinematic');
+})();
+</script>
+</body>
+</html>
