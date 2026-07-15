@@ -16,12 +16,17 @@ import { LiveNotes } from "./LiveNotes"
 import { TranscriptBridge } from "./TranscriptBridge"
 import { MicBridge } from "./MicBridge"
 import { UserSpeechBridge } from "./UserSpeechBridge"
-import { SessionStatusBridge } from "./SessionStatusBridge"
+import { SessionStatusBridge, type AvatarStatus } from "./SessionStatusBridge"
 import { Waveform, NAMEPLATE_WAVE_DELAYS } from "./Waveform"
 
 type RoomShellProps = {
   simulationId: string
 }
+
+// How long a connect attempt may sit without a live avatar before the room
+// stops waiting and offers retry/exit. Covers the full path (session
+// create ≤60s server-side is the outlier; a healthy connect is <15s).
+const AVATAR_CONNECT_TIMEOUT_MS = 40_000
 
 // Display-only hold on the founder's finalized turns so both sides land at
 // one rhythm: the avatar's transcript inherently lags several seconds behind
@@ -58,7 +63,47 @@ export const RoomShell = ({ simulationId }: RoomShellProps) => {
   const [isAvatarSpeaking, setIsAvatarSpeaking] = useState(false)
   const [avatarError, setAvatarError] = useState<Error | null>(null)
   const [connectAttempt, setConnectAttempt] = useState(0)
+  const [avatarStatus, setAvatarStatus] = useState<AvatarStatus>("connecting")
+  // True once this connect attempt produced a live avatar — a session that
+  // ends or errors afterwards is the known session-lifecycle behavior, not
+  // a failed connect.
+  const [hasConnected, setHasConnected] = useState(false)
+  // True once this attempt actually reported an in-flight connection. A
+  // LiveKit room starts in Disconnected — which the SDK surfaces as
+  // "ended" — so "ended" only means "closed before it connected" if the
+  // attempt was seen connecting first (traced live: reading the initial
+  // "ended" as failure unmounted the provider mid-connect, aborting every
+  // re-entry with "Client initiated disconnect").
+  const [attemptStarted, setAttemptStarted] = useState(false)
+  // The SDK caches connect credentials per connectUrl forever, so a bare
+  // URL makes re-entries and retries reconnect to the old (dead) Runway
+  // session — the original "empty room" hang. A nonce per mount and per
+  // retry forces a fresh session each time; the route ignores the query.
+  const [mountNonce] = useState(() => Date.now())
+  // Which connect attempt hit the deadline — comparing against the current
+  // attempt makes each retry start with a clean slate, no reset needed.
+  const [timedOutAttempt, setTimedOutAttempt] = useState<number | null>(null)
   const handleToggleMic = useCallback(() => toggleMicRef.current?.(), [])
+
+  const handleAvatarStatus = useCallback((status: AvatarStatus) => {
+    setAvatarStatus(status)
+    if (status === "connecting" || status === "waiting") setAttemptStarted(true)
+    if (status === "ready") setHasConnected(true)
+  }, [])
+
+  // The session can hang without ever erroring (observed live: LiveKit
+  // connects but the avatar worker never joins, so onError never fires).
+  // A founder must not be trapped staring at an empty room — after the
+  // deadline the failure view offers retry or a graceful exit.
+  useEffect(() => {
+    const timer = setTimeout(
+      () => setTimedOutAttempt(connectAttempt),
+      AVATAR_CONNECT_TIMEOUT_MS
+    )
+    return () => clearTimeout(timer)
+  }, [connectAttempt])
+
+  const connectTimedOut = timedOutAttempt === connectAttempt
 
   // A room with no chosen panelist means the founder skipped the Panel
   // stage — send them there instead of defaulting one.
@@ -86,8 +131,27 @@ export const RoomShell = ({ simulationId }: RoomShellProps) => {
 
   const handleRetryConnect = () => {
     setAvatarError(null)
+    setHasConnected(false)
+    setAttemptStarted(false)
+    setAvatarStatus("connecting")
     setConnectAttempt((n) => n + 1)
   }
+
+  // Everything that means "this connect attempt is not going to produce an
+  // avatar": an explicit error, a session that closed after starting to
+  // connect but before becoming ready, or the deadline passing with no
+  // avatar. (The SDK never reports an "error" status — errors arrive via
+  // onError.)
+  const avatarFailure =
+    concluded || avatarError
+      ? avatarError?.message ?? null
+      : hasConnected
+        ? null
+        : attemptStarted && avatarStatus === "ended"
+          ? "The avatar session closed before it connected."
+          : connectTimedOut
+            ? `No response after ${AVATAR_CONNECT_TIMEOUT_MS / 1000} seconds.`
+            : null
 
   const micState: MicState = concluded
     ? "ended"
@@ -127,36 +191,52 @@ export const RoomShell = ({ simulationId }: RoomShellProps) => {
               No avatar configured
             </p>
           </div>
-        ) : avatarError ? (
+        ) : avatarFailure ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
             <p className="font-mono text-[11px] uppercase tracking-[.14em] text-red-fg">
-              Connection failed
+              The panel isn&apos;t responding
             </p>
-            <p className="max-w-[40ch] text-center text-[13.5px] text-on-surface-2">
-              {avatarError.message}
+            <p className="max-w-[42ch] text-center text-[13.5px] text-on-surface-2">
+              {avatarFailure} Your session and everything said so far are
+              safe — retry the connection, or end now and get your verdict
+              from what&apos;s on the record.
             </p>
-            <button
-              type="button"
-              onClick={handleRetryConnect}
-              className="focus-ring border border-line-2 px-4 py-[10px] font-mono text-[11px] uppercase tracking-[.08em] text-on-surface transition-colors hover:bg-white/5"
-            >
-              Reconnect
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={handleRetryConnect}
+                className="focus-ring border border-line-2 px-4 py-[10px] font-mono text-[11px] uppercase tracking-[.08em] text-on-surface transition-colors hover:bg-white/5"
+              >
+                Retry connection
+              </button>
+              <button
+                type="button"
+                onClick={handleEndSession}
+                className="focus-ring border border-red bg-red px-4 py-[10px] font-mono text-[11px] uppercase tracking-[.08em] text-white transition-colors hover:bg-red-deep"
+              >
+                End session · get the verdict <span aria-hidden="true">→</span>
+              </button>
+            </div>
           </div>
         ) : (
           <AvatarProvider
             key={connectAttempt}
             avatarId={character.avatarId}
-            connectUrl="/api/avatar/connect"
+            connectUrl={`/api/avatar/connect?fresh=${mountNonce}-${connectAttempt}`}
             audio
             video={false}
             onError={setAvatarError}
             fallback={
               <div className="absolute inset-0 bg-[linear-gradient(180deg,#c8c6be,#a6a49c_58%,#8f8d85)]">
                 <div className="absolute inset-0 bg-[radial-gradient(62%_46%_at_50%_20%,rgba(255,255,255,.4),transparent_62%)]" />
-                <p className="absolute inset-0 flex items-center justify-center font-mono text-[11px] uppercase tracking-[.14em] text-[#544f45]">
-                  Connecting {character.name}…
-                </p>
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2.5">
+                  <p className="font-mono text-[11px] uppercase tracking-[.14em] text-[#544f45] motion-safe:animate-pulse">
+                    Connecting {character.name} to the panel…
+                  </p>
+                  <p className="font-mono text-[10px] uppercase tracking-[.1em] text-[#544f45]/70">
+                    Establishing the live session — up to ~30 seconds
+                  </p>
+                </div>
               </div>
             }
           >
@@ -165,6 +245,7 @@ export const RoomShell = ({ simulationId }: RoomShellProps) => {
             <SessionStatusBridge
               onSpeakingChange={setIsAvatarSpeaking}
               onMicError={setMicError}
+              onAvatarStatus={handleAvatarStatus}
             />
             <AvatarVideo className="absolute inset-0 h-full w-full object-cover" />
           </AvatarProvider>

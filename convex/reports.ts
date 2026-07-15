@@ -1,10 +1,25 @@
 import { v } from "convex/values"
-import { action, mutation, query } from "./_generated/server"
-import { api } from "./_generated/api"
+import { action, internalMutation, query } from "./_generated/server"
+import { api, internal } from "./_generated/api"
 import type { Id } from "./_generated/dataModel"
 import { bySpokenTime } from "../src/lib/transcript"
+import { selectVerdictSpeaker } from "../src/lib/readiness"
+import { groundHeldUp } from "../src/lib/reportGrounding"
+import { ROOM_SCENE_ENV } from "./runway"
 
-export const create = mutation({
+const verdictVideoValidator = v.object({
+  status: v.union(v.literal("pending"), v.literal("ready"), v.literal("failed")),
+  url: v.optional(v.string()),
+  speakerId: v.string(),
+  speakerName: v.string(),
+  script: v.string(),
+})
+
+// Internal: the only caller is reports.generate. Insert-if-absent on the
+// by_simulation index so two concurrent generations for one room produce one
+// report and schedule one paid film — the money guard lives here, on the
+// serializable mutation, not in the action's non-transactional check.
+export const create = internalMutation({
   args: {
     simulationId: v.id("simulations"),
     roomId: v.id("rooms"),
@@ -29,10 +44,16 @@ export const create = mutation({
         priority: v.string(),
       })
     ),
-    mediaStatus: v.string(),
+    verdictVideo: v.optional(verdictVideoValidator),
   },
   handler: async (ctx, args) => {
-    return await ctx.db.insert("reports", args)
+    const existing = await ctx.db
+      .query("reports")
+      .withIndex("by_simulation", (q) => q.eq("simulationId", args.simulationId))
+      .first()
+    if (existing) return { reportId: existing._id, created: false }
+    const reportId = await ctx.db.insert("reports", args)
+    return { reportId, created: true }
   },
 })
 
@@ -53,19 +74,18 @@ export const getBySimulation = query({
   },
 })
 
-export const updateMedia = mutation({
+// Internal: written only by runway.generateVerdictVideo as the film renders.
+export const setVerdictVideoStatus = internalMutation({
   args: {
     id: v.id("reports"),
-    generatedMedia: v.object({
-      successVideo: v.optional(v.string()),
-      failureVideo: v.optional(v.string()),
-    }),
-    mediaStatus: v.string(),
+    status: v.union(v.literal("ready"), v.literal("failed")),
+    url: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const report = await ctx.db.get(args.id)
+    if (!report?.verdictVideo) throw new Error("Report has no verdict video")
     await ctx.db.patch(args.id, {
-      generatedMedia: args.generatedMedia,
-      mediaStatus: args.mediaStatus,
+      verdictVideo: { ...report.verdictVideo, status: args.status, url: args.url },
     })
   },
 })
@@ -96,6 +116,9 @@ export const generate = action({
     const character = room.characters[0]
     if (!character) throw new Error("No character in room")
 
+    const founderTurns = room.transcript
+      .filter((e) => e.type === "user")
+      .map((e) => e.text)
     const transcript =
       room.transcript.length > 0
         ? bySpokenTime(room.transcript)
@@ -146,6 +169,7 @@ Produce a comprehensive verdict and report. Return JSON ONLY with this exact sha
     "summary": "one-sentence rationale",
     "confidence": <integer 0-100>
   },
+  "spokenVerdict": "<the verdict as ${character.name} would say it aloud to the founder, in one breath — 120 to 160 characters of plain direct speech in their voice, no lists, no headings>",
   "overallScore": <integer 0-100, higher is better>,
   "executiveSummary": "<3-4 sentences synthesizing the session>",
   "panelVerdict": {
@@ -154,7 +178,10 @@ Produce a comprehensive verdict and report. Return JSON ONLY with this exact sha
     "reasoning": "<2-3 sentences from the panelist's perspective>"
   },
   "topRisks": ["<short risk>", "<short risk>", "<short risk>"],
-  "opportunities": ["<short opportunity>", "<short opportunity>", "<short opportunity>"],
+  "heldUp": [
+    {"finding": "<a claim the FOUNDER stated that survived the panel's pressure, restated in one short sentence with nothing added>",
+     "quote": "<the founder's exact words from the transcript stating this claim, copied verbatim>"}
+  ],
   "nextSevenDays": [
     {"day": 1, "task": "<concrete action>", "priority": "high"|"medium"|"low"},
     {"day": 2, "task": "<...>", "priority": "..."},
@@ -166,7 +193,12 @@ Produce a comprehensive verdict and report. Return JSON ONLY with this exact sha
   ]
 }
 
-Be concrete and specific. Each risk/opportunity/task should mention something tied to THIS founder's idea, not generic advice.`
+Be concrete and specific. Each risk/task should mention something tied to THIS founder's idea, not generic advice.
+
+Grounding rules (absolute):
+- "heldUp" may contain ONLY affirmative claims the founder actually stated that withstood the panel's scrutiny (evidence, numbers, commitments), each with their verbatim words in "quote". An admission that something is missing, untested, or unknown is NOT a claim that held up — leave it out. If the founder made no defensible claims, return "heldUp": [] — an empty list is the correct, honest output.
+- Advice and recommendations belong ONLY in "nextSevenDays", never in "heldUp".
+- Nowhere in the report state specifics the transcript does not contain (numbers, buyer types, technologies, market sizes). Where the founder provided nothing, say so plainly.`
 
     const response = await openai.chat.completions.create({
       model,
@@ -189,6 +221,15 @@ Be concrete and specific. Each risk/opportunity/task should mention something ti
         : "Verdict pending review."
     const verdictConfidence = clampInt(rawVerdict.confidence, 50)
 
+    // The one-line verdict the panelist speaks aloud — distinct from the
+    // written summary. Capped well past the 120-160 target so a rambling
+    // model can't produce a minute-long clip.
+    const spokenVerdict = (
+      typeof parsed.spokenVerdict === "string" && parsed.spokenVerdict.trim().length > 0
+        ? parsed.spokenVerdict.trim()
+        : `My verdict: ${decision}. ${verdictSummary}`
+    ).slice(0, 220)
+
     const overallScore = clampInt(parsed.overallScore, 50)
     const executiveSummary =
       typeof parsed.executiveSummary === "string" ? parsed.executiveSummary : ""
@@ -209,9 +250,16 @@ Be concrete and specific. Each risk/opportunity/task should mention something ti
     const topRisks = Array.isArray(parsed.topRisks)
       ? parsed.topRisks.filter((r: unknown) => typeof r === "string").slice(0, 5)
       : []
-    const opportunities = Array.isArray(parsed.opportunities)
-      ? parsed.opportunities.filter((o: unknown) => typeof o === "string").slice(0, 5)
-      : []
+    // "Held up" is grounded like audit claims: a finding the founder can't
+    // be quoted on is dropped, and zero survivors is a legitimate report.
+    const heldUp = groundHeldUp(parsed.heldUp, founderTurns)
+    const proposed = Array.isArray(parsed.heldUp) ? parsed.heldUp.length : 0
+    if (proposed > heldUp.length) {
+      console.warn(
+        `[reports.generate] dropped ${proposed - heldUp.length} ungrounded heldUp finding(s)`
+      )
+    }
+    const opportunities = heldUp.map((h) => h.finding)
 
     const nextSevenDays = Array.isArray(parsed.nextSevenDays)
       ? parsed.nextSevenDays
@@ -225,7 +273,7 @@ Be concrete and specific. Each risk/opportunity/task should mention something ti
           }))
       : []
 
-    await ctx.runMutation(api.rooms.conclude, {
+    await ctx.runMutation(internal.rooms.conclude, {
       id: args.roomId,
       verdict: {
         decision,
@@ -234,7 +282,24 @@ Be concrete and specific. Each risk/opportunity/task should mention something ti
       },
     })
 
-    const reportId = await ctx.runMutation(api.reports.create, {
+    // Who speaks the verdict: the panelist the founder faced, or the
+    // weakest-axis owner when they faced several (same mapping as the
+    // Panel recommendation). No Runway avatar or no room scene → no film
+    // is possible, so the report ships text-only instead of promising a
+    // video that can't land.
+    const speaker = selectVerdictSpeaker(room.characters, room.riskScores)
+    const canFilm = Boolean(speaker?.avatarId && ROOM_SCENE_ENV[speaker.id])
+    const verdictVideo =
+      canFilm && speaker
+        ? {
+            status: "pending" as const,
+            speakerId: speaker.id,
+            speakerName: speaker.name,
+            script: spokenVerdict,
+          }
+        : undefined
+
+    const { reportId, created } = await ctx.runMutation(internal.reports.create, {
       simulationId: room.simulationId,
       roomId: args.roomId,
       overallScore,
@@ -244,15 +309,20 @@ Be concrete and specific. Each risk/opportunity/task should mention something ti
       topRisks,
       opportunities,
       nextSevenDays,
-      mediaStatus: "pending",
+      verdictVideo,
     })
 
-    await ctx.scheduler.runAfter(0, api.runway.generateImage, {
-      reportId,
-      decision,
-      ideaName: simulation.brief.ideaName,
-      summary: verdictSummary,
-    })
+    // Scheduled only when this call actually created the report — a
+    // concurrent generation that lost the insert-if-absent race spends no
+    // film credits. One report, one paid film.
+    if (created && speaker?.avatarId && verdictVideo) {
+      await ctx.scheduler.runAfter(0, internal.runway.generateVerdictVideo, {
+        reportId,
+        avatarId: speaker.avatarId,
+        speakerId: speaker.id,
+        script: spokenVerdict,
+      })
+    }
 
     return { reportId }
   },
