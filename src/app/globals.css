@@ -111,7 +111,7 @@
 }
 
 :root {
-  /* Redline primitives — extracted from design-reference/redline-{app,flow}.html */
+  /* Redline design primitives (base palette) */
   --surface: #eae8e2; /* paper */
   --surface-2: #dfddd6; /* paper-2 */
   --surface-3: #dfddd6; /* distinct layer only on dark; mirrors surface-2 on paper */
