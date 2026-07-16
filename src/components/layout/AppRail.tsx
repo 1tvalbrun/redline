@@ -4,7 +4,6 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import {
-  BarChart3,
   Clock,
   FileText,
   Folder,
@@ -121,9 +120,6 @@ export const AppRail = ({ counts }: { counts: NavCounts | undefined }) => {
     { href: "/panel", label: "The Panel", icon: Users },
     { href: "/materials", label: "Materials", icon: Folder },
   ]
-  const insights: NavItem[] = [
-    { href: "/benchmarks", label: "Benchmarks", icon: BarChart3, tag: "Beta" },
-  ]
   const foot: NavItem[] = [
     { href: "/settings", label: "Settings", icon: Settings },
     { href: "/help", label: "Help & docs", icon: HelpCircle },
@@ -150,7 +146,6 @@ export const AppRail = ({ counts }: { counts: NavCounts | undefined }) => {
       <nav aria-label="Workspace" className="flex-1 overflow-y-auto pt-2">
         <NavGroup label="Workspace" items={workspace} pathname={pathname} />
         <NavGroup label="Prep" items={prep} pathname={pathname} />
-        <NavGroup label="Insights" items={insights} pathname={pathname} />
       </nav>
 
       <div className="mt-1.5 border-t border-line pt-2.5">

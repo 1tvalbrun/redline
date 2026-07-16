@@ -43,4 +43,14 @@ npx convex dev        # provisions the backend, watches functions
 pnpm dev              # http://localhost:3000
 ```
 
-Set these in the Convex deployment and `.env.local`: `RUNWAYML_API_SECRET`, `OPENAI_API_KEY`, `ASSEMBLYAI_API_KEY`, and the three avatar ids (`NEXT_PUBLIC_RUNWAY_AVATAR_VC`, `_CUSTOMER`, `_TECH`). No auth; this is a single-user demo.
+In `.env.local` (read by the Next server and the client build):
+
+- `RUNWAYML_API_SECRET`, `OPENAI_API_KEY`, `ASSEMBLYAI_API_KEY`
+- `NEXT_PUBLIC_RUNWAY_AVATAR_VC`, `NEXT_PUBLIC_RUNWAY_AVATAR_CUSTOMER`, `NEXT_PUBLIC_RUNWAY_AVATAR_TECH` (the three avatar ids)
+
+In the Convex deployment, set with `npx convex env set NAME value` (read by Convex actions):
+
+- `RUNWAYML_API_SECRET`, `OPENAI_API_KEY`
+- `VERDICT_ROOM_SCENE_VC`, `VERDICT_ROOM_SCENE_TC`, `VERDICT_ROOM_SCENE_TA`: the boardroom still URLs the verdict film composites. Without them the report still renders; the film degrades to text only.
+
+`npx convex dev` writes `NEXT_PUBLIC_CONVEX_URL` for you. No auth; this is a single-user demo.
