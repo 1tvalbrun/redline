@@ -1,10 +1,10 @@
 # Redline — Project Context
 
 ## What This Is
-AI panel simulation. Users stress-test ideas against 3 live Runway avatar
-characters (VC, Target Customer, Technical Architect).
-Flow: Brief → Analysis → Panel → Live Room → Verdict → Report with
-Runway-generated videos.
+An AI panel stress test. A founder pitches an idea and is interrogated by 3
+live Runway avatar characters (VC, Target Customer, Technical Architect).
+Flow: Brief → Read → Audit → Panel → Room → Verdict, ending in a
+Runway-generated verdict film.
 
 ## Stack
 Next.js 16.2, TypeScript strict, Tailwind CSS v4, shadcn/ui, Convex,
@@ -23,22 +23,22 @@ Use CSS custom properties: var(--color-primary), var(--font-display) etc.
 - useQuery/useMutation/useAction from convex/react for all data
 
 ## Code Rules
-- DRY — no repeated logic
-- Early returns always
-- Handle prefix on all event handlers (handleClick, handleSubmit)
-- Const arrow functions only
+Full engineering standards, how this codebase is written and reviewed, live in
+[docs/engineering-standards.md](docs/engineering-standards.md). Project-specific
+conventions on top of those:
 - No semicolons
-- Tailwind utility classes only — no inline styles, no CSS modules
-- No tailwind.config.ts — configure theme in globals.css @theme
-- Zod for all external data validation
+- Const arrow functions only; Handle prefix on event handlers (handleClick, handleSubmit)
+- Early returns over nested conditionals
+- Tailwind utility classes only, no inline styles or CSS modules
+- No tailwind.config.ts; theme lives in globals.css @theme
+- Zod for external data validation
 - All external API calls in /convex/ actions or /api/ route handlers only
 
 ## Do Not
-- Create tailwind.config.ts — Tailwind v4 uses CSS-first config
+- Create tailwind.config.ts (Tailwind v4 uses CSS-first config)
 - Add auth
-- Over-engineer
 - Leave TODOs or placeholders
 - Use useState for data that belongs in Convex
 - Commit. Ever. The developer is the only one who commits, after reviewing
-  the diff. No git add/commit/stash workarounds — leave work uncommitted in
+  the diff. No git add/commit/stash workarounds; leave work uncommitted in
   the tree and stop for review.
