@@ -111,8 +111,7 @@ type WaitingScreenProps = WaitingContent & {
   lead: string
 }
 
-// The shared Read/Audit waiting mechanic (design-reference/
-// redline-waiting-hybrid.html). Rows carry anticipatory copy about what's
+// The shared Read/Audit waiting mechanic. Rows carry anticipatory copy about what's
 // being examined — never extracted values or counts; the real findings live
 // on the next screen. Callers unmount it the moment the real operation
 // finishes (never make the founder wait out the animation); if the

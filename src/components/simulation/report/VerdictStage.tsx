@@ -93,8 +93,7 @@ const useElapsedSeconds = (since: number | undefined, active: boolean) => {
   return since === undefined ? null : Math.max(0, Math.round((now - since) / 1000))
 }
 
-// Treatment A from design-reference/redline-verdict-video.html: the verdict
-// film — the three panelists in the room in one shot, the delivering
+// The verdict film: the three panelists in the room in one shot, the delivering
 // panelist speaking the lip-synced one-line verdict, the other two present
 // but silent. Until the film lands (or when there is none), the stage holds
 // the composed still panel with the speaker's seat lit; the intermediate
