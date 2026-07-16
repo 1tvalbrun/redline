@@ -1,11 +1,20 @@
 import { v } from "convex/values"
-import { internalMutation, internalQuery, mutation } from "./_generated/server"
+import { internalMutation, internalQuery, mutation, query } from "./_generated/server"
 
 export const generateUploadUrl = mutation({
   args: {},
   handler: async (ctx) => {
     return await ctx.storage.generateUploadUrl()
   },
+})
+
+// Serve counterpart to generateUploadUrl: resolve a stored file's public URL.
+// Convex rejects a hand-built /api/storage/<id> path — only storage.getUrl
+// mints a valid URL. Used by scripts/generate-room-scenes.ts to publish the
+// verdict-film stills.
+export const storageUrl = query({
+  args: { storageId: v.id("_storage") },
+  handler: async (ctx, args) => await ctx.storage.getUrl(args.storageId),
 })
 
 export const getForExtraction = internalQuery({
