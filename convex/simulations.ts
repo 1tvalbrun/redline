@@ -77,13 +77,6 @@ export const get = query({
   },
 })
 
-export const list = query({
-  args: {},
-  handler: async (ctx) => {
-    return await ctx.db.query("simulations").order("desc").take(20)
-  },
-})
-
 // Internal: status transitions are driven by simulations.analyze, never the
 // client.
 export const setStatus = internalMutation({

@@ -28,12 +28,15 @@ import { ConvexHttpClient } from "convex/browser"
 import { api } from "../convex/_generated/api"
 
 const RUNWAY_KEY = process.env.RUNWAY_KEY
-const CONVEX_URL =
-  process.env.NEXT_PUBLIC_CONVEX_URL ?? "https://your-deployment.convex.cloud"
+const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL
 const RUNWAY_API = "https://api.dev.runwayml.com"
 
 if (!RUNWAY_KEY) {
   console.error("Set RUNWAY_KEY (e.g. RUNWAY_KEY=$(npx convex env get RUNWAYML_API_SECRET))")
+  process.exit(1)
+}
+if (!CONVEX_URL) {
+  console.error("Set NEXT_PUBLIC_CONVEX_URL to your Convex deployment URL")
   process.exit(1)
 }
 

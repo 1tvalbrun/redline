@@ -57,13 +57,6 @@ export const create = internalMutation({
   },
 })
 
-export const get = query({
-  args: { id: v.id("reports") },
-  handler: async (ctx, args) => {
-    return await ctx.db.get(args.id)
-  },
-})
-
 export const getBySimulation = query({
   args: { simulationId: v.id("simulations") },
   handler: async (ctx, args) => {
