@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@clerk/nextjs/server"
 import RunwayML from "@runwayml/sdk"
+import { ConvexHttpClient } from "convex/browser"
 import { z } from "zod"
+import { api } from "@convex/_generated/api"
+import type { Id } from "@convex/_generated/dataModel"
+import { buildRoomBriefing, type RoomBriefing } from "@/lib/roomBriefing"
 
 const RUNWAY_API = "https://api.dev.runwayml.com"
 
@@ -35,8 +39,56 @@ demands.
 
 `
 
+// Best-effort session briefing: the simulation, audit, and room are read
+// through the caller's own Convex token, so ownership scoping applies — a
+// simulationId the caller doesn't own reads as missing and the session
+// simply connects unbriefed (canned opener, stored persona).
+const fetchBriefing = async (
+  simulationId: string | null,
+  convexToken: string | null
+): Promise<RoomBriefing | null> => {
+  if (!simulationId || !convexToken || !process.env.NEXT_PUBLIC_CONVEX_URL) return null
+  try {
+    const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL)
+    convex.setAuth(convexToken)
+    // A malformed id fails Convex's argument validation inside the try —
+    // same degraded outcome as any other briefing failure.
+    const id = simulationId as Id<"simulations">
+    const [simulation, audit, room] = await Promise.all([
+      convex.query(api.simulations.get, { id }),
+      convex.query(api.audits.getBySimulation, { simulationId: id }),
+      convex.query(api.rooms.getBySimulation, { simulationId: id }),
+    ])
+    if (!simulation) return null
+    return buildRoomBriefing({
+      ideaName: simulation.brief.ideaName,
+      description: simulation.brief.description,
+      audit: audit ? { claims: audit.claims, gaps: audit.gaps } : null,
+      transcript: room?.transcript ?? [],
+    })
+  } catch (err) {
+    console.warn("[/api/avatar/connect] briefing fetch failed:", err)
+    return null
+  }
+}
+
+// Best-effort: if the persona can't be fetched, the session connects with
+// the avatar's stored personality (server-side default) rather than failing.
+const fetchStoredPersonality = async (
+  client: RunwayML,
+  avatarId: string
+): Promise<string | null> => {
+  try {
+    const avatar = await client.avatars.retrieve(avatarId)
+    return avatar.status === "READY" && avatar.personality ? avatar.personality : null
+  } catch (err) {
+    console.warn("[/api/avatar/connect] personality fetch failed:", err)
+    return null
+  }
+}
+
 export const POST = async (req: NextRequest) => {
-  const { userId } = await auth()
+  const { userId, getToken } = await auth()
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const body = BodySchema.safeParse(await req.json().catch(() => null))
@@ -48,25 +100,30 @@ export const POST = async (req: NextRequest) => {
 
   const client = new RunwayML({ apiKey: process.env.RUNWAYML_API_SECRET })
 
-  // Best-effort: if the persona can't be fetched, connect with the avatar's
-  // stored personality rather than failing the session.
+  // Independent fetches, in parallel — the connect path is already long
+  // (session create + READY poll).
+  const [briefing, storedPersonality] = await Promise.all([
+    getToken({ template: "convex" })
+      .catch(() => null)
+      .then((token) => fetchBriefing(req.nextUrl.searchParams.get("simulationId"), token)),
+    fetchStoredPersonality(client, avatarId),
+  ])
+
   let personality: string | undefined
-  try {
-    const avatar = await client.avatars.retrieve(avatarId)
-    if (avatar.status === "READY" && avatar.personality) {
-      personality = `${TURN_TAKING_RULES}${avatar.personality}`
-      console.log(
-        `[/api/avatar/connect] session personality override applied (${personality.length} chars)`
-      )
-    }
-  } catch (err) {
-    console.warn("[/api/avatar/connect] personality fetch failed:", err)
+  if (storedPersonality) {
+    personality = `${TURN_TAKING_RULES}${briefing?.personalityPreamble ?? ""}${storedPersonality}`
+    console.log(
+      `[/api/avatar/connect] session personality override applied (${personality.length} chars)`
+    )
   }
 
   const session = await client.realtimeSessions.create({
     model: "gwm1_avatars",
     avatar: { type: "custom", avatarId },
     ...(personality ? { personality } : {}),
+    // Replaces the Character's canned opener, which otherwise repeats
+    // verbatim every session — including resumes.
+    ...(briefing ? { startScript: briefing.startScript } : {}),
   })
 
   const deadline = Date.now() + 60_000

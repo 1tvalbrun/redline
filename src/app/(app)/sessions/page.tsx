@@ -3,11 +3,14 @@
 import Link from "next/link"
 import { useQuery } from "convex/react"
 import { api } from "@convex/_generated/api"
+import { isSessionStale } from "@/lib/session"
+import { useNow } from "@/lib/useNow"
 import { formatDay } from "@/lib/utils"
 import { VerdictBadge } from "@/components/workspace/VerdictBadge"
 
 const SessionsPage = () => {
   const sessions = useQuery(api.rooms.list)
+  const now = useNow()
 
   return (
     <div>
@@ -49,7 +52,8 @@ const SessionsPage = () => {
                     </span>
                   </span>
                   <span className="font-mono text-[9.5px] uppercase tracking-[.08em] text-on-surface-3 max-md:hidden">
-                    {session.status === "live" ? (
+                    {session.status === "live" &&
+                    !isSessionStale(session.turns, session.lastActivityAt, now) ? (
                       <span className="text-red-fg">● In session</span>
                     ) : (
                       "Concluded"
