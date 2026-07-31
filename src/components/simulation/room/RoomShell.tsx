@@ -8,6 +8,8 @@ import { Id } from "@convex/_generated/dataModel"
 import { AvatarProvider, AvatarVideo } from "@runwayml/avatars-react"
 import { Mic, MicOff, Pause } from "lucide-react"
 import { deriveReadiness, AXIS_LABELS } from "@/lib/readiness"
+import { isSessionStale, lastActivityAt } from "@/lib/session"
+import { useNow } from "@/lib/useNow"
 import { formatElapsed } from "@/lib/utils"
 import { UserTile, type MicState } from "./UserTile"
 import { PromptHelpers } from "./PromptHelpers"
@@ -35,7 +37,12 @@ const AVATAR_CONNECT_TIMEOUT_MS = 40_000
 // Convex directly. Tune the cadence here.
 const FOUNDER_TRANSCRIPT_DELAY_MS = 6000
 
-const SessionClock = ({ startedAt }: { startedAt: number }) => {
+// Elapsed for THIS sitting, anchored at mount — a resumed room is far older
+// than the session being recorded (anchoring at room creation once read
+// "22560:17"). A mid-session refresh restarts the readout; the transcript
+// keeps the true times.
+const SessionClock = () => {
+  const [startedAt] = useState(() => Date.now())
   const [now, setNow] = useState(() => Date.now())
 
   useEffect(() => {
@@ -83,6 +90,7 @@ export const RoomShell = ({ simulationId }: RoomShellProps) => {
   // Which connect attempt hit the deadline — comparing against the current
   // attempt makes each retry start with a clean slate, no reset needed.
   const [timedOutAttempt, setTimedOutAttempt] = useState<number | null>(null)
+  const mountedAt = useNow()
   const handleToggleMic = useCallback(() => toggleMicRef.current?.(), [])
 
   const handleAvatarStatus = useCallback((status: AvatarStatus) => {
@@ -117,6 +125,17 @@ export const RoomShell = ({ simulationId }: RoomShellProps) => {
 
   const character = room.characters[0]
   const concluded = room.status === "concluded"
+  // A live room left idle past the threshold reads as over: one
+  // interrogation is one sitting. Judged against mount time so the state
+  // can't flip mid-visit.
+  const stale =
+    !concluded &&
+    isSessionStale(
+      room.transcript.length,
+      lastActivityAt(room.transcript, room._creationTime),
+      mountedAt
+    )
+  const sessionOver = concluded || stale
   const underFire = deriveReadiness(room.riskScores).underFire
 
   const handleEndSession = () => {
@@ -144,7 +163,7 @@ export const RoomShell = ({ simulationId }: RoomShellProps) => {
   // deadline passing with no avatar. (The SDK never reports an "error"
   // status — errors arrive via onError.)
   const avatarFailure =
-    concluded || avatarError
+    sessionOver || avatarError
       ? avatarError?.message ?? null
       : hasConnected
         ? avatarStatus === "ended"
@@ -156,7 +175,7 @@ export const RoomShell = ({ simulationId }: RoomShellProps) => {
             ? `No response after ${AVATAR_CONNECT_TIMEOUT_MS / 1000} seconds.`
             : null
 
-  const micState: MicState = concluded
+  const micState: MicState = sessionOver
     ? "ended"
     : micError
       ? "blocked"
@@ -171,7 +190,7 @@ export const RoomShell = ({ simulationId }: RoomShellProps) => {
       className="relative grid h-full min-h-0 grid-cols-[244px_1fr_336px] grid-rows-[1fr_auto] bg-surface text-on-surface"
     >
       <div aria-hidden="true" className="grain-overlay absolute inset-0 z-50 opacity-5" />
-      {!concluded && <UserSpeechBridge roomId={room._id} enabled={micLive} />}
+      {!sessionOver && <UserSpeechBridge roomId={room._id} enabled={micLive} />}
 
       <aside className="col-start-1 row-span-2 row-start-1 flex flex-col gap-[18px] border-r border-line bg-surface-raised px-4 py-5">
         <UserTile userName="Founder" micState={micState} onToggleMic={handleToggleMic} />
@@ -179,13 +198,15 @@ export const RoomShell = ({ simulationId }: RoomShellProps) => {
       </aside>
 
       <main className="relative col-start-2 row-start-1 overflow-hidden bg-[#0e0c0a]">
-        {concluded ? (
+        {sessionOver ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
             <p className="font-mono text-[11px] uppercase tracking-[.14em] text-on-surface-2">
               Session ended
             </p>
             <p className="max-w-[38ch] text-center text-[13.5px] text-on-surface-2">
-              This run has concluded. Your report is on the verdict page.
+              {concluded
+                ? "This run has concluded. Your report is on the verdict page."
+                : "This session sat idle too long and has ended. Your verdict comes from what's on the record."}
             </p>
           </div>
         ) : !character?.avatarId ? (
@@ -225,7 +246,7 @@ export const RoomShell = ({ simulationId }: RoomShellProps) => {
           <AvatarProvider
             key={connectAttempt}
             avatarId={character.avatarId}
-            connectUrl={`/api/avatar/connect?fresh=${mountNonce}-${connectAttempt}`}
+            connectUrl={`/api/avatar/connect?fresh=${mountNonce}-${connectAttempt}&simulationId=${simulationId}`}
             audio
             video={false}
             onError={setAvatarError}
@@ -271,11 +292,11 @@ export const RoomShell = ({ simulationId }: RoomShellProps) => {
           <span className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[.14em] text-white [text-shadow:0_1px_4px_rgba(0,0,0,.5)]">
             <span
               aria-hidden="true"
-              className={`h-2 w-2 rounded-full bg-red ${concluded ? "" : "animate-pulse-red"}`}
+              className={`h-2 w-2 rounded-full bg-red ${sessionOver ? "" : "animate-pulse-red"}`}
             />
-            {concluded ? "Ended" : "Recording"}
+            {sessionOver ? "Ended" : "Recording"}
           </span>
-          {!concluded && <SessionClock startedAt={room._creationTime} />}
+          {!sessionOver && <SessionClock />}
         </div>
 
         {character && !avatarFailure && (
@@ -286,7 +307,7 @@ export const RoomShell = ({ simulationId }: RoomShellProps) => {
             <p className="mt-[5px] font-mono text-[11px] uppercase tracking-[.1em] text-white/80 [text-shadow:0_1px_4px_rgba(0,0,0,.4)]">
               {character.role}
             </p>
-            {!concluded && (
+            {!sessionOver && (
               <div className="mt-[11px] flex items-center gap-2">
                 <Waveform
                   active={isAvatarSpeaking}
@@ -340,7 +361,8 @@ export const RoomShell = ({ simulationId }: RoomShellProps) => {
           onClick={handleEndSession}
           className="focus-ring ml-auto flex items-center gap-[9px] border border-red bg-red px-5 py-[11px] font-mono text-[11px] uppercase tracking-[.08em] text-white transition-colors hover:bg-red-deep"
         >
-          {concluded ? "View report" : "End session"} <span aria-hidden="true">→</span>
+          {concluded ? "View report" : stale ? "Get the verdict" : "End session"}{" "}
+          <span aria-hidden="true">→</span>
         </button>
       </div>
 
