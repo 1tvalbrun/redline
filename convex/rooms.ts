@@ -2,6 +2,7 @@ import { v } from "convex/values"
 import { internalMutation, mutation, query } from "./_generated/server"
 import { AXES, boundRiskDelta } from "../src/lib/readiness"
 import { decisionValidator, noteTypeValidator, transcriptTypeValidator } from "./schema"
+import { requireIdentity } from "./guard"
 
 export const create = mutation({
   args: {
@@ -20,6 +21,7 @@ export const create = mutation({
     ),
   },
   handler: async (ctx, args) => {
+    await requireIdentity(ctx)
     return await ctx.db.insert("rooms", {
       ...args,
       activeCharacterId: args.characters[0]?.id,
@@ -35,6 +37,7 @@ export const create = mutation({
 export const get = query({
   args: { id: v.id("rooms") },
   handler: async (ctx, args) => {
+    await requireIdentity(ctx)
     return await ctx.db.get(args.id)
   },
 })
@@ -42,6 +45,7 @@ export const get = query({
 export const getBySimulation = query({
   args: { simulationId: v.id("simulations") },
   handler: async (ctx, args) => {
+    await requireIdentity(ctx)
     return await ctx.db
       .query("rooms")
       .withIndex("by_simulation", (q) => q.eq("simulationId", args.simulationId))
@@ -65,6 +69,7 @@ export const addTranscriptEntry = mutation({
     }),
   },
   handler: async (ctx, args) => {
+    await requireIdentity(ctx)
     const room = await ctx.db.get(args.id)
     if (!room) throw new Error("Room not found")
 
@@ -168,6 +173,7 @@ export const conclude = internalMutation({
 export const list = query({
   args: {},
   handler: async (ctx) => {
+    await requireIdentity(ctx)
     const rooms = await ctx.db.query("rooms").order("desc").take(50)
     return Promise.all(
       rooms.map(async (room) => {

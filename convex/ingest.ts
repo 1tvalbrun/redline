@@ -2,7 +2,8 @@
 
 import { v } from "convex/values"
 import { action, internalAction } from "./_generated/server"
-import { api, internal } from "./_generated/api"
+import { internal } from "./_generated/api"
+import { requireIdentity } from "./guard"
 import {
   clampExtractedText,
   materialFileType,
@@ -111,7 +112,7 @@ export const extract = internalAction({
       simulationId: material.simulationId,
     })
     if (settled) {
-      await ctx.scheduler.runAfter(0, api.audits.generate, {
+      await ctx.scheduler.runAfter(0, internal.audits.run, {
         simulationId: material.simulationId,
       })
     }
@@ -123,6 +124,7 @@ export const extract = internalAction({
 export const extractUpload = action({
   args: { storageId: v.id("_storage"), name: v.string() },
   handler: async (ctx, args): Promise<{ ok: true; text: string } | { ok: false; reason: string }> => {
+    await requireIdentity(ctx)
     const fileType = materialFileType(args.name)
     if (!fileType) return { ok: false, reason: "Only PDF, PPTX, XLSX, and DOCX files are supported." }
     const blob = await ctx.storage.get(args.storageId)

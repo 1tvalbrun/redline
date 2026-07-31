@@ -21,7 +21,9 @@ Use CSS custom properties: var(--color-primary), var(--font-display) etc.
   and OPENAI_MODEL_QUALITY (audit, report) override it — set them in the
   Convex deployment env, which actions read (not .env.local)
 - Runway GWM Avatars: 3 simultaneous AvatarProvider sessions
-- No auth — single user demo for hackathon
+- Clerk auth, invite-only (Restricted mode): Google + email sign-in. Every
+  public Convex function calls requireIdentity (convex/guard.ts); Next
+  middleware (src/proxy.ts) gates pages and API routes
 - useQuery/useMutation/useAction from convex/react for all data
 
 ## Code Rules
@@ -38,7 +40,7 @@ conventions on top of those:
 
 ## Do Not
 - Create tailwind.config.ts (Tailwind v4 uses CSS-first config)
-- Add auth
+- Add a public Convex function or API route without an identity check
 - Leave TODOs or placeholders
 - Use useState for data that belongs in Convex
 - Commit. Ever. The developer is the only one who commits, after reviewing

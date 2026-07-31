@@ -1,13 +1,23 @@
 import { v } from "convex/values"
-import { action, internalMutation, internalQuery, query } from "./_generated/server"
+import {
+  action,
+  internalAction,
+  internalMutation,
+  internalQuery,
+  query,
+  type ActionCtx,
+} from "./_generated/server"
 import { internal } from "./_generated/api"
+import type { Id } from "./_generated/dataModel"
 import { claimValidator, gapValidator, groundAudit } from "../src/lib/audit"
+import { requireIdentity } from "./guard"
 
 const PROMPT_CHAR_BUDGET = 60_000
 
 export const getBySimulation = query({
   args: { simulationId: v.id("simulations") },
   handler: async (ctx, args) => {
+    await requireIdentity(ctx)
     return await ctx.db
       .query("audits")
       .withIndex("by_simulation", (q) => q.eq("simulationId", args.simulationId))
@@ -84,60 +94,61 @@ export const setOutcome = internalMutation({
   },
 })
 
-export const generate = action({
-  args: { simulationId: v.id("simulations"), force: v.optional(v.boolean()) },
-  handler: async (ctx, args): Promise<void> => {
-    // Materials still extracting: don't run a materials-blind audit that
-    // would then block the corrective re-run (start treats a ready audit as
-    // done). The last extraction to settle re-triggers generate, so
-    // declining here loses nothing.
-    const settled = await ctx.runQuery(internal.materials.allSettled, {
-      simulationId: args.simulationId,
+const generateAudit = async (
+  ctx: ActionCtx,
+  args: { simulationId: Id<"simulations">; force?: boolean }
+): Promise<void> => {
+  // Materials still extracting: don't run a materials-blind audit that
+  // would then block the corrective re-run (start treats a ready audit as
+  // done). The last extraction to settle re-triggers generate, so
+  // declining here loses nothing.
+  const settled = await ctx.runQuery(internal.materials.allSettled, {
+    simulationId: args.simulationId,
+  })
+  if (!settled) return
+
+  const auditId = await ctx.runMutation(internal.audits.start, {
+    simulationId: args.simulationId,
+    force: args.force,
+  })
+  if (!auditId) return
+
+  const fail = (failureReason: string) =>
+    ctx.runMutation(internal.audits.setOutcome, {
+      auditId,
+      outcome: { status: "failed", failureReason },
     })
-    if (!settled) return
 
-    const auditId = await ctx.runMutation(internal.audits.start, {
-      simulationId: args.simulationId,
-      force: args.force,
-    })
-    if (!auditId) return
+  try {
+    const { simulation, readable, unreadableCount } = await ctx.runQuery(
+      internal.audits.inputs,
+      { simulationId: args.simulationId }
+    )
+    if (!simulation) {
+      await fail("Simulation not found.")
+      return
+    }
 
-    const fail = (failureReason: string) =>
-      ctx.runMutation(internal.audits.setOutcome, {
-        auditId,
-        outcome: { status: "failed", failureReason },
-      })
+    const perMaterialBudget =
+      readable.length > 0 ? Math.floor(PROMPT_CHAR_BUDGET / readable.length) : 0
+    const materialSections =
+      readable.length > 0
+        ? readable
+            .map(
+              (material) =>
+                `=== ${material.name} ===\n${material.text.slice(0, perMaterialBudget)}`
+            )
+            .join("\n\n")
+        : "(No readable materials were provided.)"
 
-    try {
-      const { simulation, readable, unreadableCount } = await ctx.runQuery(
-        internal.audits.inputs,
-        { simulationId: args.simulationId }
-      )
-      if (!simulation) {
-        await fail("Simulation not found.")
-        return
-      }
+    const { OpenAI } = await import("openai")
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+    const model =
+      process.env.OPENAI_MODEL_QUALITY ??
+      process.env.OPENAI_MODEL_FAST ??
+      "gpt-4o-mini"
 
-      const perMaterialBudget =
-        readable.length > 0 ? Math.floor(PROMPT_CHAR_BUDGET / readable.length) : 0
-      const materialSections =
-        readable.length > 0
-          ? readable
-              .map(
-                (material) =>
-                  `=== ${material.name} ===\n${material.text.slice(0, perMaterialBudget)}`
-              )
-              .join("\n\n")
-          : "(No readable materials were provided.)"
-
-      const { OpenAI } = await import("openai")
-      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-      const model =
-        process.env.OPENAI_MODEL_QUALITY ??
-        process.env.OPENAI_MODEL_FAST ??
-        "gpt-4o-mini"
-
-      const systemPrompt = `You are a diligence analyst auditing a founder's materials before a panel session.
+    const systemPrompt = `You are a diligence analyst auditing a founder's materials before a panel session.
 
 The founder's brief (their own words, NOT evidence):
 - Idea: ${simulation.brief.ideaName}
@@ -159,29 +170,44 @@ TASK 2 — GAPS. What a competent diligencer expects but cannot find. Each: "sev
 
 Return JSON only: {"claims":[{"text","source","location","axis"}],"gaps":[{"severity","kind","title","detail","axis"}]}`
 
-      const response = await openai.chat.completions.create({
-        model,
-        messages: [{ role: "system", content: systemPrompt }],
-        response_format: { type: "json_object" },
-      })
+    const response = await openai.chat.completions.create({
+      model,
+      messages: [{ role: "system", content: systemPrompt }],
+      response_format: { type: "json_object" },
+    })
 
-      const content = response.choices[0]?.message?.content
-      if (!content) {
-        await fail("The audit model returned nothing. Try again.")
-        return
-      }
-
-      const { claims, gaps } = groundAudit(JSON.parse(content), readable)
-      await ctx.runMutation(internal.audits.setOutcome, {
-        auditId,
-        outcome: { status: "ready", claims, gaps },
-      })
-    } catch (error) {
-      // Fixed message only: failureReason is client-readable, and provider
-      // error text can carry key fragments and org details. Raw error goes
-      // to the server log.
-      console.error("[audits.generate]", error)
-      await fail("The audit hit an error. Re-run it to try again.")
+    const content = response.choices[0]?.message?.content
+    if (!content) {
+      await fail("The audit model returned nothing. Try again.")
+      return
     }
+
+    const { claims, gaps } = groundAudit(JSON.parse(content), readable)
+    await ctx.runMutation(internal.audits.setOutcome, {
+      auditId,
+      outcome: { status: "ready", claims, gaps },
+    })
+  } catch (error) {
+    // Fixed message only: failureReason is client-readable, and provider
+    // error text can carry key fragments and org details. Raw error goes
+    // to the server log.
+    console.error("[audits.generate]", error)
+    await fail("The audit hit an error. Re-run it to try again.")
+  }
+}
+
+export const generate = action({
+  args: { simulationId: v.id("simulations"), force: v.optional(v.boolean()) },
+  handler: async (ctx, args): Promise<void> => {
+    await requireIdentity(ctx)
+    await generateAudit(ctx, args)
   },
+})
+
+// Scheduler entry: ingest.extract fires this when the last material
+// settles. The scheduler runs with no user identity, so it can't go through
+// the public, guarded path.
+export const run = internalAction({
+  args: { simulationId: v.id("simulations"), force: v.optional(v.boolean()) },
+  handler: generateAudit,
 })

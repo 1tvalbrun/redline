@@ -3,6 +3,7 @@ import { internalMutation, mutation, query, action } from "./_generated/server"
 import { api, internal } from "./_generated/api"
 import { materialFileType, validateMaterialFile } from "../src/lib/materials"
 import { FREE_TEXT_LIMITS, parseExtractedBrief } from "../src/lib/intake"
+import { requireIdentity } from "./guard"
 import {
   BUSINESS_MODEL_OPTIONS,
   STAGE_OPTIONS,
@@ -33,6 +34,7 @@ export const create = mutation({
     ),
   },
   handler: async (ctx, args) => {
+    await requireIdentity(ctx)
     // Brief fields are interpolated into every downstream prompt, and the
     // UI can be bypassed — hold them to the same sizes the intake extractor
     // enforces before they're stored.
@@ -87,6 +89,7 @@ export const create = mutation({
 export const get = query({
   args: { id: v.id("simulations") },
   handler: async (ctx, args) => {
+    await requireIdentity(ctx)
     return await ctx.db.get(args.id)
   },
 })
@@ -129,6 +132,7 @@ export const setContext = internalMutation({
 export const analyze = action({
   args: { id: v.id("simulations") },
   handler: async (ctx, args) => {
+    await requireIdentity(ctx)
     const simulation = await ctx.runQuery(api.simulations.get, { id: args.id })
     if (!simulation) throw new Error("Simulation not found")
 
@@ -191,7 +195,8 @@ export const extractBrief = action({
     pitch: v.string(),
     source: v.union(v.literal("voice"), v.literal("deck")),
   },
-  handler: async (_ctx, args) => {
+  handler: async (ctx, args) => {
+    await requireIdentity(ctx)
     const { OpenAI } = await import("openai")
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
     const model = process.env.OPENAI_MODEL_FAST ?? "gpt-4o-mini"

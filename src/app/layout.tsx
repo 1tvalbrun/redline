@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import { Archivo, IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google"
+import { ClerkProvider } from "@clerk/nextjs"
 import { ConvexClientProvider } from "./providers"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import "./globals.css"
@@ -36,9 +37,11 @@ const RootLayout = ({ children }: { children: React.ReactNode }) => {
       className={`${archivo.variable} ${plexSans.variable} ${plexMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <ConvexClientProvider>
-          <TooltipProvider>{children}</TooltipProvider>
-        </ConvexClientProvider>
+        <ClerkProvider>
+          <ConvexClientProvider>
+            <TooltipProvider>{children}</TooltipProvider>
+          </ConvexClientProvider>
+        </ClerkProvider>
       </body>
     </html>
   )

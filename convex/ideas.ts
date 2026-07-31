@@ -1,9 +1,11 @@
 import { v } from "convex/values"
 import { internalMutation, query } from "./_generated/server"
+import { requireIdentity } from "./guard"
 
 export const listWithStats = query({
   args: {},
   handler: async (ctx) => {
+    await requireIdentity(ctx)
     const ideas = await ctx.db.query("ideas").collect()
     const stats = await Promise.all(
       ideas.map(async (idea) => {
@@ -52,6 +54,7 @@ export const listWithStats = query({
 export const getDetail = query({
   args: { ideaId: v.id("ideas") },
   handler: async (ctx, args) => {
+    await requireIdentity(ctx)
     const idea = await ctx.db.get(args.ideaId)
     if (!idea) return null
 
@@ -110,6 +113,7 @@ export const getDetail = query({
 export const counts = query({
   args: {},
   handler: async (ctx) => {
+    await requireIdentity(ctx)
     const [ideas, rooms, reports] = await Promise.all([
       ctx.db.query("ideas").collect(),
       ctx.db.query("rooms").collect(),
