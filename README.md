@@ -17,7 +17,7 @@ Six stages, each building on the last:
 
 The live interrogator is a **Runway Character**: a realtime, photoreal avatar that hears the founder speak and pushes back in the moment, in its own voice. The founder is across the table from an investor, not a chat box.
 
-The verdict is delivered by that same investor. **Act-Two** drives a composed three-person boardroom still with the delivering panelist's **avatar video**, so the panel appears together in one shot and the verdict comes from the same face and voice that ran the interrogation. One panelist speaks; the other two sit with them.
+The verdict is delivered by that same investor: the delivering panelist's one-line spoken verdict is quoted over a composed three-person panel tableau with their seat lit, so the verdict comes from the same face that ran the interrogation.
 
 If you build on the avatars SDK, [docs/runway-avatar-findings.md](docs/runway-avatar-findings.md) collects a few non-obvious behaviors we hit, each with a source citation and the workaround.
 
@@ -33,7 +33,7 @@ The same discipline shapes the live experience. The founder's speech was transcr
 
 ## Stack
 
-Next.js and Convex (database, server functions, realtime), Runway (Characters, avatar videos, Act-Two), AssemblyAI streaming transcription, OpenAI for orchestration and the written report.
+Next.js and Convex (database, server functions, realtime), Runway (Characters), AssemblyAI streaming transcription, OpenAI for orchestration and the written report.
 
 ## Setup
 
@@ -54,7 +54,6 @@ In the Convex deployment, set with `npx convex env set NAME value` (read by Conv
 - `RUNWAYML_API_SECRET`, `OPENAI_API_KEY`
 - `CLERK_JWT_ISSUER_DOMAIN`: the Clerk instance's issuer URL (`https://….clerk.accounts.dev`). Convex validates the session JWT against it; also create a JWT template named `convex` in the Clerk dashboard.
 - `OPENAI_MODEL_FAST`, `OPENAI_MODEL_QUALITY` (optional): model overrides, defaulting to `gpt-4o-mini`. Convex actions read the deployment env, not `.env.local` — a model set only locally never reaches them.
-- `VERDICT_ROOM_SCENE_VC`, `VERDICT_ROOM_SCENE_TC`, `VERDICT_ROOM_SCENE_TA`: the boardroom still URLs the verdict film composites. Without them the report still renders; the film degrades to text only.
 
 `npx convex dev` writes `NEXT_PUBLIC_CONVEX_URL` for you.
 

@@ -5,7 +5,6 @@ import type { Id } from "./_generated/dataModel"
 import { bySpokenTime } from "../src/lib/transcript"
 import { selectVerdictSpeaker } from "../src/lib/readiness"
 import { groundHeldUp } from "../src/lib/reportGrounding"
-import { ROOM_SCENE_ENV } from "./runway"
 import {
   decisionValidator,
   priorityValidator,
@@ -14,18 +13,11 @@ import {
 } from "./schema"
 import { ownedOrNull, requireIdentity } from "./guard"
 
-const verdictVideoValidator = v.object({
-  status: v.union(v.literal("pending"), v.literal("ready"), v.literal("failed")),
-  url: v.optional(v.string()),
-  speakerId: v.string(),
-  speakerName: v.string(),
-  script: v.string(),
-})
-
 // Internal: the only caller is reports.generate. Insert-if-absent on the
-// by_simulation index so two concurrent generations for one room produce one
-// report and schedule one paid film — the money guard lives here, on the
-// serializable mutation, not in the action's non-transactional check.
+// by_simulation index so two concurrent generations for one room produce
+// one report and one room verdict (conclude is gated on `created`) — the
+// guard lives here, on the serializable mutation, not in the action's
+// non-transactional check.
 export const create = internalMutation({
   args: {
     simulationId: v.id("simulations"),
@@ -52,7 +44,11 @@ export const create = internalMutation({
         priority: priorityValidator,
       })
     ),
-    verdictVideo: v.optional(verdictVideoValidator),
+    spokenVerdict: v.object({
+      speakerId: v.string(),
+      speakerName: v.string(),
+      text: v.string(),
+    }),
   },
   handler: async (ctx, args) => {
     const existing = await ctx.db
@@ -74,22 +70,6 @@ export const getBySimulation = query({
       .withIndex("by_simulation", (q) => q.eq("simulationId", args.simulationId))
       .first()
     return ownedOrNull(identity, report)
-  },
-})
-
-// Internal: written only by runway.generateVerdictVideo as the film renders.
-export const setVerdictVideoStatus = internalMutation({
-  args: {
-    id: v.id("reports"),
-    status: v.union(v.literal("ready"), v.literal("failed")),
-    url: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    const report = await ctx.db.get(args.id)
-    if (!report?.verdictVideo) throw new Error("Report has no verdict video")
-    await ctx.db.patch(args.id, {
-      verdictVideo: { ...report.verdictVideo, status: args.status, url: args.url },
-    })
   },
 })
 
@@ -235,9 +215,9 @@ Grounding rules (absolute):
         : "Verdict pending review."
     const verdictConfidence = clampInt(rawVerdict.confidence, 50)
 
-    // The one-line verdict the panelist speaks aloud — distinct from the
+    // The one-line verdict the panelist "speaks" — distinct from the
     // written summary. Capped well past the 120-160 target so a rambling
-    // model can't produce a minute-long clip.
+    // model can't bloat the quote.
     const spokenVerdict = (
       typeof parsed.spokenVerdict === "string" && parsed.spokenVerdict.trim().length > 0
         ? parsed.spokenVerdict.trim()
@@ -287,22 +267,10 @@ Grounding rules (absolute):
           }))
       : []
 
-    // Who speaks the verdict: the panelist the founder faced, or the
+    // Who delivers the verdict: the panelist the founder faced, or the
     // weakest-axis owner when they faced several (same mapping as the
-    // Panel recommendation). No Runway avatar or no room scene → no film
-    // is possible, so the report ships text-only instead of promising a
-    // video that can't land.
-    const speaker = selectVerdictSpeaker(room.characters, room.riskScores)
-    const canFilm = Boolean(speaker?.avatarId && ROOM_SCENE_ENV[speaker.id])
-    const verdictVideo =
-      canFilm && speaker
-        ? {
-            status: "pending" as const,
-            speakerId: speaker.id,
-            speakerName: speaker.name,
-            script: spokenVerdict,
-          }
-        : undefined
+    // Panel recommendation).
+    const speaker = selectVerdictSpeaker(room.characters, room.riskScores) ?? character
 
     const { reportId, created } = await ctx.runMutation(internal.reports.create, {
       simulationId: room.simulationId,
@@ -315,12 +283,16 @@ Grounding rules (absolute):
       topRisks,
       opportunities,
       nextSevenDays,
-      verdictVideo,
+      spokenVerdict: {
+        speakerId: speaker.id,
+        speakerName: speaker.name,
+        text: spokenVerdict,
+      },
     })
 
-    // Concluding the room is gated on the same insert-if-absent result as
-    // the film: a concurrent generation that lost the race must not
-    // overwrite the winner's stored verdict with its own model output.
+    // Concluding the room is gated on the insert-if-absent result: a
+    // concurrent generation that lost the race must not overwrite the
+    // winner's stored verdict with its own model output.
     if (created) {
       await ctx.runMutation(internal.rooms.conclude, {
         id: args.roomId,
@@ -329,18 +301,6 @@ Grounding rules (absolute):
           summary: verdictSummary,
           confidence: verdictConfidence,
         },
-      })
-    }
-
-    // Scheduled only when this call actually created the report — a
-    // concurrent generation that lost the insert-if-absent race spends no
-    // film credits. One report, one paid film.
-    if (created && speaker?.avatarId && verdictVideo) {
-      await ctx.scheduler.runAfter(0, internal.runway.generateVerdictVideo, {
-        reportId,
-        avatarId: speaker.avatarId,
-        speakerId: speaker.id,
-        script: spokenVerdict,
       })
     }
 
