@@ -181,48 +181,13 @@ export default defineSchema({
         priority: priorityValidator,
       })
     ),
-    // Legacy scene-image pipeline (removed — the verdict video replaced
-    // it). Kept optional so reports generated before the removal still
-    // validate; new reports write neither field.
-    generatedMedia: v.optional(
-      v.object({
-        successVideo: v.optional(v.string()),
-        failureVideo: v.optional(v.string()),
-      })
-    ),
-    mediaStatus: v.optional(v.string()),
-    // The verdict film (M5): the act_two full-room cut — the whole panel in
-    // one shot, the speaker delivering the one-line verdict. Absent on
-    // reports that predate the feature or whose speaker has no Runway
-    // avatar/room scene — the verdict screen falls back to the still
-    // composite. Generated exactly once, when the report is created; url is
-    // a durable Convex storage URL.
-    verdictVideo: v.optional(
-      v.object({
-        status: v.union(
-          v.literal("pending"),
-          v.literal("ready"),
-          v.literal("failed")
-        ),
-        url: v.optional(v.string()),
-        speakerId: v.string(),
-        speakerName: v.string(),
-        script: v.string(),
-        // Legacy two-stage shape (removed): these docs hold the film here
-        // and a talking-head clip in url. Kept optional so they still
-        // validate; new reports write the film to url and never this.
-        roomVideo: v.optional(
-          v.object({
-            status: v.union(
-              v.literal("pending"),
-              v.literal("ready"),
-              v.literal("failed")
-            ),
-            url: v.optional(v.string()),
-          })
-        ),
-      })
-    ),
+    // The one-line verdict the delivering panelist "speaks": rendered as the
+    // quote over the composed panel still, their seat lit.
+    spokenVerdict: v.object({
+      speakerId: v.string(),
+      speakerName: v.string(),
+      text: v.string(),
+    }),
   })
     .index("by_simulation", ["simulationId"])
     .index("by_user", ["userId"]),

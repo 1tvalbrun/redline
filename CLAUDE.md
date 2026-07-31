@@ -3,8 +3,8 @@
 ## What This Is
 An AI panel stress test. A founder pitches an idea and is interrogated by 3
 live Runway avatar characters (VC, Target Customer, Technical Architect).
-Flow: Brief → Read → Audit → Panel → Room → Verdict, ending in a
-Runway-generated verdict film.
+Flow: Brief → Read → Audit → Panel → Room → Verdict, ending in a scored
+report with the panelist's spoken verdict.
 
 ## Stack
 Next.js 16.2, TypeScript strict, Tailwind CSS v4, shadcn/ui, Convex,

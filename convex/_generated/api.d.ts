@@ -16,7 +16,6 @@ import type * as materials from "../materials.js";
 import type * as orchestrator from "../orchestrator.js";
 import type * as reports from "../reports.js";
 import type * as rooms from "../rooms.js";
-import type * as runway from "../runway.js";
 import type * as simulations from "../simulations.js";
 
 import type {
@@ -34,7 +33,6 @@ declare const fullApi: ApiFromModules<{
   orchestrator: typeof orchestrator;
   reports: typeof reports;
   rooms: typeof rooms;
-  runway: typeof runway;
   simulations: typeof simulations;
 }>;
 

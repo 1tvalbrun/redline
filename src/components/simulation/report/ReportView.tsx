@@ -175,8 +175,7 @@ export const ReportView = ({ simulationId }: ReportViewProps) => {
 
       <VerdictStage
         className="mt-8"
-        video={report ? report.verdictVideo ?? null : undefined}
-        pendingSince={report?._creationTime}
+        spokenVerdict={report?.spokenVerdict}
         ideaName={simulation?.brief.ideaName ?? "Your idea"}
         verdictLabel={verdict?.label ?? null}
       />
