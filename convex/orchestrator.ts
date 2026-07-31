@@ -4,6 +4,7 @@ import { api, internal } from "./_generated/api"
 import { bySpokenTime } from "../src/lib/transcript"
 import { AXES } from "../src/lib/readiness"
 import type { NoteType } from "./schema"
+import { requireIdentity } from "./guard"
 
 const NOTE_TYPES: ReadonlySet<string> = new Set([
   "follow_up",
@@ -23,6 +24,7 @@ export const decide = action({
   // Explicit return type breaks Convex's self-referential inference cycle
   // (decide → api → decide), which otherwise fails `next build` typechecking.
   handler: async (ctx, args): Promise<DecideResult> => {
+    await requireIdentity(ctx)
     const room = await ctx.runQuery(api.rooms.get, { id: args.roomId })
     if (!room || room.status !== "live") return null
     if (room.transcript.length === 0) return null

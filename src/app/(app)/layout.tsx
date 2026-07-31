@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react"
 import { usePathname } from "next/navigation"
 import { useQuery } from "convex/react"
+import { UserButton } from "@clerk/nextjs"
 import { api } from "@convex/_generated/api"
 import { INVESTOR_READY_LINE } from "@/lib/readiness"
 import { AppRail } from "@/components/layout/AppRail"
@@ -48,6 +49,9 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
               Ready line <b className="font-semibold text-red-fg tabular-nums">{INVESTOR_READY_LINE}</b>
             </span>
           </div>
+          <UserButton
+            appearance={{ variables: { colorPrimary: "#9e1b14", borderRadius: "0px" } }}
+          />
         </div>
         <div className="mx-auto max-w-[1240px] px-10 pb-20 pt-7">{children}</div>
       </main>

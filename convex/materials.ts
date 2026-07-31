@@ -1,18 +1,26 @@
 import { v } from "convex/values"
-import { internalMutation, internalQuery, mutation, query } from "./_generated/server"
+import { internalMutation, internalQuery, mutation } from "./_generated/server"
+import { requireIdentity } from "./guard"
 
 export const generateUploadUrl = mutation({
   args: {},
   handler: async (ctx) => {
+    await requireIdentity(ctx)
     return await ctx.storage.generateUploadUrl()
   },
 })
 
-// Serve counterpart to generateUploadUrl: resolve a stored file's public URL.
-// Convex rejects a hand-built /api/storage/<id> path — only storage.getUrl
-// mints a valid URL. Used by scripts/generate-room-scenes.ts to publish the
-// verdict-film stills.
-export const storageUrl = query({
+// Script-only counterparts, internal so they're not client-callable:
+// scripts/generate-room-scenes.ts invokes them with `npx convex run`, which
+// runs as the deployment admin and has no user identity to satisfy the
+// public paths' guard. storageUrl exists because Convex rejects a hand-built
+// /api/storage/<id> path — only storage.getUrl mints a valid URL.
+export const scriptUploadUrl = internalMutation({
+  args: {},
+  handler: async (ctx) => await ctx.storage.generateUploadUrl(),
+})
+
+export const storageUrl = internalQuery({
   args: { storageId: v.id("_storage") },
   handler: async (ctx, args) => await ctx.storage.getUrl(args.storageId),
 })

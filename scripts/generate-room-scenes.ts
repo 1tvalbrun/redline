@@ -16,6 +16,10 @@
 //   RUNWAY_KEY=$(npx convex env get RUNWAYML_API_SECRET) \
 //     node scripts/generate-room-scenes.ts
 //
+// Pass --prod to store the stills on the production deployment. Storage
+// calls go through `npx convex run` (deployment admin) because the public
+// upload path requires a signed-in user this offline script doesn't have.
+//
 // Prints, per scene, the Convex storage URL to set as VERDICT_ROOM_SCENE_*.
 // Reference images are the committed avatar PNGs, downscaled with sips to
 // stay under gen4_image's data-URI size limit.
@@ -24,20 +28,24 @@ import { execFileSync } from "node:child_process"
 import { readFileSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { ConvexHttpClient } from "convex/browser"
-import { api } from "../convex/_generated/api"
 
 const RUNWAY_KEY = process.env.RUNWAY_KEY
-const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL
 const RUNWAY_API = "https://api.dev.runwayml.com"
+const PROD = process.argv.includes("--prod")
 
 if (!RUNWAY_KEY) {
   console.error("Set RUNWAY_KEY (e.g. RUNWAY_KEY=$(npx convex env get RUNWAYML_API_SECRET))")
   process.exit(1)
 }
-if (!CONVEX_URL) {
-  console.error("Set NEXT_PUBLIC_CONVEX_URL to your Convex deployment URL")
-  process.exit(1)
+
+const convexRun = (fn: string, args?: unknown): unknown => {
+  const out = execFileSync(
+    "npx",
+    ["convex", "run", ...(PROD ? ["--prod"] : []), fn, ...(args ? [JSON.stringify(args)] : [])],
+    { encoding: "utf8" }
+  ).trim()
+  // The CLI prints nothing (not "null") for a null result.
+  return out === "" ? null : JSON.parse(out)
 }
 
 type Panelist = { file: string; tag: string; article: "The man" | "The woman" }
@@ -101,15 +109,15 @@ const generate = async (promptText: string, referenceImages: { uri: string; tag:
   }
 }
 
-const uploadToConvex = async (convex: ConvexHttpClient, png: Buffer): Promise<string> => {
-  const uploadUrl = await convex.mutation(api.materials.generateUploadUrl, {})
+const uploadToConvex = async (png: Buffer): Promise<string> => {
+  const uploadUrl = convexRun("materials:scriptUploadUrl") as string
   const res = await fetch(uploadUrl, {
     method: "POST",
     headers: { "Content-Type": "image/png" },
     body: new Uint8Array(png),
   })
   const { storageId } = await res.json()
-  const url = await convex.query(api.materials.storageUrl, { storageId })
+  const url = convexRun("materials:storageUrl", { storageId }) as string | null
   if (!url) throw new Error("storage.getUrl returned null")
   return url
 }
@@ -117,9 +125,10 @@ const uploadToConvex = async (convex: ConvexHttpClient, png: Buffer): Promise<st
 const main = async () => {
   // Optional args filter which scenes to (re)generate, e.g. "VC TC". No args
   // → all three. Lets a failed eye-check regenerate only the misses.
-  const only = new Set(process.argv.slice(2).map((a) => a.toUpperCase()))
+  const only = new Set(
+    process.argv.slice(2).filter((a) => !a.startsWith("--")).map((a) => a.toUpperCase())
+  )
   const outDir = process.env.SCENES_OUT ?? tmpdir()
-  const convex = new ConvexHttpClient(CONVEX_URL)
   const refs = Object.values(PANEL).map((p) => ({ uri: refDataUri(p.file), tag: p.tag }))
 
   const results: Record<string, string> = {}
@@ -132,7 +141,7 @@ const main = async () => {
     const png = await generate(prompt(c, l, r), refs)
     const localPath = join(outDir, `scene-${scene.envKey}-${scene.center}.png`)
     writeFileSync(localPath, png)
-    const url = await uploadToConvex(convex, png)
+    const url = await uploadToConvex(png)
     results[scene.envKey] = url
     console.log(`[${scene.envKey}] done → local ${localPath}`)
     console.log(`[${scene.envKey}]        → ${url}`)

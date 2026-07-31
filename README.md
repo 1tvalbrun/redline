@@ -47,11 +47,15 @@ In `.env.local` (read by the Next server and the client build):
 
 - `RUNWAYML_API_SECRET`, `OPENAI_API_KEY`, `ASSEMBLYAI_API_KEY`
 - `NEXT_PUBLIC_RUNWAY_AVATAR_VC`, `NEXT_PUBLIC_RUNWAY_AVATAR_CUSTOMER`, `NEXT_PUBLIC_RUNWAY_AVATAR_TECH` (the three avatar ids)
+- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`, `NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in` (Clerk auth)
 
 In the Convex deployment, set with `npx convex env set NAME value` (read by Convex actions):
 
 - `RUNWAYML_API_SECRET`, `OPENAI_API_KEY`
+- `CLERK_JWT_ISSUER_DOMAIN`: the Clerk instance's issuer URL (`https://….clerk.accounts.dev`). Convex validates the session JWT against it; also create a JWT template named `convex` in the Clerk dashboard.
 - `OPENAI_MODEL_FAST`, `OPENAI_MODEL_QUALITY` (optional): model overrides, defaulting to `gpt-4o-mini`. Convex actions read the deployment env, not `.env.local` — a model set only locally never reaches them.
 - `VERDICT_ROOM_SCENE_VC`, `VERDICT_ROOM_SCENE_TC`, `VERDICT_ROOM_SCENE_TA`: the boardroom still URLs the verdict film composites. Without them the report still renders; the film degrades to text only.
 
-`npx convex dev` writes `NEXT_PUBLIC_CONVEX_URL` for you. No auth; this is a single-user demo.
+`npx convex dev` writes `NEXT_PUBLIC_CONVEX_URL` for you.
+
+Auth is Clerk, invite-only: sign-up is Restricted in the Clerk dashboard, and testers are added under Users → Invitations. Sign-in is Google or an email code at `/sign-in`. Every page, API route, and public Convex function requires a session.

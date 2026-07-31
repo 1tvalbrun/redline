@@ -12,6 +12,7 @@ import {
   type Decision,
   type Priority,
 } from "./schema"
+import { requireIdentity } from "./guard"
 
 const verdictVideoValidator = v.object({
   status: v.union(v.literal("pending"), v.literal("ready"), v.literal("failed")),
@@ -66,6 +67,7 @@ export const create = internalMutation({
 export const getBySimulation = query({
   args: { simulationId: v.id("simulations") },
   handler: async (ctx, args) => {
+    await requireIdentity(ctx)
     return await ctx.db
       .query("reports")
       .withIndex("by_simulation", (q) => q.eq("simulationId", args.simulationId))
@@ -103,6 +105,7 @@ export const generate = action({
   // Explicit return type breaks Convex's self-referential inference cycle
   // (generate → api → generate), which otherwise fails `next build` typechecking.
   handler: async (ctx, args): Promise<{ reportId: Id<"reports"> }> => {
+    await requireIdentity(ctx)
     const room = await ctx.runQuery(api.rooms.get, { id: args.roomId })
     if (!room) throw new Error("Room not found")
 
@@ -343,6 +346,7 @@ Grounding rules (absolute):
 export const list = query({
   args: {},
   handler: async (ctx) => {
+    await requireIdentity(ctx)
     const reports = await ctx.db.query("reports").order("desc").take(100)
     return Promise.all(
       reports.map(async (report) => {

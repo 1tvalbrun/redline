@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { auth } from "@clerk/nextjs/server"
 import { z } from "zod"
 
 const tokenResponseSchema = z.object({ token: z.string() })
@@ -7,6 +8,9 @@ const tokenResponseSchema = z.object({ token: z.string() })
 // transcription WebSocket directly. Audio never passes through this server,
 // and the API key never reaches the client.
 export const GET = async () => {
+  const { userId } = await auth()
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
   const apiKey = process.env.ASSEMBLYAI_API_KEY
   if (!apiKey) {
     return NextResponse.json(

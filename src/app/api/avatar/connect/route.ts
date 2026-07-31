@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { auth } from "@clerk/nextjs/server"
 import RunwayML from "@runwayml/sdk"
 import { z } from "zod"
 
@@ -35,6 +36,9 @@ demands.
 `
 
 export const POST = async (req: NextRequest) => {
+  const { userId } = await auth()
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
   const body = BodySchema.safeParse(await req.json().catch(() => null))
   if (!body.success) return NextResponse.json({ error: "avatarId required" }, { status: 400 })
   const { avatarId } = body.data
