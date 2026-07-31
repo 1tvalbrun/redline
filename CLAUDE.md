@@ -17,7 +17,9 @@ Use CSS custom properties: var(--color-primary), var(--font-display) etc.
 
 ## Key Decisions
 - Convex handles database, server functions, and real-time updates
-- OpenAI: gpt-4o-mini for orchestration, gpt-4o for analysis and report
+- OpenAI: gpt-4o-mini by default everywhere; OPENAI_MODEL_FAST (orchestration)
+  and OPENAI_MODEL_QUALITY (audit, report) override it — set them in the
+  Convex deployment env, which actions read (not .env.local)
 - Runway GWM Avatars: 3 simultaneous AvatarProvider sessions
 - No auth — single user demo for hackathon
 - useQuery/useMutation/useAction from convex/react for all data

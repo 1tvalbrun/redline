@@ -1,6 +1,29 @@
 import test from "node:test"
 import assert from "node:assert/strict"
-import { deriveReadiness, readinessSeverity, selectVerdictSpeaker } from "./readiness.ts"
+import {
+  boundRiskDelta,
+  deriveReadiness,
+  readinessSeverity,
+  selectVerdictSpeaker,
+} from "./readiness.ts"
+
+test("a proposed score within the per-turn bound applies as proposed", () => {
+  assert.equal(boundRiskDelta(50, 58), 58)
+  assert.equal(boundRiskDelta(50, 43), 43)
+  assert.equal(boundRiskDelta(50, 50), 50)
+})
+
+test("a proposed score beyond the bound moves at most maxDelta from current", () => {
+  assert.equal(boundRiskDelta(50, 95), 60)
+  assert.equal(boundRiskDelta(50, 5), 40)
+  assert.equal(boundRiskDelta(50, 70, 5), 55)
+})
+
+test("bounded scores stay within 0-100 and round to whole integers", () => {
+  assert.equal(boundRiskDelta(98, 130), 100)
+  assert.equal(boundRiskDelta(3, -40), 0)
+  assert.equal(boundRiskDelta(50, 54.4), 54)
+})
 
 test("all-zero risk yields full readiness on every axis", () => {
   const r = deriveReadiness({ market: 0, customer: 0, technical: 0, gtm: 0 })

@@ -19,11 +19,11 @@ type PitchTranscription = {
 
 // Intake pitch capture on the shared founder-transcription core. Interim
 // turns are tracked by the core (turn idempotency; leftovers join the
-// transcript on stop) but only finals are exposed: intake deliberately shows
-// confirmed text only. The room's live transcript renders interims — don't
-// inherit this omission there. Runs once per mount; onFinished fires exactly
-// once with the assembled transcript. onAudioLevel reports per-chunk mic RMS
-// (0..1) — callers must not set React state per call.
+// transcript on stop) but only finals are exposed: confirmed text only, the
+// same rule the room's transcript follows (UserSpeechBridge also discards
+// interims). Runs once per mount; onFinished fires exactly once with the
+// assembled transcript. onAudioLevel reports per-chunk mic RMS (0..1) —
+// callers must not set React state per call.
 export const usePitchTranscription = (
   onFinished: (transcript: string) => void,
   onAudioLevel: (rms: number) => void

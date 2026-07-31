@@ -1,7 +1,8 @@
 "use client"
 
 import Link from "next/link"
-import { useQuery } from "convex/react"
+import { useEffect, useState } from "react"
+import { useAction, useQuery } from "convex/react"
 import { api } from "@convex/_generated/api"
 import { Id } from "@convex/_generated/dataModel"
 import { cn } from "@/lib/utils"
@@ -28,6 +29,11 @@ const Shimmer = ({ className }: { className?: string }) => (
   <div className={cn("animate-pulse bg-surface-2", className)} />
 )
 
+// Generation is fired once, fire-and-forget, as the founder leaves the room
+// — if that call died there is no other writer, so past this deadline the
+// shimmer is dishonest and the founder gets a retry instead.
+const SLOW_REPORT_MS = 30_000
+
 type ReportViewProps = {
   simulationId: string
 }
@@ -43,7 +49,33 @@ export const ReportView = ({ simulationId }: ReportViewProps) => {
     api.ideas.getDetail,
     simulation?.ideaId ? { ideaId: simulation.ideaId } : "skip"
   )
+  const room = useQuery(api.rooms.getBySimulation, {
+    simulationId: simulationId as Id<"simulations">,
+  })
+  const generateReport = useAction(api.reports.generate)
   const displayedScore = useCountUp(report ? report.overallScore : null)
+  const [isSlow, setIsSlow] = useState(false)
+  const [retrying, setRetrying] = useState(false)
+  const [attempt, setAttempt] = useState(0)
+
+  // Watchdog re-arms per attempt so a hung retry surfaces again.
+  useEffect(() => {
+    if (report) return
+    const timer = setTimeout(() => setIsSlow(true), SLOW_REPORT_MS)
+    return () => clearTimeout(timer)
+  }, [report, attempt])
+
+  const handleRetryReport = () => {
+    if (!room) return
+    setIsSlow(false)
+    setRetrying(true)
+    setAttempt((n) => n + 1)
+    // Safe to re-fire: generate early-outs on an existing report, and the
+    // create mutation is insert-if-absent.
+    generateReport({ roomId: room._id })
+      .catch(() => setIsSlow(true))
+      .finally(() => setRetrying(false))
+  }
 
   const previousScore = (() => {
     if (!report || !ideaDetail) return null
@@ -93,6 +125,22 @@ export const ReportView = ({ simulationId }: ReportViewProps) => {
               <p className="pt-1 font-mono text-[10.5px] uppercase tracking-[.14em] text-on-surface-3">
                 Synthesizing the verdict…
               </p>
+              {isSlow && (
+                <div className="pt-2">
+                  <p role="status" className="text-[13.5px] text-amber-fg">
+                    This is taking longer than usual — the synthesis may have
+                    failed.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleRetryReport}
+                    disabled={retrying || !room}
+                    className={cn(FLOW_BTN, "mt-4")}
+                  >
+                    {retrying ? "Retrying the verdict…" : "Retry the verdict"}
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>

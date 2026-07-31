@@ -2,22 +2,16 @@ import { v } from "convex/values"
 import { action } from "./_generated/server"
 import { api, internal } from "./_generated/api"
 import { bySpokenTime } from "../src/lib/transcript"
+import { AXES } from "../src/lib/readiness"
+import type { NoteType } from "./schema"
 
-const NOTE_TYPES = new Set([
+const NOTE_TYPES: ReadonlySet<string> = new Set([
   "follow_up",
   "event",
   "strong_answer",
   "weak_assumption",
   "objection",
-])
-
-const clamp = (n: number) => Math.max(0, Math.min(100, Math.round(n)))
-
-const boundDelta = (current: number, proposed: number, maxDelta = 10) => {
-  const diff = proposed - current
-  if (Math.abs(diff) <= maxDelta) return clamp(proposed)
-  return clamp(current + Math.sign(diff) * maxDelta)
-}
+] satisfies NoteType[])
 
 type DecideResult = {
   scores: { market: number; customer: number; technical: number; gtm: number }
@@ -129,18 +123,24 @@ Respond with JSON only, exactly this shape:
       return null
     }
 
+    // Raw proposals only — the mutation bounds each axis against the
+    // committed score, so concurrent turns can't clamp against stale reads.
     const r = parsed.riskScores ?? {}
-    const scores = {
-      market: typeof r.market === "number" ? boundDelta(current.market, r.market) : current.market,
-      customer: typeof r.customer === "number" ? boundDelta(current.customer, r.customer) : current.customer,
-      technical: typeof r.technical === "number" ? boundDelta(current.technical, r.technical) : current.technical,
-      gtm: typeof r.gtm === "number" ? boundDelta(current.gtm, r.gtm) : current.gtm,
-    }
-
-    await ctx.runMutation(internal.rooms.updateRiskScores, {
+    const proposed = Object.fromEntries(
+      AXES.flatMap((axis) =>
+        typeof r[axis] === "number" ? [[axis, r[axis]]] : []
+      )
+    )
+    const updated = await ctx.runMutation(internal.rooms.updateRiskScores, {
       id: args.roomId,
-      scores,
+      proposed,
     })
+    const scores = {
+      market: updated.market ?? current.market,
+      customer: updated.customer ?? current.customer,
+      technical: updated.technical ?? current.technical,
+      gtm: updated.gtm ?? current.gtm,
+    }
 
     const note = parsed.note
     if (
@@ -152,7 +152,7 @@ Respond with JSON only, exactly this shape:
     ) {
       await ctx.runMutation(internal.rooms.addLiveNote, {
         id: args.roomId,
-        note: { type: note.type, text: note.text.trim() },
+        note: { type: note.type as NoteType, text: note.text.trim() },
       })
     }
 

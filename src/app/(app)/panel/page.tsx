@@ -37,6 +37,9 @@ const PanelPage = () => {
       <div className="mt-[26px] grid gap-5 md:grid-cols-3">
         {DEFAULT_CHARACTERS.map((char) => {
           const copy = PANEL_COPY[char.id]
+          // A renamed or added character without matching copy renders
+          // nothing rather than crashing the page on copy.role.
+          if (!copy) return null
           return (
             <article key={char.id} className="overflow-hidden border border-line-2 bg-surface-raised">
               <div className="relative aspect-square bg-[#1C1C1E]">

@@ -64,9 +64,9 @@ export const RoomShell = ({ simulationId }: RoomShellProps) => {
   const [avatarError, setAvatarError] = useState<Error | null>(null)
   const [connectAttempt, setConnectAttempt] = useState(0)
   const [avatarStatus, setAvatarStatus] = useState<AvatarStatus>("connecting")
-  // True once this connect attempt produced a live avatar — a session that
-  // ends or errors afterwards is the known session-lifecycle behavior, not
-  // a failed connect.
+  // True once this connect attempt produced a live avatar — used to tell a
+  // failed connect ("closed before it connected") apart from a session
+  // that died afterwards (GWM sessions end themselves; observed live).
   const [hasConnected, setHasConnected] = useState(false)
   // True once this attempt actually reported an in-flight connection. A
   // LiveKit room starts in Disconnected — which the SDK surfaces as
@@ -137,16 +137,19 @@ export const RoomShell = ({ simulationId }: RoomShellProps) => {
     setConnectAttempt((n) => n + 1)
   }
 
-  // Everything that means "this connect attempt is not going to produce an
-  // avatar": an explicit error, a session that closed after starting to
-  // connect but before becoming ready, or the deadline passing with no
-  // avatar. (The SDK never reports an "error" status — errors arrive via
-  // onError.)
+  // Everything that means "this attempt no longer has a live avatar": an
+  // explicit error, a session that closed after starting to connect but
+  // before becoming ready, a connected session that later died (the SDK has
+  // no session-level reconnect — "ended" after connect is final), or the
+  // deadline passing with no avatar. (The SDK never reports an "error"
+  // status — errors arrive via onError.)
   const avatarFailure =
     concluded || avatarError
       ? avatarError?.message ?? null
       : hasConnected
-        ? null
+        ? avatarStatus === "ended"
+          ? "The live session ended on the panel's side."
+          : null
         : attemptStarted && avatarStatus === "ended"
           ? "The avatar session closed before it connected."
           : connectTimedOut
@@ -275,7 +278,7 @@ export const RoomShell = ({ simulationId }: RoomShellProps) => {
           {!concluded && <SessionClock startedAt={room._creationTime} />}
         </div>
 
-        {character && (
+        {character && !avatarFailure && (
           <div className="absolute bottom-[22px] left-6 z-[5]">
             <p className="font-display text-[30px] font-bold tracking-[-.01em] text-white [text-shadow:0_2px_8px_rgba(0,0,0,.4)]">
               {character.name}

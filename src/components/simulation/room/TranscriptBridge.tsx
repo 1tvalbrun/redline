@@ -41,21 +41,25 @@ export const TranscriptBridge = ({ roomId, character }: TranscriptBridgeProps) =
       const spokenAt = firstSeenAt.current.get(entry.id) ?? Date.now()
       firstSeenAt.current.delete(entry.id)
       void (async () => {
-        const result = await addTranscriptEntry({
-          id: roomId,
-          entry: {
-            speaker: character.id,
-            speakerName: character.name,
-            text: entry.text,
-            timestamp: Date.now(),
-            spokenAt,
-            type: "panelist",
-          },
-        })
-        if (result?.written) {
-          decide({ roomId }).catch((err) =>
-            console.error("orchestrator.decide failed:", err)
-          )
+        try {
+          const result = await addTranscriptEntry({
+            id: roomId,
+            entry: {
+              speaker: character.id,
+              speakerName: character.name,
+              text: entry.text,
+              timestamp: Date.now(),
+              spokenAt,
+              type: "panelist",
+            },
+          })
+          if (result?.written) {
+            decide({ roomId }).catch((err) =>
+              console.error("orchestrator.decide failed:", err)
+            )
+          }
+        } catch (err) {
+          console.warn("transcript write failed, avatar turn dropped:", err)
         }
       })()
     },

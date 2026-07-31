@@ -1,7 +1,22 @@
 import { NextRequest, NextResponse } from "next/server"
 import RunwayML from "@runwayml/sdk"
+import { z } from "zod"
 
 const RUNWAY_API = "https://api.dev.runwayml.com"
+
+const BodySchema = z.object({ avatarId: z.string().min(1) })
+
+// Sessions are billable, so the route only mints them for the three
+// panelists this app actually fields — not any avatar in the Runway org.
+// With no ids configured the set is empty and every request is refused
+// (fail closed), which matches a client that couldn't connect anyway.
+const ALLOWED_AVATAR_IDS = new Set(
+  [
+    process.env.NEXT_PUBLIC_RUNWAY_AVATAR_VC,
+    process.env.NEXT_PUBLIC_RUNWAY_AVATAR_CUSTOMER,
+    process.env.NEXT_PUBLIC_RUNWAY_AVATAR_TECH,
+  ].filter(Boolean)
+)
 
 // The GWM engine fills founder pauses with presence check-ins ("Still with
 // me?"), which reads as the avatar not listening. The session-level
@@ -20,8 +35,12 @@ demands.
 `
 
 export const POST = async (req: NextRequest) => {
-  const { avatarId } = await req.json()
-  if (!avatarId) return NextResponse.json({ error: "avatarId required" }, { status: 400 })
+  const body = BodySchema.safeParse(await req.json().catch(() => null))
+  if (!body.success) return NextResponse.json({ error: "avatarId required" }, { status: 400 })
+  const { avatarId } = body.data
+  if (!ALLOWED_AVATAR_IDS.has(avatarId)) {
+    return NextResponse.json({ error: "Unknown avatar" }, { status: 403 })
+  }
 
   const client = new RunwayML({ apiKey: process.env.RUNWAYML_API_SECRET })
 

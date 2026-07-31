@@ -51,6 +51,7 @@ In `.env.local` (read by the Next server and the client build):
 In the Convex deployment, set with `npx convex env set NAME value` (read by Convex actions):
 
 - `RUNWAYML_API_SECRET`, `OPENAI_API_KEY`
+- `OPENAI_MODEL_FAST`, `OPENAI_MODEL_QUALITY` (optional): model overrides, defaulting to `gpt-4o-mini`. Convex actions read the deployment env, not `.env.local` — a model set only locally never reaches them.
 - `VERDICT_ROOM_SCENE_VC`, `VERDICT_ROOM_SCENE_TC`, `VERDICT_ROOM_SCENE_TA`: the boardroom still URLs the verdict film composites. Without them the report still renders; the film degrades to text only.
 
 `npx convex dev` writes `NEXT_PUBLIC_CONVEX_URL` for you. No auth; this is a single-user demo.

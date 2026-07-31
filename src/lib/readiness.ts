@@ -53,6 +53,16 @@ export const selectVerdictSpeaker = <T extends { id: string }>(
 const toReadiness = (value: number): Readiness =>
   Math.max(0, Math.min(100, Math.round(value))) as Readiness
 
+// One live turn may move an axis's risk by at most maxDelta points, whatever
+// the model proposes. Applied inside the room mutation so the bound holds
+// against the committed score even when two turns land concurrently.
+export const boundRiskDelta = (current: number, proposed: number, maxDelta = 10): number => {
+  const clamp = (n: number) => Math.max(0, Math.min(100, Math.round(n)))
+  const diff = proposed - current
+  if (Math.abs(diff) <= maxDelta) return clamp(proposed)
+  return clamp(current + Math.sign(diff) * maxDelta)
+}
+
 // Risk arrives 0-100 per axis from the orchestrator (server-clamped).
 // Axes with no finite score yet are pending (null) — consumers render a
 // "no data yet" state instead of a number. Never NaN.

@@ -85,7 +85,7 @@ export const TranscriptPanel = ({
               const isUser = entry.type === "user"
               return (
                 <div
-                  key={`${entry.timestamp}-${entry.speaker}`}
+                  key={`${entry.timestamp}-${entry.spokenAt ?? 0}-${entry.speaker}`}
                   className="border-t border-line py-[11px] first:border-t-0"
                 >
                   <div

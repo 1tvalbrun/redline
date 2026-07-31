@@ -29,10 +29,11 @@ export const start = internalMutation({
     if (existing) {
       if (existing.status === "running") return null
       if (existing.status === "ready" && !args.force) return null
+      // Keep the previous claims and gaps until the new outcome lands: a
+      // forced re-run that fails must not have destroyed the last good
+      // audit (it drives the pre-run scores and Panel recommendation).
       await ctx.db.patch(existing._id, {
         status: "running",
-        claims: [],
-        gaps: [],
         failureReason: undefined,
       })
       return existing._id
@@ -86,6 +87,15 @@ export const setOutcome = internalMutation({
 export const generate = action({
   args: { simulationId: v.id("simulations"), force: v.optional(v.boolean()) },
   handler: async (ctx, args): Promise<void> => {
+    // Materials still extracting: don't run a materials-blind audit that
+    // would then block the corrective re-run (start treats a ready audit as
+    // done). The last extraction to settle re-triggers generate, so
+    // declining here loses nothing.
+    const settled = await ctx.runQuery(internal.materials.allSettled, {
+      simulationId: args.simulationId,
+    })
+    if (!settled) return
+
     const auditId = await ctx.runMutation(internal.audits.start, {
       simulationId: args.simulationId,
       force: args.force,
@@ -167,9 +177,11 @@ Return JSON only: {"claims":[{"text","source","location","axis"}],"gaps":[{"seve
         outcome: { status: "ready", claims, gaps },
       })
     } catch (error) {
-      await fail(
-        error instanceof Error ? `Audit failed: ${error.message.slice(0, 160)}` : "Audit failed."
-      )
+      // Fixed message only: failureReason is client-readable, and provider
+      // error text can carry key fragments and org details. Raw error goes
+      // to the server log.
+      console.error("[audits.generate]", error)
+      await fail("The audit hit an error. Re-run it to try again.")
     }
   },
 })

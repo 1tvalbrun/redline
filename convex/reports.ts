@@ -6,6 +6,12 @@ import { bySpokenTime } from "../src/lib/transcript"
 import { selectVerdictSpeaker } from "../src/lib/readiness"
 import { groundHeldUp } from "../src/lib/reportGrounding"
 import { ROOM_SCENE_ENV } from "./runway"
+import {
+  decisionValidator,
+  priorityValidator,
+  type Decision,
+  type Priority,
+} from "./schema"
 
 const verdictVideoValidator = v.object({
   status: v.union(v.literal("pending"), v.literal("ready"), v.literal("failed")),
@@ -24,7 +30,7 @@ export const create = internalMutation({
     simulationId: v.id("simulations"),
     roomId: v.id("rooms"),
     overallScore: v.number(),
-    verdict: v.string(),
+    verdict: decisionValidator,
     executiveSummary: v.string(),
     panelVerdicts: v.array(
       v.object({
@@ -41,7 +47,7 @@ export const create = internalMutation({
       v.object({
         day: v.number(),
         task: v.string(),
-        priority: v.string(),
+        priority: priorityValidator,
       })
     ),
     verdictVideo: v.optional(verdictVideoValidator),
@@ -85,6 +91,10 @@ export const setVerdictVideoStatus = internalMutation({
 
 const PRIORITIES = new Set(["high", "medium", "low"])
 const DECISIONS = new Set(["advance", "iterate", "pass"])
+// Same discipline as the audit's per-material budget: a marathon session
+// must not blow the context window. The oldest turns are dropped first —
+// the verdict weighs how the session ended, not how it opened.
+const TRANSCRIPT_CHAR_BUDGET = 60_000
 const clampInt = (n: unknown, fallback: number) =>
   typeof n === "number" ? Math.max(0, Math.min(100, Math.round(n))) : fallback
 
@@ -112,7 +122,7 @@ export const generate = action({
     const founderTurns = room.transcript
       .filter((e) => e.type === "user")
       .map((e) => e.text)
-    const transcript =
+    const fullTranscript =
       room.transcript.length > 0
         ? bySpokenTime(room.transcript)
             .map((e) =>
@@ -122,6 +132,10 @@ export const generate = action({
             )
             .join("\n")
         : "(No conversation was captured.)"
+    const transcript =
+      fullTranscript.length > TRANSCRIPT_CHAR_BUDGET
+        ? `(earlier turns omitted)\n${fullTranscript.slice(-TRANSCRIPT_CHAR_BUDGET)}`
+        : fullTranscript
 
     const notes =
       room.liveNotes.length > 0
@@ -205,8 +219,8 @@ Grounding rules (absolute):
     const parsed = JSON.parse(content)
 
     const rawVerdict = parsed.verdict ?? {}
-    const decision = DECISIONS.has(rawVerdict.decision)
-      ? (rawVerdict.decision as string)
+    const decision: Decision = DECISIONS.has(rawVerdict.decision)
+      ? (rawVerdict.decision as Decision)
       : "iterate"
     const verdictSummary =
       typeof rawVerdict.summary === "string"
@@ -261,19 +275,10 @@ Grounding rules (absolute):
             day: typeof d.day === "number" ? d.day : i + 1,
             task: typeof d.task === "string" ? d.task : "",
             priority: PRIORITIES.has(d.priority ?? "")
-              ? (d.priority as string)
-              : "medium",
+              ? (d.priority as Priority)
+              : ("medium" as const),
           }))
       : []
-
-    await ctx.runMutation(internal.rooms.conclude, {
-      id: args.roomId,
-      verdict: {
-        decision,
-        summary: verdictSummary,
-        confidence: verdictConfidence,
-      },
-    })
 
     // Who speaks the verdict: the panelist the founder faced, or the
     // weakest-axis owner when they faced several (same mapping as the
@@ -304,6 +309,20 @@ Grounding rules (absolute):
       nextSevenDays,
       verdictVideo,
     })
+
+    // Concluding the room is gated on the same insert-if-absent result as
+    // the film: a concurrent generation that lost the race must not
+    // overwrite the winner's stored verdict with its own model output.
+    if (created) {
+      await ctx.runMutation(internal.rooms.conclude, {
+        id: args.roomId,
+        verdict: {
+          decision,
+          summary: verdictSummary,
+          confidence: verdictConfidence,
+        },
+      })
+    }
 
     // Scheduled only when this call actually created the report — a
     // concurrent generation that lost the insert-if-absent race spends no
