@@ -3,7 +3,7 @@ import { internalMutation, mutation, query, action } from "./_generated/server"
 import { api, internal } from "./_generated/api"
 import { materialFileType, validateMaterialFile } from "../src/lib/materials"
 import { FREE_TEXT_LIMITS, parseExtractedBrief } from "../src/lib/intake"
-import { requireIdentity } from "./guard"
+import { ownedOrNull, requireIdentity } from "./guard"
 import {
   BUSINESS_MODEL_OPTIONS,
   STAGE_OPTIONS,
@@ -34,7 +34,7 @@ export const create = mutation({
     ),
   },
   handler: async (ctx, args) => {
-    await requireIdentity(ctx)
+    const identity = await requireIdentity(ctx)
     // Brief fields are interpolated into every downstream prompt, and the
     // UI can be bypassed — hold them to the same sizes the intake extractor
     // enforces before they're stored.
@@ -51,15 +51,19 @@ export const create = mutation({
 
     const existingIdea = await ctx.db
       .query("ideas")
-      .withIndex("by_name", (q) => q.eq("name", brief.ideaName))
+      .withIndex("by_user_name", (q) =>
+        q.eq("userId", identity.subject).eq("name", brief.ideaName)
+      )
       .first()
     const ideaId =
-      existingIdea?._id ?? (await ctx.db.insert("ideas", { name: brief.ideaName }))
+      existingIdea?._id ??
+      (await ctx.db.insert("ideas", { name: brief.ideaName, userId: identity.subject }))
     const simulationId = await ctx.db.insert("simulations", {
       title: args.title.trim().slice(0, 120),
       roomType: args.roomType,
       brief,
       ideaId,
+      userId: identity.subject,
       status: "draft",
       version: 1,
     })
@@ -89,8 +93,8 @@ export const create = mutation({
 export const get = query({
   args: { id: v.id("simulations") },
   handler: async (ctx, args) => {
-    await requireIdentity(ctx)
-    return await ctx.db.get(args.id)
+    const identity = await requireIdentity(ctx)
+    return ownedOrNull(identity, await ctx.db.get(args.id))
   },
 })
 

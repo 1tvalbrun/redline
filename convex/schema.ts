@@ -30,12 +30,18 @@ export type Priority = Infer<typeof priorityValidator>
 export default defineSchema({
   // One durable idea accrues a readiness trajectory across many runs.
   // _creationTime serves as createdAt.
+  //
+  // userId is the owner's Clerk subject, stamped once at insert and never
+  // changed — same on simulations/rooms/reports. by_user_name also serves
+  // the plain by-user listings via prefix equality.
   ideas: defineTable({
     name: v.string(),
-  }).index("by_name", ["name"]),
+    userId: v.string(),
+  }).index("by_user_name", ["userId", "name"]),
 
   simulations: defineTable({
     ideaId: v.optional(v.id("ideas")),
+    userId: v.string(),
     title: v.string(),
     roomType: v.string(),
     status: v.union(v.literal("draft"), v.literal("analyzing"), v.literal("ready")),
@@ -64,6 +70,7 @@ export default defineSchema({
 
   rooms: defineTable({
     simulationId: v.id("simulations"),
+    userId: v.string(),
     characters: v.array(
       v.object({
         id: v.string(),
@@ -113,7 +120,9 @@ export default defineSchema({
         confidence: v.number(),
       })
     ),
-  }).index("by_simulation", ["simulationId"]),
+  })
+    .index("by_simulation", ["simulationId"])
+    .index("by_user", ["userId"]),
 
   // Extracted text from founder materials, keyed to a simulation. Text is
   // consumed by the audit pipeline server-side and never listed back to the
@@ -148,6 +157,7 @@ export default defineSchema({
   reports: defineTable({
     simulationId: v.id("simulations"),
     roomId: v.id("rooms"),
+    userId: v.string(),
     overallScore: v.number(),
     verdict: decisionValidator,
     executiveSummary: v.string(),
@@ -213,5 +223,7 @@ export default defineSchema({
         ),
       })
     ),
-  }).index("by_simulation", ["simulationId"]),
+  })
+    .index("by_simulation", ["simulationId"])
+    .index("by_user", ["userId"]),
 })

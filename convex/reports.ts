@@ -12,7 +12,7 @@ import {
   type Decision,
   type Priority,
 } from "./schema"
-import { requireIdentity } from "./guard"
+import { ownedOrNull, requireIdentity } from "./guard"
 
 const verdictVideoValidator = v.object({
   status: v.union(v.literal("pending"), v.literal("ready"), v.literal("failed")),
@@ -30,6 +30,7 @@ export const create = internalMutation({
   args: {
     simulationId: v.id("simulations"),
     roomId: v.id("rooms"),
+    userId: v.string(),
     overallScore: v.number(),
     verdict: decisionValidator,
     executiveSummary: v.string(),
@@ -67,11 +68,12 @@ export const create = internalMutation({
 export const getBySimulation = query({
   args: { simulationId: v.id("simulations") },
   handler: async (ctx, args) => {
-    await requireIdentity(ctx)
-    return await ctx.db
+    const identity = await requireIdentity(ctx)
+    const report = await ctx.db
       .query("reports")
       .withIndex("by_simulation", (q) => q.eq("simulationId", args.simulationId))
       .first()
+    return ownedOrNull(identity, report)
   },
 })
 
@@ -106,6 +108,8 @@ export const generate = action({
   // (generate → api → generate), which otherwise fails `next build` typechecking.
   handler: async (ctx, args): Promise<{ reportId: Id<"reports"> }> => {
     await requireIdentity(ctx)
+    // api.rooms.get is ownership-scoped, so a room the caller doesn't own
+    // reads as missing here.
     const room = await ctx.runQuery(api.rooms.get, { id: args.roomId })
     if (!room) throw new Error("Room not found")
 
@@ -303,6 +307,7 @@ Grounding rules (absolute):
     const { reportId, created } = await ctx.runMutation(internal.reports.create, {
       simulationId: room.simulationId,
       roomId: args.roomId,
+      userId: room.userId,
       overallScore,
       verdict: decision,
       executiveSummary,
@@ -346,8 +351,12 @@ Grounding rules (absolute):
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    await requireIdentity(ctx)
-    const reports = await ctx.db.query("reports").order("desc").take(100)
+    const identity = await requireIdentity(ctx)
+    const reports = await ctx.db
+      .query("reports")
+      .withIndex("by_user", (q) => q.eq("userId", identity.subject))
+      .order("desc")
+      .take(100)
     return Promise.all(
       reports.map(async (report) => {
         const simulation = await ctx.db.get(report.simulationId)

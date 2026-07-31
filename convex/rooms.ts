@@ -2,7 +2,7 @@ import { v } from "convex/values"
 import { internalMutation, mutation, query } from "./_generated/server"
 import { AXES, boundRiskDelta } from "../src/lib/readiness"
 import { decisionValidator, noteTypeValidator, transcriptTypeValidator } from "./schema"
-import { requireIdentity } from "./guard"
+import { ownedOrNull, requireIdentity } from "./guard"
 
 export const create = mutation({
   args: {
@@ -21,9 +21,12 @@ export const create = mutation({
     ),
   },
   handler: async (ctx, args) => {
-    await requireIdentity(ctx)
+    const identity = await requireIdentity(ctx)
+    const simulation = ownedOrNull(identity, await ctx.db.get(args.simulationId))
+    if (!simulation) throw new Error("Simulation not found")
     return await ctx.db.insert("rooms", {
       ...args,
+      userId: identity.subject,
       activeCharacterId: args.characters[0]?.id,
       transcript: [],
       riskScores: {},
@@ -37,19 +40,20 @@ export const create = mutation({
 export const get = query({
   args: { id: v.id("rooms") },
   handler: async (ctx, args) => {
-    await requireIdentity(ctx)
-    return await ctx.db.get(args.id)
+    const identity = await requireIdentity(ctx)
+    return ownedOrNull(identity, await ctx.db.get(args.id))
   },
 })
 
 export const getBySimulation = query({
   args: { simulationId: v.id("simulations") },
   handler: async (ctx, args) => {
-    await requireIdentity(ctx)
-    return await ctx.db
+    const identity = await requireIdentity(ctx)
+    const room = await ctx.db
       .query("rooms")
       .withIndex("by_simulation", (q) => q.eq("simulationId", args.simulationId))
       .first()
+    return ownedOrNull(identity, room)
   },
 })
 
@@ -69,8 +73,8 @@ export const addTranscriptEntry = mutation({
     }),
   },
   handler: async (ctx, args) => {
-    await requireIdentity(ctx)
-    const room = await ctx.db.get(args.id)
+    const identity = await requireIdentity(ctx)
+    const room = ownedOrNull(identity, await ctx.db.get(args.id))
     if (!room) throw new Error("Room not found")
 
     const normalized = args.entry.text.trim().toLowerCase()
@@ -173,8 +177,12 @@ export const conclude = internalMutation({
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    await requireIdentity(ctx)
-    const rooms = await ctx.db.query("rooms").order("desc").take(50)
+    const identity = await requireIdentity(ctx)
+    const rooms = await ctx.db
+      .query("rooms")
+      .withIndex("by_user", (q) => q.eq("userId", identity.subject))
+      .order("desc")
+      .take(50)
     return Promise.all(
       rooms.map(async (room) => {
         const simulation = await ctx.db.get(room.simulationId)
