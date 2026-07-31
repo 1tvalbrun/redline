@@ -1,6 +1,31 @@
 import { defineSchema, defineTable } from "convex/server"
-import { v } from "convex/values"
+import { v, type Infer } from "convex/values"
 import { claimValidator, gapValidator } from "../src/lib/audit"
+
+// Closed vocabularies the schema enforces so the database — not just the
+// code sets that sanitize model output — rejects the value nothing
+// downstream can render. Mutations reuse these; one definition.
+export const transcriptTypeValidator = v.union(v.literal("user"), v.literal("panelist"))
+export const noteTypeValidator = v.union(
+  v.literal("follow_up"),
+  v.literal("event"),
+  v.literal("strong_answer"),
+  v.literal("weak_assumption"),
+  v.literal("objection")
+)
+export const decisionValidator = v.union(
+  v.literal("advance"),
+  v.literal("iterate"),
+  v.literal("pass")
+)
+export const priorityValidator = v.union(
+  v.literal("high"),
+  v.literal("medium"),
+  v.literal("low")
+)
+export type NoteType = Infer<typeof noteTypeValidator>
+export type Decision = Infer<typeof decisionValidator>
+export type Priority = Infer<typeof priorityValidator>
 
 export default defineSchema({
   // One durable idea accrues a readiness trajectory across many runs.
@@ -13,13 +38,7 @@ export default defineSchema({
     ideaId: v.optional(v.id("ideas")),
     title: v.string(),
     roomType: v.string(),
-    status: v.union(
-      v.literal("draft"),
-      v.literal("analyzing"),
-      v.literal("ready"),
-      v.literal("live"),
-      v.literal("complete")
-    ),
+    status: v.union(v.literal("draft"), v.literal("analyzing"), v.literal("ready")),
     brief: v.object({
       ideaName: v.string(),
       stage: v.string(),
@@ -69,7 +88,7 @@ export default defineSchema({
         // consumers sort on this, falling back to timestamp (write time)
         // for rows that predate the field.
         spokenAt: v.optional(v.number()),
-        type: v.string(),
+        type: transcriptTypeValidator,
       })
     ),
     riskScores: v.object({
@@ -80,16 +99,16 @@ export default defineSchema({
     }),
     liveNotes: v.array(
       v.object({
-        type: v.string(),
+        type: noteTypeValidator,
         text: v.string(),
         timestamp: v.number(),
       })
     ),
     round: v.string(),
-    status: v.string(),
+    status: v.union(v.literal("live"), v.literal("concluded")),
     verdict: v.optional(
       v.object({
-        decision: v.string(),
+        decision: decisionValidator,
         summary: v.string(),
         confidence: v.number(),
       })
@@ -130,7 +149,7 @@ export default defineSchema({
     simulationId: v.id("simulations"),
     roomId: v.id("rooms"),
     overallScore: v.number(),
-    verdict: v.string(),
+    verdict: decisionValidator,
     executiveSummary: v.string(),
     panelVerdicts: v.array(
       v.object({
@@ -149,7 +168,7 @@ export default defineSchema({
       v.object({
         day: v.number(),
         task: v.string(),
-        priority: v.string(),
+        priority: priorityValidator,
       })
     ),
     // Legacy scene-image pipeline (removed — the verdict video replaced

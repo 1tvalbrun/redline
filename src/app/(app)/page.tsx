@@ -52,13 +52,16 @@ type WeakestSignal = {
   value: Readiness
 }
 
+// The "Your move" hero only exists when there is a gap to close — an axis
+// at or above the ready line has nothing "holding the whole score down",
+// and the arithmetic below the gauge would go negative.
 const findWeakestSignal = (ideas: IdeaStats[]): WeakestSignal | null => {
   let weakest: WeakestSignal | null = null
   for (const idea of ideas) {
     const readiness = deriveReadiness(idea.latestRiskScores ?? undefined)
     if (readiness.underFire === null) continue
     const value = readiness.perAxis[readiness.underFire]
-    if (value === null) continue
+    if (value === null || value >= INVESTOR_READY_LINE) continue
     if (weakest === null || value < weakest.value) {
       weakest = { idea, axis: readiness.underFire, value }
     }

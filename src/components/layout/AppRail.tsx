@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useSyncExternalStore } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import {
@@ -15,12 +15,12 @@ import {
   Users,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import type { FunctionReturnType } from "convex/server"
+import type { api } from "@convex/_generated/api"
 
-export type NavCounts = {
-  ideas: number
-  sessions: number
-  verdicts: number
-}
+// Derived from the server function, not re-declared — the rail can't drift
+// from what ideas.counts actually returns.
+export type NavCounts = FunctionReturnType<typeof api.ideas.counts>
 
 type NavItem = {
   href: string
@@ -30,15 +30,28 @@ type NavItem = {
   tag?: string
 }
 
+// The clock is an external store with a null server snapshot: the
+// prerendered HTML must not embed the server's clock/timezone, which
+// differs from the client's and makes React 19 discard the whole SSR tree
+// on hydration. Snapshots are bucketed to the tick interval so they're
+// stable between ticks.
+const CLOCK_TICK_MS = 30_000
+const subscribeClock = (onChange: () => void) => {
+  const tick = setInterval(onChange, CLOCK_TICK_MS)
+  return () => clearInterval(tick)
+}
+
 const RailClock = () => {
-  const [now, setNow] = useState(() => Date.now())
-  useEffect(() => {
-    const tick = setInterval(() => setNow(Date.now()), 30_000)
-    return () => clearInterval(tick)
-  }, [])
+  const now = useSyncExternalStore<number | null>(
+    subscribeClock,
+    () => Math.floor(Date.now() / CLOCK_TICK_MS) * CLOCK_TICK_MS,
+    () => null
+  )
   return (
     <span className="tabular-nums">
-      {new Date(now).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })}
+      {now === null
+        ? ""
+        : new Date(now).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })}
     </span>
   )
 }

@@ -40,6 +40,11 @@ export const UserTile = ({ userName, micState, onToggleMic }: UserTileProps) => 
           videoRef.current.srcObject = s
           setCameraState("ready")
         }
+        // Camera revoked mid-session: without this the tile freezes on the
+        // last frame while still claiming "ready". (Teardown's track.stop()
+        // does not fire onended.)
+        const [track] = s.getVideoTracks()
+        if (track) track.onended = () => setCameraState("off")
       })
       .catch(() => setCameraState("off"))
     return () => {

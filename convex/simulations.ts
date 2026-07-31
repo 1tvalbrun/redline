@@ -2,7 +2,7 @@ import { v } from "convex/values"
 import { internalMutation, mutation, query, action } from "./_generated/server"
 import { api, internal } from "./_generated/api"
 import { materialFileType, validateMaterialFile } from "../src/lib/materials"
-import { parseExtractedBrief } from "../src/lib/intake"
+import { FREE_TEXT_LIMITS, parseExtractedBrief } from "../src/lib/intake"
 import {
   BUSINESS_MODEL_OPTIONS,
   STAGE_OPTIONS,
@@ -33,16 +33,30 @@ export const create = mutation({
     ),
   },
   handler: async (ctx, args) => {
+    // Brief fields are interpolated into every downstream prompt, and the
+    // UI can be bypassed — hold them to the same sizes the intake extractor
+    // enforces before they're stored.
+    const brief = {
+      ...args.brief,
+      ideaName: args.brief.ideaName.trim().slice(0, FREE_TEXT_LIMITS.ideaName),
+      description: args.brief.description.trim().slice(0, FREE_TEXT_LIMITS.description),
+      whyNow: args.brief.whyNow?.trim().slice(0, FREE_TEXT_LIMITS.whyNow),
+      stage: args.brief.stage.trim().slice(0, 60),
+      targetUser: args.brief.targetUser.trim().slice(0, 60),
+      businessModel: args.brief.businessModel.trim().slice(0, 60),
+      focusAreas: args.brief.focusAreas.slice(0, 8).map((area) => area.trim().slice(0, 80)),
+    }
+
     const existingIdea = await ctx.db
       .query("ideas")
-      .withIndex("by_name", (q) => q.eq("name", args.brief.ideaName))
+      .withIndex("by_name", (q) => q.eq("name", brief.ideaName))
       .first()
     const ideaId =
-      existingIdea?._id ?? (await ctx.db.insert("ideas", { name: args.brief.ideaName }))
+      existingIdea?._id ?? (await ctx.db.insert("ideas", { name: brief.ideaName }))
     const simulationId = await ctx.db.insert("simulations", {
-      title: args.title,
+      title: args.title.trim().slice(0, 120),
       roomType: args.roomType,
-      brief: args.brief,
+      brief,
       ideaId,
       status: "draft",
       version: 1,
@@ -82,13 +96,7 @@ export const get = query({
 export const setStatus = internalMutation({
   args: {
     id: v.id("simulations"),
-    status: v.union(
-      v.literal("draft"),
-      v.literal("analyzing"),
-      v.literal("ready"),
-      v.literal("live"),
-      v.literal("complete")
-    ),
+    status: v.union(v.literal("draft"), v.literal("analyzing"), v.literal("ready")),
   },
   handler: async (ctx, args) => {
     await ctx.db.patch(args.id, { status: args.status })
@@ -108,13 +116,7 @@ export const setContext = internalMutation({
       competitors: v.string(),
       openQuestions: v.string(),
     }),
-    status: v.union(
-      v.literal("draft"),
-      v.literal("analyzing"),
-      v.literal("ready"),
-      v.literal("live"),
-      v.literal("complete")
-    ),
+    status: v.union(v.literal("draft"), v.literal("analyzing"), v.literal("ready")),
   },
   handler: async (ctx, args) => {
     await ctx.db.patch(args.id, {
@@ -135,38 +137,49 @@ export const analyze = action({
       status: "analyzing",
     })
 
-    const { OpenAI } = await import("openai")
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-    const model = process.env.OPENAI_MODEL_FAST ?? "gpt-4o-mini"
+    try {
+      const { OpenAI } = await import("openai")
+      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+      const model = process.env.OPENAI_MODEL_FAST ?? "gpt-4o-mini"
 
-    const brief = simulation.brief
-    const response = await openai.chat.completions.create({
-      model,
-      messages: [
-        {
-          role: "system",
-          content: `You are a business analyst. Extract structured context from a startup brief. Return JSON only with these fields: problem, targetCustomer, coreAssumption, revenueModel, primaryRisk, competitors, openQuestions. Each field is a string.`,
-        },
-        {
-          role: "user",
-          content: `Idea: ${brief.ideaName}\nStage: ${brief.stage}\nDescription: ${brief.description}\nTarget User: ${brief.targetUser}\nBusiness Model: ${brief.businessModel}\nFocus Areas: ${brief.focusAreas.join(", ")}`,
-        },
-      ],
-      response_format: { type: "json_object" },
-    })
+      const brief = simulation.brief
+      const response = await openai.chat.completions.create({
+        model,
+        messages: [
+          {
+            role: "system",
+            content: `You are a business analyst. Extract structured context from a startup brief. Return JSON only with these fields: problem, targetCustomer, coreAssumption, revenueModel, primaryRisk, competitors, openQuestions. Each field is a string.`,
+          },
+          {
+            role: "user",
+            content: `Idea: ${brief.ideaName}\nStage: ${brief.stage}\nDescription: ${brief.description}\nTarget User: ${brief.targetUser}\nBusiness Model: ${brief.businessModel}\nFocus Areas: ${brief.focusAreas.join(", ")}`,
+          },
+        ],
+        response_format: { type: "json_object" },
+      })
 
-    const content = response.choices[0].message.content
-    if (!content) throw new Error("No response from OpenAI")
+      const content = response.choices[0].message.content
+      if (!content) throw new Error("No response from OpenAI")
 
-    const context = JSON.parse(content)
+      const context = JSON.parse(content)
 
-    await ctx.runMutation(internal.simulations.setContext, {
-      id: args.id,
-      context,
-      status: "ready",
-    })
+      await ctx.runMutation(internal.simulations.setContext, {
+        id: args.id,
+        context,
+        status: "ready",
+      })
 
-    return context
+      return context
+    } catch (error) {
+      // Simulations have no failed state, so a thrown analysis must not
+      // strand the doc in "analyzing" forever — revert to draft and let the
+      // Read stage's retry run it again.
+      await ctx.runMutation(internal.simulations.setStatus, {
+        id: args.id,
+        status: "draft",
+      })
+      throw error
+    }
   },
 })
 

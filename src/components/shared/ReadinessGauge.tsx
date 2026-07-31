@@ -91,7 +91,7 @@ export const ReadinessGauge = ({ value, className }: ReadinessGaugeProps) => {
         y={CY + 9}
         textAnchor="middle"
         fill="var(--red)"
-        style={{ fontFamily: "var(--font-plex-mono)", fontSize: 7, letterSpacing: 1.4 }}
+        className="font-mono text-[7px] tracking-[1.4px]"
       >
         INVESTOR-READY {INVESTOR_READY_LINE}
       </text>

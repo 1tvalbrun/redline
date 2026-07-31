@@ -4,6 +4,7 @@ import {
   TARGET_OPTIONS,
   type BriefOption,
 } from "./briefOptions.ts"
+import { field } from "./audit.ts"
 
 // Every field is what-was-actually-said or null. Null renders as a flagged
 // gap for the founder to fill — extraction can never invent content.
@@ -16,10 +17,7 @@ export type ExtractedBrief = {
   targetUser: string | null
 }
 
-const FREE_TEXT_LIMITS = { ideaName: 60, description: 600, whyNow: 400 } as const
-
-const field = (raw: unknown, key: string): unknown =>
-  typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>)[key] : undefined
+export const FREE_TEXT_LIMITS = { ideaName: 60, description: 600, whyNow: 400 } as const
 
 const freeText = (value: unknown, limit: number): string | null => {
   if (typeof value !== "string") return null

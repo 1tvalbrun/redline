@@ -54,11 +54,14 @@ export const SessionStatusBridge = ({
     { interim: true }
   )
 
+  // Unmount also resets the indicator: clearing the timer alone would
+  // freeze a stale "Speaking" on whatever screen replaced the session.
   useEffect(() => {
     return () => {
       if (silenceTimer.current) clearTimeout(silenceTimer.current)
+      onSpeakingChange(false)
     }
-  }, [])
+  }, [onSpeakingChange])
 
   return null
 }

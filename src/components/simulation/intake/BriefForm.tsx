@@ -343,7 +343,9 @@ export const BriefForm = () => {
         materials: readyMaterials.length > 0 ? readyMaterials : undefined,
       })
       router.push(`/simulation/${id}/analyze`)
-      analyzeSimulation({ id })
+      // Fire-and-forget past navigation: on failure analyze reverts the
+      // simulation to draft, and the Read stage's watchdog offers retry.
+      analyzeSimulation({ id }).catch(() => {})
     } catch {
       setSubmitFailed(true)
       setIsSubmitting(false)

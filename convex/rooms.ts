@@ -1,5 +1,7 @@
 import { v } from "convex/values"
 import { internalMutation, mutation, query } from "./_generated/server"
+import { AXES, boundRiskDelta } from "../src/lib/readiness"
+import { decisionValidator, noteTypeValidator, transcriptTypeValidator } from "./schema"
 
 export const create = mutation({
   args: {
@@ -56,7 +58,10 @@ export const addTranscriptEntry = mutation({
       text: v.string(),
       timestamp: v.number(),
       spokenAt: v.optional(v.number()),
-      type: v.string(),
+      // Everything downstream branches "user vs panelist", so an unknown
+      // type would be silently attributed to the panelist. The validator is
+      // the boundary — this is a public mutation.
+      type: transcriptTypeValidator,
     }),
   },
   handler: async (ctx, args) => {
@@ -92,10 +97,13 @@ export const addTranscriptEntry = mutation({
 })
 
 // Internal: written only by orchestrator.decide as it scores the live room.
+// Takes the model's *proposed* scores and bounds each against the score in
+// the document, inside the serializable mutation — an action-side clamp
+// would bound against a stale read when two turns land concurrently.
 export const updateRiskScores = internalMutation({
   args: {
     id: v.id("rooms"),
-    scores: v.object({
+    proposed: v.object({
       market: v.optional(v.number()),
       customer: v.optional(v.number()),
       technical: v.optional(v.number()),
@@ -105,9 +113,16 @@ export const updateRiskScores = internalMutation({
   handler: async (ctx, args) => {
     const room = await ctx.db.get(args.id)
     if (!room) throw new Error("Room not found")
-    await ctx.db.patch(args.id, {
-      riskScores: { ...room.riskScores, ...args.scores },
-    })
+    const applied = Object.fromEntries(
+      AXES.flatMap((axis) => {
+        const proposal = args.proposed[axis]
+        if (typeof proposal !== "number") return []
+        return [[axis, boundRiskDelta(room.riskScores[axis] ?? 50, proposal)]]
+      })
+    )
+    const riskScores = { ...room.riskScores, ...applied }
+    await ctx.db.patch(args.id, { riskScores })
+    return riskScores
   },
 })
 
@@ -116,7 +131,7 @@ export const addLiveNote = internalMutation({
   args: {
     id: v.id("rooms"),
     note: v.object({
-      type: v.string(),
+      type: noteTypeValidator,
       text: v.string(),
     }),
   },
@@ -137,7 +152,7 @@ export const conclude = internalMutation({
   args: {
     id: v.id("rooms"),
     verdict: v.object({
-      decision: v.string(),
+      decision: decisionValidator,
       summary: v.string(),
       confidence: v.number(),
     }),
