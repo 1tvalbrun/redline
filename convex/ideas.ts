@@ -1,12 +1,15 @@
 import { v } from "convex/values"
-import { internalMutation, query } from "./_generated/server"
-import { requireIdentity } from "./guard"
+import { query } from "./_generated/server"
+import { ownedOrNull, requireIdentity } from "./guard"
 
 export const listWithStats = query({
   args: {},
   handler: async (ctx) => {
-    await requireIdentity(ctx)
-    const ideas = await ctx.db.query("ideas").collect()
+    const identity = await requireIdentity(ctx)
+    const ideas = await ctx.db
+      .query("ideas")
+      .withIndex("by_user_name", (q) => q.eq("userId", identity.subject))
+      .collect()
     const stats = await Promise.all(
       ideas.map(async (idea) => {
         const sims = await ctx.db
@@ -54,8 +57,8 @@ export const listWithStats = query({
 export const getDetail = query({
   args: { ideaId: v.id("ideas") },
   handler: async (ctx, args) => {
-    await requireIdentity(ctx)
-    const idea = await ctx.db.get(args.ideaId)
+    const identity = await requireIdentity(ctx)
+    const idea = ownedOrNull(identity, await ctx.db.get(args.ideaId))
     if (!idea) return null
 
     const sims = await ctx.db
@@ -113,11 +116,20 @@ export const getDetail = query({
 export const counts = query({
   args: {},
   handler: async (ctx) => {
-    await requireIdentity(ctx)
+    const identity = await requireIdentity(ctx)
     const [ideas, rooms, reports] = await Promise.all([
-      ctx.db.query("ideas").collect(),
-      ctx.db.query("rooms").collect(),
-      ctx.db.query("reports").collect(),
+      ctx.db
+        .query("ideas")
+        .withIndex("by_user_name", (q) => q.eq("userId", identity.subject))
+        .collect(),
+      ctx.db
+        .query("rooms")
+        .withIndex("by_user", (q) => q.eq("userId", identity.subject))
+        .collect(),
+      ctx.db
+        .query("reports")
+        .withIndex("by_user", (q) => q.eq("userId", identity.subject))
+        .collect(),
     ])
     const best = reports.reduce<number | null>(
       (max, report) => (max === null || report.overallScore > max ? report.overallScore : max),
@@ -127,24 +139,3 @@ export const counts = query({
   },
 })
 
-// One-shot grouping for simulations created before ideaId existed. Internal:
-// an ops migration, run via `npx convex run`, never client-callable.
-export const backfillLegacy = internalMutation({
-  args: {},
-  handler: async (ctx) => {
-    const sims = await ctx.db.query("simulations").collect()
-    let patched = 0
-    for (const sim of sims) {
-      if (sim.ideaId) continue
-      const existing = await ctx.db
-        .query("ideas")
-        .withIndex("by_name", (q) => q.eq("name", sim.brief.ideaName))
-        .first()
-      const ideaId =
-        existing?._id ?? (await ctx.db.insert("ideas", { name: sim.brief.ideaName }))
-      await ctx.db.patch(sim._id, { ideaId })
-      patched++
-    }
-    return { patched }
-  },
-})

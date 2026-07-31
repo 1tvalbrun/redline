@@ -7,17 +7,21 @@ import {
   query,
   type ActionCtx,
 } from "./_generated/server"
-import { internal } from "./_generated/api"
+import { api, internal } from "./_generated/api"
 import type { Id } from "./_generated/dataModel"
 import { claimValidator, gapValidator, groundAudit } from "../src/lib/audit"
-import { requireIdentity } from "./guard"
+import { ownedOrNull, requireIdentity } from "./guard"
 
 const PROMPT_CHAR_BUDGET = 60_000
 
+// Audits carry no userId of their own — ownership is the parent
+// simulation's, checked here and in the public generate entry.
 export const getBySimulation = query({
   args: { simulationId: v.id("simulations") },
   handler: async (ctx, args) => {
-    await requireIdentity(ctx)
+    const identity = await requireIdentity(ctx)
+    const simulation = ownedOrNull(identity, await ctx.db.get(args.simulationId))
+    if (!simulation) return null
     return await ctx.db
       .query("audits")
       .withIndex("by_simulation", (q) => q.eq("simulationId", args.simulationId))
@@ -200,6 +204,12 @@ export const generate = action({
   args: { simulationId: v.id("simulations"), force: v.optional(v.boolean()) },
   handler: async (ctx, args): Promise<void> => {
     await requireIdentity(ctx)
+    // api.simulations.get is ownership-scoped: someone else's simulation
+    // reads as missing, and no model call is spent on it.
+    const simulation = await ctx.runQuery(api.simulations.get, {
+      id: args.simulationId,
+    })
+    if (!simulation) return
     await generateAudit(ctx, args)
   },
 })

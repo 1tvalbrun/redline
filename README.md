@@ -58,4 +58,4 @@ In the Convex deployment, set with `npx convex env set NAME value` (read by Conv
 
 `npx convex dev` writes `NEXT_PUBLIC_CONVEX_URL` for you.
 
-Auth is Clerk, invite-only: sign-up is Restricted in the Clerk dashboard, and testers are added under Users → Invitations. Sign-in is Google or an email code at `/sign-in`. Every page, API route, and public Convex function requires a session.
+Auth is Clerk, invite-only: sign-up is Restricted in the Clerk dashboard, and testers are added under Users → Invitations. Sign-in is Google or an email code at `/sign-in`. Every page, API route, and public Convex function requires a session, and each user sees only their own ideas, sessions, and verdicts.

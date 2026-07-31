@@ -24,6 +24,10 @@ Use CSS custom properties: var(--color-primary), var(--font-display) etc.
 - Clerk auth, invite-only (Restricted mode): Google + email sign-in. Every
   public Convex function calls requireIdentity (convex/guard.ts); Next
   middleware (src/proxy.ts) gates pages and API routes
+- Data is scoped per user: ideas/simulations/rooms/reports carry the Clerk
+  userId, list queries filter by_user, single-doc reads go through
+  ownedOrNull (someone else's doc reads as missing). Audits/materials
+  inherit ownership from their simulation
 - useQuery/useMutation/useAction from convex/react for all data
 
 ## Code Rules
