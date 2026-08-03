@@ -5,6 +5,7 @@ import type { Id } from "./_generated/dataModel"
 import { bySpokenTime } from "../src/lib/transcript"
 import { selectVerdictSpeaker } from "../src/lib/readiness"
 import { groundHeldUp } from "../src/lib/reportGrounding"
+import { createOpenAI, resolveModel } from "../src/lib/openai"
 import {
   decisionValidator,
   priorityValidator,
@@ -132,12 +133,8 @@ export const generate = action({
             .join("\n")
         : "(none)"
 
-    const { OpenAI } = await import("openai")
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-    const model =
-      process.env.OPENAI_MODEL_QUALITY ??
-      process.env.OPENAI_MODEL_FAST ??
-      "gpt-4o-mini"
+    const openai = await createOpenAI()
+    const model = resolveModel("quality")
 
     const systemPrompt = `You are a senior advisor synthesizing a founder panel session into a final report.
 

@@ -1,10 +1,12 @@
 # Redline — Project Context
 
 ## What This Is
-An AI panel stress test. A founder pitches an idea and is interrogated by 3
-live Runway avatar characters (VC, Target Customer, Technical Architect).
-Flow: Brief → Read → Audit → Panel → Room → Verdict, ending in a scored
-report with the panelist's spoken verdict.
+An AI panel stress test. A founder pitches an idea and is interrogated live
+by one of three Runway avatar characters (VC, Target Customer, Technical
+Architect), chosen at the Panel stage. Flow: Brief → Read → Audit → Panel →
+Room → Verdict, ending in a scored report with the panelist's spoken verdict.
+Stage keys and route names differ (read → /analyze, verdict → /report); the
+mapping lives in src/components/simulation/flow/FlowShell.tsx.
 
 ## Stack
 Next.js 16.2, TypeScript strict, Tailwind CSS v4, shadcn/ui, Convex,
@@ -20,7 +22,9 @@ Use CSS custom properties: var(--color-primary), var(--font-display) etc.
 - OpenAI: gpt-4o-mini by default everywhere; OPENAI_MODEL_FAST (orchestration)
   and OPENAI_MODEL_QUALITY (audit, report) override it — set them in the
   Convex deployment env, which actions read (not .env.local)
-- Runway GWM Avatars: 3 simultaneous AvatarProvider sessions
+- Runway GWM Avatars: one AvatarProvider session per room (1-on-1 with the
+  chosen panelist); avatar personality lives on the Runway Character, with
+  per-session personality/startScript overrides from /api/avatar/connect
 - Clerk auth, invite-only (Restricted mode): Google + email sign-in. Every
   public Convex function calls requireIdentity (convex/guard.ts); Next
   middleware (src/proxy.ts) gates pages and API routes
