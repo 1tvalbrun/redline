@@ -10,6 +10,7 @@ import {
 import { api, internal } from "./_generated/api"
 import type { Id } from "./_generated/dataModel"
 import { claimValidator, gapValidator, groundAudit } from "../src/lib/audit"
+import { createOpenAI, resolveModel } from "../src/lib/openai"
 import { ownedOrNull, requireIdentity } from "./guard"
 
 const PROMPT_CHAR_BUDGET = 60_000
@@ -145,12 +146,8 @@ const generateAudit = async (
             .join("\n\n")
         : "(No readable materials were provided.)"
 
-    const { OpenAI } = await import("openai")
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-    const model =
-      process.env.OPENAI_MODEL_QUALITY ??
-      process.env.OPENAI_MODEL_FAST ??
-      "gpt-4o-mini"
+    const openai = await createOpenAI()
+    const model = resolveModel("quality")
 
     const systemPrompt = `You are a diligence analyst auditing a founder's materials before a panel session.
 

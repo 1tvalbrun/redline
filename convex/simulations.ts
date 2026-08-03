@@ -3,6 +3,7 @@ import { internalMutation, mutation, query, action } from "./_generated/server"
 import { api, internal } from "./_generated/api"
 import { materialFileType, validateMaterialFile } from "../src/lib/materials"
 import { FREE_TEXT_LIMITS, parseExtractedBrief } from "../src/lib/intake"
+import { createOpenAI, resolveModel } from "../src/lib/openai"
 import { ownedOrNull, requireIdentity } from "./guard"
 import {
   BUSINESS_MODEL_OPTIONS,
@@ -146,9 +147,8 @@ export const analyze = action({
     })
 
     try {
-      const { OpenAI } = await import("openai")
-      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-      const model = process.env.OPENAI_MODEL_FAST ?? "gpt-4o-mini"
+      const openai = await createOpenAI()
+      const model = resolveModel("fast")
 
       const brief = simulation.brief
       const response = await openai.chat.completions.create({
@@ -201,9 +201,8 @@ export const extractBrief = action({
   },
   handler: async (ctx, args) => {
     await requireIdentity(ctx)
-    const { OpenAI } = await import("openai")
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-    const model = process.env.OPENAI_MODEL_FAST ?? "gpt-4o-mini"
+    const openai = await createOpenAI()
+    const model = resolveModel("fast")
 
     const stageValues = STAGE_OPTIONS.map((o) => o.value).join(" | ")
     const modelValues = BUSINESS_MODEL_OPTIONS.map((o) => `${o.value} (${o.label})`).join(", ")

@@ -62,9 +62,8 @@ export const PanelSetup = ({ simulationId }: PanelSetupProps) => {
     if (!character || startingId) return
     setStartingId(characterId)
     setEnterFailed(false)
-    const { image: _image, ...charForConvex } = character
     try {
-      await createRoom({ simulationId: typedId, characters: [charForConvex] })
+      await createRoom({ simulationId: typedId, characterId, avatarId: character.avatarId })
       router.push(`/simulation/${simulationId}/room`)
     } catch {
       setEnterFailed(true)

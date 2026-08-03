@@ -3,6 +3,7 @@ import { action } from "./_generated/server"
 import { api, internal } from "./_generated/api"
 import { bySpokenTime } from "../src/lib/transcript"
 import { AXES } from "../src/lib/readiness"
+import { createOpenAI, resolveModel } from "../src/lib/openai"
 import type { NoteType } from "./schema"
 import { requireIdentity } from "./guard"
 
@@ -56,9 +57,8 @@ export const decide = action({
       gtm: room.riskScores.gtm ?? 50,
     }
 
-    const { OpenAI } = await import("openai")
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-    const model = process.env.OPENAI_MODEL_FAST ?? "gpt-4o-mini"
+    const openai = await createOpenAI()
+    const model = resolveModel("fast")
 
     const systemPrompt = `You are observing a live founder pitch and scoring it in real time alongside ${character.name} (${character.role}).
 

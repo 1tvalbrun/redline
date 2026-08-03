@@ -79,7 +79,9 @@ export default defineSchema({
         role: v.string(),
         avatarId: v.string(),
         tone: v.string(),
-        systemPrompt: v.string(),
+        // Legacy rows only. Never read; the live persona is stored on the
+        // Runway Character and rooms.create stopped writing this.
+        systemPrompt: v.optional(v.string()),
         status: v.string(),
       })
     ),
@@ -111,7 +113,9 @@ export default defineSchema({
         timestamp: v.number(),
       })
     ),
-    round: v.string(),
+    // Legacy rows only. A round state machine never materialized; rooms.create
+    // stopped writing this.
+    round: v.optional(v.string()),
     status: v.union(v.literal("live"), v.literal("concluded")),
     verdict: v.optional(
       v.object({

@@ -1,37 +1,34 @@
 import { v } from "convex/values"
 import { internalMutation, mutation, query } from "./_generated/server"
 import { AXES, boundRiskDelta } from "../src/lib/readiness"
+import { panelPersonaById } from "../src/lib/personas"
 import { decisionValidator, noteTypeValidator, transcriptTypeValidator } from "./schema"
 import { ownedOrNull, requireIdentity } from "./guard"
 
 export const create = mutation({
   args: {
     simulationId: v.id("simulations"),
-    characters: v.array(
-      v.object({
-        id: v.string(),
-        archetypeId: v.string(),
-        name: v.string(),
-        role: v.string(),
-        avatarId: v.string(),
-        tone: v.string(),
-        systemPrompt: v.string(),
-        status: v.string(),
-      })
-    ),
+    // Persona text feeds downstream prompts, so the server resolves it from
+    // the roster — the client only names which persona it wants. The avatar
+    // id is client-inlined env today and is allowlisted again at
+    // /api/avatar/connect before a session is minted.
+    characterId: v.string(),
+    avatarId: v.string(),
   },
   handler: async (ctx, args) => {
     const identity = await requireIdentity(ctx)
     const simulation = ownedOrNull(identity, await ctx.db.get(args.simulationId))
     if (!simulation) throw new Error("Simulation not found")
+    const persona = panelPersonaById(args.characterId)
+    if (!persona) throw new Error("Unknown character")
     return await ctx.db.insert("rooms", {
-      ...args,
+      simulationId: args.simulationId,
       userId: identity.subject,
-      activeCharacterId: args.characters[0]?.id,
+      characters: [{ ...persona, avatarId: args.avatarId, status: "idle" }],
+      activeCharacterId: persona.id,
       transcript: [],
       riskScores: {},
       liveNotes: [],
-      round: "overview",
       status: "live",
     })
   },
