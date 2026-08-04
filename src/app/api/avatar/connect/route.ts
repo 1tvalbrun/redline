@@ -5,53 +5,30 @@ import { ConvexHttpClient } from "convex/browser"
 import { z } from "zod"
 import { api } from "@convex/_generated/api"
 import type { Id } from "@convex/_generated/dataModel"
-import { buildRoomBriefing, type RoomBriefing } from "@/lib/roomBriefing"
+import { getPack } from "@/domains/registry"
+import type { RoomBriefing } from "@/domains/types"
 
 const RUNWAY_API = "https://api.dev.runwayml.com"
 
 const BodySchema = z.object({ avatarId: z.string().min(1) })
 
-// Sessions are billable, so the route only mints them for the three
-// panelists this app actually fields — not any avatar in the Runway org.
-// With no ids configured the set is empty and every request is refused
-// (fail closed), which matches a client that couldn't connect anyway.
-const ALLOWED_AVATAR_IDS = new Set(
-  [
-    process.env.NEXT_PUBLIC_RUNWAY_AVATAR_VC,
-    process.env.NEXT_PUBLIC_RUNWAY_AVATAR_CUSTOMER,
-    process.env.NEXT_PUBLIC_RUNWAY_AVATAR_TECH,
-  ].filter(Boolean)
-)
-
-// The GWM engine fills founder pauses with presence check-ins ("Still with
-// me?"), which reads as the avatar not listening. The session-level
-// personality override is the only turn-taking lever the API exposes, so the
-// stored persona is extended with explicit pause rules for each session.
-const TURN_TAKING_RULES = `Pause policy (absolute, highest priority): \
-Never comment on silence or check the founder's presence — no "still with \
-me?", "did you hear me?", "are you there?", "hello?", "take your time", \
-"no rush", "I'm here when you're ready", or anything similar, ever. The \
-founder pauses to think, sometimes for ten seconds or more, often \
-mid-sentence; if a sentence trails off unfinished, wait silently — they \
-will continue. When they finish a complete thought and stop, engage \
-normally: press, question, and challenge exactly as your character \
-demands.
-
-`
+type SessionContext = {
+  briefing: RoomBriefing | null
+  turnTaking: string
+}
 
 // Best-effort session briefing: the simulation, audit, and room are read
-// through the caller's own Convex token, so ownership scoping applies — a
+// through the caller's own Convex token, so ownership scoping applies. A
 // simulationId the caller doesn't own reads as missing and the session
-// simply connects unbriefed (canned opener, stored persona).
-const fetchBriefing = async (
-  simulationId: string | null,
-  convexToken: string | null
-): Promise<RoomBriefing | null> => {
-  if (!simulationId || !convexToken || !process.env.NEXT_PUBLIC_CONVEX_URL) return null
+// simply connects unbriefed (stored persona, founder turn-taking rules).
+const fetchSessionContext = async (
+  convex: ConvexHttpClient,
+  simulationId: string | null
+): Promise<SessionContext> => {
+  const fallback: SessionContext = { briefing: null, turnTaking: getPack().turnTaking }
+  if (!simulationId) return fallback
   try {
-    const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL)
-    convex.setAuth(convexToken)
-    // A malformed id fails Convex's argument validation inside the try —
+    // A malformed id fails Convex's argument validation inside the try, the
     // same degraded outcome as any other briefing failure.
     const id = simulationId as Id<"simulations">
     const [simulation, audit, room] = await Promise.all([
@@ -59,16 +36,20 @@ const fetchBriefing = async (
       convex.query(api.audits.getBySimulation, { simulationId: id }),
       convex.query(api.rooms.getBySimulation, { simulationId: id }),
     ])
-    if (!simulation) return null
-    return buildRoomBriefing({
-      ideaName: simulation.brief.ideaName,
-      description: simulation.brief.description,
-      audit: audit ? { claims: audit.claims, gaps: audit.gaps } : null,
-      transcript: room?.transcript ?? [],
-    })
+    if (!simulation) return fallback
+    const pack = getPack(simulation.packId)
+    return {
+      briefing: pack.briefing({
+        ideaName: simulation.brief.ideaName,
+        description: simulation.brief.description,
+        audit: audit ? { claims: audit.claims, gaps: audit.gaps } : null,
+        transcript: room?.transcript ?? [],
+      }),
+      turnTaking: pack.turnTaking,
+    }
   } catch (err) {
     console.warn("[/api/avatar/connect] briefing fetch failed:", err)
-    return null
+    return fallback
   }
 }
 
@@ -94,24 +75,34 @@ export const POST = async (req: NextRequest) => {
   const body = BodySchema.safeParse(await req.json().catch(() => null))
   if (!body.success) return NextResponse.json({ error: "avatarId required" }, { status: 400 })
   const { avatarId } = body.data
-  if (!ALLOWED_AVATAR_IDS.has(avatarId)) {
+
+  // Sessions are billable, so the route only mints them for avatars in the
+  // Convex registry (convex/avatars.ts). The check runs with the caller's
+  // own token; if the token or the query fails, the request is refused
+  // (fail closed).
+  const convexToken = await getToken({ template: "convex" }).catch(() => null)
+  if (!convexToken || !process.env.NEXT_PUBLIC_CONVEX_URL) {
     return NextResponse.json({ error: "Unknown avatar" }, { status: 403 })
   }
+  const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL)
+  convex.setAuth(convexToken)
+  const allowed = await convex
+    .query(api.avatars.allowed, { runwayAvatarId: avatarId })
+    .catch(() => false)
+  if (!allowed) return NextResponse.json({ error: "Unknown avatar" }, { status: 403 })
 
   const client = new RunwayML({ apiKey: process.env.RUNWAYML_API_SECRET })
 
-  // Independent fetches, in parallel — the connect path is already long
+  // Independent fetches, in parallel; the connect path is already long
   // (session create + READY poll).
-  const [briefing, storedPersonality] = await Promise.all([
-    getToken({ template: "convex" })
-      .catch(() => null)
-      .then((token) => fetchBriefing(req.nextUrl.searchParams.get("simulationId"), token)),
+  const [{ briefing, turnTaking }, storedPersonality] = await Promise.all([
+    fetchSessionContext(convex, req.nextUrl.searchParams.get("simulationId")),
     fetchStoredPersonality(client, avatarId),
   ])
 
   let personality: string | undefined
   if (storedPersonality) {
-    personality = `${TURN_TAKING_RULES}${briefing?.personalityPreamble ?? ""}${storedPersonality}`
+    personality = `${turnTaking}${briefing?.personalityPreamble ?? ""}${storedPersonality}`
     console.log(
       `[/api/avatar/connect] session personality override applied (${personality.length} chars)`
     )
@@ -122,7 +113,7 @@ export const POST = async (req: NextRequest) => {
     avatar: { type: "custom", avatarId },
     ...(personality ? { personality } : {}),
     // Replaces the Character's canned opener, which otherwise repeats
-    // verbatim every session — including resumes.
+    // verbatim every session, including resumes.
     ...(briefing ? { startScript: briefing.startScript } : {}),
   })
 

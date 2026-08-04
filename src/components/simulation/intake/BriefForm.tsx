@@ -330,7 +330,6 @@ export const BriefForm = () => {
     try {
       const id = await createSimulation({
         title: ideaName,
-        roomType: "investor_panel",
         brief: {
           ideaName,
           stage: optionLabel(STAGE_OPTIONS, stage),

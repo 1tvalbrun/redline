@@ -4,17 +4,12 @@ import { api, internal } from "./_generated/api"
 import { materialFileType, validateMaterialFile } from "../src/lib/materials"
 import { FREE_TEXT_LIMITS, parseExtractedBrief } from "../src/lib/intake"
 import { createOpenAI, resolveModel } from "../src/lib/openai"
+import { getPack } from "../src/domains/registry"
 import { ownedOrNull, requireIdentity } from "./guard"
-import {
-  BUSINESS_MODEL_OPTIONS,
-  STAGE_OPTIONS,
-  TARGET_OPTIONS,
-} from "../src/lib/briefOptions"
 
 export const create = mutation({
   args: {
     title: v.string(),
-    roomType: v.string(),
     brief: v.object({
       ideaName: v.string(),
       stage: v.string(),
@@ -61,7 +56,9 @@ export const create = mutation({
       (await ctx.db.insert("ideas", { name: brief.ideaName, userId: identity.subject }))
     const simulationId = await ctx.db.insert("simulations", {
       title: args.title.trim().slice(0, 120),
-      roomType: args.roomType,
+      // The founder flow is the only lane with an intake today; lane choice
+      // at creation arrives with the second lane.
+      packId: "founder",
       brief,
       ideaId,
       userId: identity.subject,
@@ -149,19 +146,13 @@ export const analyze = action({
     try {
       const openai = await createOpenAI()
       const model = resolveModel("fast")
+      const pack = getPack(simulation.packId)
 
-      const brief = simulation.brief
       const response = await openai.chat.completions.create({
         model,
         messages: [
-          {
-            role: "system",
-            content: `You are a business analyst. Extract structured context from a startup brief. Return JSON only with these fields: problem, targetCustomer, coreAssumption, revenueModel, primaryRisk, competitors, openQuestions. Each field is a string.`,
-          },
-          {
-            role: "user",
-            content: `Idea: ${brief.ideaName}\nStage: ${brief.stage}\nDescription: ${brief.description}\nTarget User: ${brief.targetUser}\nBusiness Model: ${brief.businessModel}\nFocus Areas: ${brief.focusAreas.join(", ")}`,
-          },
+          { role: "system", content: pack.prompts.analyzeSystem },
+          { role: "user", content: pack.prompts.analyzeUser(simulation.brief) },
         ],
         response_format: { type: "json_object" },
       })
@@ -203,31 +194,18 @@ export const extractBrief = action({
     await requireIdentity(ctx)
     const openai = await createOpenAI()
     const model = resolveModel("fast")
-
-    const stageValues = STAGE_OPTIONS.map((o) => o.value).join(" | ")
-    const modelValues = BUSINESS_MODEL_OPTIONS.map((o) => `${o.value} (${o.label})`).join(", ")
-    const targetValues = TARGET_OPTIONS.map((o) => `${o.value} (${o.label})`).join(", ")
-
-    const systemPrompt = `You turn a founder's ${args.source === "voice" ? "spoken pitch transcript" : "pitch deck text"} into a structured brief.
-
-THE HONESTY RULE: extract ONLY what the founder actually said. If a field is not clearly present, return null for it. A thin or vague pitch should produce mostly nulls. Never infer, never fill in plausible content, never polish vagueness into specifics.
-
-Fields:
-- "ideaName": the product or company name, only if stated.
-- "description": what it is and does, 1-3 sentences using the founder's own substance (you may fix grammar, not add facts).
-- "whyNow": why this is the moment, only if the founder addressed timing.
-- "stage": one of ${stageValues} — only if stated or unmistakable.
-- "businessModel": one of these values, only if stated: ${modelValues}.
-- "targetUser": one of these values, only if the audience clearly matches one: ${targetValues}.
-
-Return JSON only: {"ideaName","description","whyNow","stage","businessModel","targetUser"} with null for anything not present.
-
-The pitch:
-${args.pitch.slice(0, 12_000)}`
+    // Stateless intake with no simulation yet; the founder lane is the only
+    // one with a pitch intake until the second lane arrives.
+    const pack = getPack()
 
     const response = await openai.chat.completions.create({
       model,
-      messages: [{ role: "system", content: systemPrompt }],
+      messages: [
+        {
+          role: "system",
+          content: pack.prompts.extractBrief({ source: args.source, pitch: args.pitch }),
+        },
+      ],
       response_format: { type: "json_object" },
     })
 

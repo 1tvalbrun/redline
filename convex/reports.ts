@@ -6,6 +6,7 @@ import { bySpokenTime } from "../src/lib/transcript"
 import { selectVerdictSpeaker } from "../src/lib/readiness"
 import { groundHeldUp } from "../src/lib/reportGrounding"
 import { createOpenAI, resolveModel } from "../src/lib/openai"
+import { getPack } from "../src/domains/registry"
 import {
   decisionValidator,
   priorityValidator,
@@ -135,65 +136,23 @@ export const generate = action({
 
     const openai = await createOpenAI()
     const model = resolveModel("quality")
-
-    const systemPrompt = `You are a senior advisor synthesizing a founder panel session into a final report.
-
-Brief:
-- Idea: ${simulation.brief.ideaName}
-- Description: ${simulation.brief.description}
-- Target user: ${simulation.brief.targetUser}
-- Business model: ${simulation.brief.businessModel}
-
-Panelist who ran the session: ${character.name} (${character.role})
-Panelist's evaluation lens: ${character.tone}
-
-Live notes observed during the conversation:
-${notes}
-
-Conversation transcript:
-${transcript}
-
-Produce a comprehensive verdict and report. Return JSON ONLY with this exact shape:
-{
-  "verdict": {
-    "decision": "advance" | "iterate" | "pass",
-    "summary": "one-sentence rationale",
-    "confidence": <integer 0-100>
-  },
-  "spokenVerdict": "<the verdict as ${character.name} would say it aloud to the founder, in one breath — 120 to 160 characters of plain direct speech in their voice, no lists, no headings>",
-  "overallScore": <integer 0-100, higher is better>,
-  "executiveSummary": "<3-4 sentences synthesizing the session>",
-  "panelVerdict": {
-    "verdict": "<one short phrase capturing the panelist's take>",
-    "score": <integer 0-100>,
-    "reasoning": "<2-3 sentences from the panelist's perspective>"
-  },
-  "topRisks": ["<short risk>", "<short risk>", "<short risk>"],
-  "heldUp": [
-    {"finding": "<a claim the FOUNDER stated that survived the panel's pressure, restated in one short sentence with nothing added>",
-     "quote": "<the founder's exact words from the transcript stating this claim, copied verbatim>"}
-  ],
-  "nextSevenDays": [
-    {"day": 1, "task": "<concrete action>", "priority": "high"|"medium"|"low"},
-    {"day": 2, "task": "<...>", "priority": "..."},
-    {"day": 3, "task": "<...>", "priority": "..."},
-    {"day": 4, "task": "<...>", "priority": "..."},
-    {"day": 5, "task": "<...>", "priority": "..."},
-    {"day": 6, "task": "<...>", "priority": "..."},
-    {"day": 7, "task": "<...>", "priority": "..."}
-  ]
-}
-
-Be concrete and specific. Each risk/task should mention something tied to THIS founder's idea, not generic advice.
-
-Grounding rules (absolute):
-- "heldUp" may contain ONLY affirmative claims the founder actually stated that withstood the panel's scrutiny (evidence, numbers, commitments), each with their verbatim words in "quote". An admission that something is missing, untested, or unknown is NOT a claim that held up — leave it out. If the founder made no defensible claims, return "heldUp": [] — an empty list is the correct, honest output.
-- Advice and recommendations belong ONLY in "nextSevenDays", never in "heldUp".
-- Nowhere in the report state specifics the transcript does not contain (numbers, buyer types, technologies, market sizes). Where the founder provided nothing, say so plainly.`
+    const pack = getPack(simulation.packId)
 
     const response = await openai.chat.completions.create({
       model,
-      messages: [{ role: "system", content: systemPrompt }],
+      messages: [
+        {
+          role: "system",
+          content: pack.prompts.report({
+            brief: simulation.brief,
+            characterName: character.name,
+            characterRole: character.role,
+            characterTone: character.tone,
+            notes,
+            transcript,
+          }),
+        },
+      ],
       response_format: { type: "json_object" },
     })
 

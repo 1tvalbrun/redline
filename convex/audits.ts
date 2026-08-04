@@ -11,6 +11,7 @@ import { api, internal } from "./_generated/api"
 import type { Id } from "./_generated/dataModel"
 import { claimValidator, gapValidator, groundAudit } from "../src/lib/audit"
 import { createOpenAI, resolveModel } from "../src/lib/openai"
+import { getPack } from "../src/domains/registry"
 import { ownedOrNull, requireIdentity } from "./guard"
 
 const PROMPT_CHAR_BUDGET = 60_000
@@ -148,32 +149,20 @@ const generateAudit = async (
 
     const openai = await createOpenAI()
     const model = resolveModel("quality")
-
-    const systemPrompt = `You are a diligence analyst auditing a founder's materials before a panel session.
-
-The founder's brief (their own words, NOT evidence):
-- Idea: ${simulation.brief.ideaName}
-- Stage: ${simulation.brief.stage}
-- Description: ${simulation.brief.description}
-- Target user: ${simulation.brief.targetUser}
-- Business model: ${simulation.brief.businessModel}
-${unreadableCount > 0 ? `\n${unreadableCount} uploaded file(s) could not be read and are not available as evidence.\n` : ""}
-The materials (the ONLY citable evidence). Location markers look like [page 3], [slide 2], [sheet ARR]:
-
-${materialSections}
-
-Every claim and gap is tagged with the diligence axis it bears on:
-"market" (TAM, demand, timing), "customer" (pain severity, willingness to pay, switching cost), "technical" (feasibility, reliability, scalability), "gtm" (distribution, sales motion, pricing execution).
-
-TASK 1 — CLAIMS. List the concrete, diligence-relevant claims the materials actually make (metrics, traction, market size, pricing, technology). For each: "text" (the claim, under 20 words), "source" (the exact file name), "location" (a marker that appears in that file, e.g. "page 2", "slide 1", "sheet ARR"; use "document" for files without markers), "axis". Only include claims you can point to in the materials. If the materials are thin, few or zero claims is the correct answer — do not invent.
-
-TASK 2 — GAPS. What a competent diligencer expects but cannot find. Each: "severity" ("blocker" = would stall a real process; "gap" = weakens the story), "kind" ("absent" = expected but in no material; "unsupported" = stated in the brief or materials with no backing evidence), "title" (under 8 words), "detail" (under 25 words), "axis". 3 to 8 gaps.
-
-Return JSON only: {"claims":[{"text","source","location","axis"}],"gaps":[{"severity","kind","title","detail","axis"}]}`
+    const pack = getPack(simulation.packId)
 
     const response = await openai.chat.completions.create({
       model,
-      messages: [{ role: "system", content: systemPrompt }],
+      messages: [
+        {
+          role: "system",
+          content: pack.prompts.audit({
+            brief: simulation.brief,
+            unreadableCount,
+            materialSections,
+          }),
+        },
+      ],
       response_format: { type: "json_object" },
     })
 
