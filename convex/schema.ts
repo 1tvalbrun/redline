@@ -28,6 +28,20 @@ export type Decision = Infer<typeof decisionValidator>
 export type Priority = Infer<typeof priorityValidator>
 
 export default defineSchema({
+  // One row per signed-in person, created at onboarding. lanes is an array
+  // on purpose: a user is never locked to one practice lane, even while the
+  // UI offers only one. _creationTime serves as createdAt.
+  users: defineTable({
+    clerkId: v.string(),
+    displayName: v.optional(v.string()),
+    lanes: v.array(v.string()),
+    defaultLane: v.string(),
+    // Clickwrap record: when they accepted and which version of /terms.
+    // Bump TERMS_VERSION (src/lib/legal.ts) to re-prompt everyone.
+    termsAcceptedAt: v.number(),
+    termsVersion: v.string(),
+  }).index("by_clerk", ["clerkId"]),
+
   // One durable idea accrues a readiness trajectory across many runs.
   // _creationTime serves as createdAt.
   //
@@ -66,7 +80,9 @@ export default defineSchema({
       })
     ),
     version: v.number(),
-  }).index("by_idea", ["ideaId"]),
+  })
+    .index("by_idea", ["ideaId"])
+    .index("by_user", ["userId"]),
 
   rooms: defineTable({
     simulationId: v.id("simulations"),

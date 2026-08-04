@@ -12,6 +12,7 @@ import { ReadinessGauge, useCountUp } from "@/components/shared/ReadinessGauge"
 import { FLOW_BTN, StageKicker } from "@/components/simulation/flow/FlowShell"
 import { IdeaNotFound } from "@/components/simulation/flow/IdeaNotFound"
 import { VerdictStage } from "./VerdictStage"
+import { Disclosure } from "@/components/shared/Disclosure"
 
 const VERDICT_STYLE: Record<string, { label: string; className: string }> = {
   advance: { label: "Advance", className: "border-ok text-ok" },
@@ -292,6 +293,7 @@ export const ReportView = ({ simulationId }: ReportViewProps) => {
           Back to overview
         </Link>
       </div>
+      <Disclosure className="mt-5" />
     </div>
   )
 }
