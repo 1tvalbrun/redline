@@ -5,7 +5,7 @@ import { useState } from "react"
 import { useMutation } from "convex/react"
 import { api } from "@convex/_generated/api"
 import { cn } from "@/lib/utils"
-import { LANES } from "@/lib/lanes"
+import { ALL_PACKS } from "@/domains/registry"
 import { Disclosure } from "@/components/shared/Disclosure"
 
 // First-run onboarding: pick a lane, accept the terms, enter. Success needs
@@ -13,7 +13,7 @@ import { Disclosure } from "@/components/shared/Disclosure"
 // which routes to the workspace.
 const WelcomePage = () => {
   const completeOnboarding = useMutation(api.users.completeOnboarding)
-  const [laneId, setLaneId] = useState(LANES[0].id)
+  const [laneId, setLaneId] = useState(ALL_PACKS[0].id)
   const [accepted, setAccepted] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [failed, setFailed] = useState(false)
@@ -44,7 +44,7 @@ const WelcomePage = () => {
             What are you here to prepare for?
           </legend>
           <div className="mt-4 space-y-2.5">
-            {LANES.map((lane) => (
+            {ALL_PACKS.map((lane) => (
               <label
                 key={lane.id}
                 className={cn(

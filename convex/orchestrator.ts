@@ -4,6 +4,7 @@ import { api, internal } from "./_generated/api"
 import { bySpokenTime } from "../src/lib/transcript"
 import { AXES } from "../src/lib/readiness"
 import { createOpenAI, resolveModel } from "../src/lib/openai"
+import { getPack } from "../src/domains/registry"
 import type { NoteType } from "./schema"
 import { requireIdentity } from "./guard"
 
@@ -59,54 +60,21 @@ export const decide = action({
 
     const openai = await createOpenAI()
     const model = resolveModel("fast")
-
-    const systemPrompt = `You are observing a live founder pitch and scoring it in real time alongside ${character.name} (${character.role}).
-
-Pitch context:
-- Idea: ${simulation.brief.ideaName}
-- Description: ${simulation.brief.description}
-- Target user: ${simulation.brief.targetUser}
-- Business model: ${simulation.brief.businessModel}
-
-${character.name}'s evaluation lens (guides which risks you watch hardest, but you MUST score all four):
-${character.tone}
-
-Risk dimensions, each scored 0-100 (0 = no concern, 100 = critical risk):
-- market: TAM, demand intensity, market timing
-- customer: pain severity, willingness to pay, switching cost
-- technical: feasibility, scalability, accuracy/latency claims
-- gtm: distribution, sales motion, channel risk
-
-Current scores:
-- market=${current.market}
-- customer=${current.customer}
-- technical=${current.technical}
-- gtm=${current.gtm}
-
-CRITICAL RULES — read carefully:
-1. Assess each of the four dimensions INDEPENDENTLY. Do NOT apply a single overall judgment to all four.
-2. For each dimension, ask: "did the most recent turn in this conversation touch THIS specific dimension?"
-   - If NO: return the CURRENT value UNCHANGED (exact same integer).
-   - If YES: adjust the score by between 1 and 8 points (in either direction) based on the answer's quality on THAT specific dimension.
-3. In most turns, only 1 or 2 dimensions will be touched. The other 2-3 should be UNCHANGED.
-4. Strong, specific, evidence-backed founder answers DECREASE the relevant dimension.
-5. Vague, dodgy, hand-wavy, or unsupported claims INCREASE the relevant dimension.
-6. Whole integers, 0-100 only. Never move by more than 10 points in a single turn.
-
-Also produce ONE short observation (8-18 words) about the most recent founder turn. Classify it:
-- strong_answer: founder gave a sharp, specific answer
-- weak_assumption: founder relied on a claim that won't hold up
-- objection: panelist pushed back on something
-- follow_up: a question still hanging
-- event: a notable shift in tone or topic
-
-Respond with JSON only, exactly this shape:
-{"riskScores":{"market":int,"customer":int,"technical":int,"gtm":int},"note":{"type":"<one_of_the_five>","text":"<8-18 word observation>"}}`
+    const pack = getPack(simulation.packId)
 
     const response = await openai.chat.completions.create({
       model,
       messages: [
-        { role: "system", content: systemPrompt },
+        {
+          role: "system",
+          content: pack.prompts.orchestrate({
+            characterName: character.name,
+            characterRole: character.role,
+            characterTone: character.tone,
+            brief: simulation.brief,
+            current,
+          }),
+        },
         { role: "user", content: `Recent conversation:\n${recent}` },
       ],
       response_format: { type: "json_object" },

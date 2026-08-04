@@ -9,6 +9,7 @@
  */
 
 import type * as audits from "../audits.js";
+import type * as avatars from "../avatars.js";
 import type * as guard from "../guard.js";
 import type * as ideas from "../ideas.js";
 import type * as ingest from "../ingest.js";
@@ -27,6 +28,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   audits: typeof audits;
+  avatars: typeof avatars;
   guard: typeof guard;
   ideas: typeof ideas;
   ingest: typeof ingest;

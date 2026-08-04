@@ -1,17 +1,10 @@
-// The panel roster shared by the client UI and Convex. Server-safe on
-// purpose — no env reads, no images — because rooms.create resolves persona
-// text here: the client names a persona, it never supplies one. The live
-// avatar personality is stored on the Runway Character itself; these fields
-// only feed UI labels and the orchestrator/report prompts.
-export type PanelPersona = {
-  id: string
-  archetypeId: string
-  name: string
-  role: string
-  tone: string
-}
+import type { Persona } from "../types.ts"
 
-export const PANEL_PERSONAS: PanelPersona[] = [
+// The founder lane's panel. Persona text feeds UI labels and the
+// scoring/report prompts; the server resolves personas from the pack, so
+// the client can never inject one. The Runway avatar id for each persona
+// lives in the Convex avatars registry.
+export const PANEL_PERSONAS: Persona[] = [
   {
     id: "vc-01",
     archetypeId: "vc",
@@ -34,6 +27,3 @@ export const PANEL_PERSONAS: PanelPersona[] = [
     tone: "Methodical, surfaces assumptions others don't see, constructive not combative",
   },
 ]
-
-export const panelPersonaById = (id: string): PanelPersona | null =>
-  PANEL_PERSONAS.find((persona) => persona.id === id) ?? null

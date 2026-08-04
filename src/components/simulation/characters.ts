@@ -1,15 +1,8 @@
-import { PANEL_PERSONAS } from "@/lib/personas"
+import { PANEL_PERSONAS } from "@/domains/founder/personas"
 
-// Client-side additions to the shared roster: Runway avatar ids are
-// NEXT_PUBLIC_* so Next can inline them at build, and images are UI-only.
-// The avatar's spoken personality lives on the Runway Character (dev
-// portal), not in this repo.
-const AVATAR_IDS: Record<string, string | undefined> = {
-  "vc-01": process.env.NEXT_PUBLIC_RUNWAY_AVATAR_VC,
-  "tc-01": process.env.NEXT_PUBLIC_RUNWAY_AVATAR_CUSTOMER,
-  "ta-01": process.env.NEXT_PUBLIC_RUNWAY_AVATAR_TECH,
-}
-
+// Client-side roster: the shared personas plus their UI-only images. The
+// Runway avatar id for a persona lives in the Convex avatars registry and is
+// resolved server-side by rooms.create; the client never handles it.
 const IMAGES: Record<string, string> = {
   "vc-01": "/avatars/victoria-chen.png",
   "tc-01": "/avatars/marcus-rivera.png",
@@ -18,6 +11,5 @@ const IMAGES: Record<string, string> = {
 
 export const DEFAULT_CHARACTERS = PANEL_PERSONAS.map((persona) => ({
   ...persona,
-  avatarId: AVATAR_IDS[persona.id] ?? "",
   image: IMAGES[persona.id] ?? "",
 }))

@@ -53,11 +53,29 @@ export default defineSchema({
     userId: v.string(),
   }).index("by_user_name", ["userId", "name"]),
 
+  // Which Runway Character plays each pack persona. Rows are written only by
+  // the internal register mutation (npx convex run avatars:register); the
+  // connect route allowlists against by_runway, and rooms.create resolves
+  // the avatar id for a persona here. Replaces the NEXT_PUBLIC_RUNWAY_AVATAR_*
+  // env vars, so adding an avatar needs no rebuild.
+  avatars: defineTable({
+    packId: v.string(),
+    personaId: v.string(),
+    runwayAvatarId: v.string(),
+  })
+    .index("by_pack_persona", ["packId", "personaId"])
+    .index("by_runway", ["runwayAvatarId"]),
+
   simulations: defineTable({
     ideaId: v.optional(v.id("ideas")),
     userId: v.string(),
     title: v.string(),
-    roomType: v.string(),
+    // Legacy rows only. Superseded by packId; simulations.create stopped
+    // writing it.
+    roomType: v.optional(v.string()),
+    // Domain pack id (src/domains/registry.ts). Absent on legacy rows, which
+    // read as the founder pack.
+    packId: v.optional(v.string()),
     status: v.union(v.literal("draft"), v.literal("analyzing"), v.literal("ready")),
     brief: v.object({
       ideaName: v.string(),

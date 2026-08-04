@@ -1,7 +1,7 @@
 import { v } from "convex/values"
 import { mutation, query } from "./_generated/server"
 import { requireIdentity } from "./guard"
-import { isLaneId } from "../src/lib/lanes"
+import { isPackId } from "../src/domains/registry"
 import { TERMS_VERSION } from "../src/lib/legal"
 
 // Identity check without requireIdentity's throw: the onboarding gate mounts
@@ -28,7 +28,7 @@ export const completeOnboarding = mutation({
   args: { lane: v.string() },
   handler: async (ctx, args) => {
     const identity = await requireIdentity(ctx)
-    if (!isLaneId(args.lane)) throw new Error("Unknown lane")
+    if (!isPackId(args.lane)) throw new Error("Unknown lane")
     const existing = await ctx.db
       .query("users")
       .withIndex("by_clerk", (q) => q.eq("clerkId", identity.subject))

@@ -1,7 +1,7 @@
 import test from "node:test"
 import assert from "node:assert/strict"
-import { buildRoomBriefing } from "./roomBriefing.ts"
-import type { Claim, Gap } from "./audit.ts"
+import { buildRoomBriefing } from "./briefing.ts"
+import type { Claim, Gap } from "../../lib/audit.ts"
 
 const gap = (title: string, axis: Gap["axis"], severity: Gap["severity"] = "blocker"): Gap => ({
   severity,
@@ -58,7 +58,7 @@ test("a resume never re-introduces and digests turns in speech order", () => {
   const questionAt = briefing.personalityPreamble.indexOf("What is your churn?")
   const answerAt = briefing.personalityPreamble.indexOf("Answer about churn")
   assert.ok(questionAt !== -1 && answerAt !== -1 && questionAt < answerAt)
-  assert.match(briefing.startScript, /picking up where we left off/)
+  assert.match(briefing.startScript, /pick up right where we left off/)
 })
 
 test("the digest keeps only the most recent turns", () => {

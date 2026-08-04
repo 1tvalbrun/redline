@@ -58,12 +58,11 @@ export const PanelSetup = ({ simulationId }: PanelSetupProps) => {
   const [enterFailed, setEnterFailed] = useState(false)
 
   const handleEnterRoom = async (characterId: string) => {
-    const character = DEFAULT_CHARACTERS.find((c) => c.id === characterId)
-    if (!character || startingId) return
+    if (startingId) return
     setStartingId(characterId)
     setEnterFailed(false)
     try {
-      await createRoom({ simulationId: typedId, characterId, avatarId: character.avatarId })
+      await createRoom({ simulationId: typedId, characterId })
       router.push(`/simulation/${simulationId}/room`)
     } catch {
       setEnterFailed(true)

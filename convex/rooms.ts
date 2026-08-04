@@ -1,30 +1,36 @@
 import { v } from "convex/values"
 import { internalMutation, mutation, query } from "./_generated/server"
 import { AXES, boundRiskDelta } from "../src/lib/readiness"
-import { panelPersonaById } from "../src/lib/personas"
+import { getPack } from "../src/domains/registry"
 import { decisionValidator, noteTypeValidator, transcriptTypeValidator } from "./schema"
 import { ownedOrNull, requireIdentity } from "./guard"
 
 export const create = mutation({
   args: {
     simulationId: v.id("simulations"),
-    // Persona text feeds downstream prompts, so the server resolves it from
-    // the roster — the client only names which persona it wants. The avatar
-    // id is client-inlined env today and is allowlisted again at
-    // /api/avatar/connect before a session is minted.
+    // The client only names which persona it wants. Persona text comes from
+    // the simulation's pack and the Runway avatar id from the registry, so
+    // neither can be injected.
     characterId: v.string(),
-    avatarId: v.string(),
   },
   handler: async (ctx, args) => {
     const identity = await requireIdentity(ctx)
     const simulation = ownedOrNull(identity, await ctx.db.get(args.simulationId))
     if (!simulation) throw new Error("Simulation not found")
-    const persona = panelPersonaById(args.characterId)
+    const pack = getPack(simulation.packId)
+    const persona = pack.personas.find((p) => p.id === args.characterId)
     if (!persona) throw new Error("Unknown character")
+    const avatar = await ctx.db
+      .query("avatars")
+      .withIndex("by_pack_persona", (q) =>
+        q.eq("packId", pack.id).eq("personaId", persona.id)
+      )
+      .first()
+    if (!avatar) throw new Error("No avatar registered for this panelist")
     return await ctx.db.insert("rooms", {
       simulationId: args.simulationId,
       userId: identity.subject,
-      characters: [{ ...persona, avatarId: args.avatarId, status: "idle" }],
+      characters: [{ ...persona, avatarId: avatar.runwayAvatarId, status: "idle" }],
       activeCharacterId: persona.id,
       transcript: [],
       riskScores: {},
