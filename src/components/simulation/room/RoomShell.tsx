@@ -13,6 +13,7 @@ import { useNow } from "@/lib/useNow"
 import { formatElapsed } from "@/lib/utils"
 import { UserTile, type MicState } from "./UserTile"
 import { PromptHelpers } from "./PromptHelpers"
+import { Disclosure } from "@/components/shared/Disclosure"
 import { TranscriptPanel } from "./TranscriptPanel"
 import { LiveNotes } from "./LiveNotes"
 import { TranscriptBridge } from "./TranscriptBridge"
@@ -195,6 +196,7 @@ export const RoomShell = ({ simulationId }: RoomShellProps) => {
       <aside className="col-start-1 row-span-2 row-start-1 flex flex-col gap-[18px] border-r border-line bg-surface-raised px-4 py-5">
         <UserTile userName="Founder" micState={micState} onToggleMic={handleToggleMic} />
         <PromptHelpers className="mt-auto" />
+        <Disclosure />
       </aside>
 
       <main className="relative col-start-2 row-start-1 overflow-hidden bg-[#0e0c0a]">

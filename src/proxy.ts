@@ -1,13 +1,13 @@
-import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server"
+import { clerkMiddleware } from "@clerk/nextjs/server"
+import { isPublicPath } from "./lib/routes"
 
-// Invited-tester gate: everything requires a session except the sign-in
-// page itself. Convex traffic never passes through here — the browser talks
-// to Convex directly — so the function layer re-checks identity via
+// Invited-tester gate: everything requires a session except the PUBLIC_PATHS
+// (sign-in, legal pages), checked with the same isPublicPath the client auth
+// gate uses. Convex traffic never passes through here (the browser talks to
+// Convex directly), so the function layer re-checks identity via
 // requireIdentity (convex/guard.ts).
-const isPublicRoute = createRouteMatcher(["/sign-in(.*)"])
-
 export default clerkMiddleware(async (auth, req) => {
-  if (!isPublicRoute(req)) await auth.protect()
+  if (!isPublicPath(req.nextUrl.pathname)) await auth.protect()
 })
 
 export const config = {

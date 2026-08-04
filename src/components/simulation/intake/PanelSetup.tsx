@@ -185,6 +185,11 @@ export const PanelSetup = ({ simulationId }: PanelSetupProps) => {
           Couldn&apos;t open the room. Check your connection and try again.
         </p>
       )}
+      <p className="mt-5 max-w-[62ch] font-mono text-[9.5px] uppercase leading-[1.7] tracking-[.08em] text-on-surface-2">
+        Sessions are live voice conversations with an AI avatar. Entering the room is your
+        consent to your audio being transcribed and the conversation being processed, and
+        possibly recorded, by our avatar provider to run the session.
+      </p>
     </div>
   )
 }
