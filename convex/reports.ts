@@ -77,6 +77,11 @@ const PRIORITIES = new Set(["high", "medium", "low"])
 // must not blow the context window. The oldest turns are dropped first —
 // the verdict weighs how the session ended, not how it opened.
 const TRANSCRIPT_CHAR_BUDGET = 60_000
+// Continuity bounds: the summary must fit a briefing section, items must
+// read aloud in one breath, and one session may add at most five.
+const CONTINUITY_SUMMARY_CHARS = 1200
+const ACTION_ITEM_CHARS = 120
+const MAX_SESSION_ACTION_ITEMS = 5
 const clampInt = (n: unknown, fallback: number) =>
   typeof n === "number" ? Math.max(0, Math.min(100, Math.round(n))) : fallback
 
@@ -132,6 +137,13 @@ export const generate = action({
             .join("\n")
         : "(none)"
 
+    // The engagement's memory going into this session: the report compounds
+    // the summary rather than replacing it, and must not re-emit tracked
+    // commitments. One bounded point-read; null on a first session.
+    const priorContinuity = await ctx.runQuery(api.ideas.continuityForSimulation, {
+      simulationId: room.simulationId,
+    })
+
     const openai = await createOpenAI()
     const model = resolveModel("quality")
 
@@ -147,6 +159,17 @@ export const generate = action({
             characterTone: character.tone,
             notes,
             transcript,
+            continuity: priorContinuity
+              ? {
+                  summary: priorContinuity.lastSessionSummary,
+                  open: priorContinuity.actionItems
+                    .filter((item) => item.status === "open")
+                    .map((item) => item.text),
+                  delivered: priorContinuity.actionItems
+                    .filter((item) => item.status === "done")
+                    .map((item) => item.text),
+                }
+              : null,
           }),
         },
       ],
@@ -248,9 +271,9 @@ export const generate = action({
       },
     })
 
-    // Concluding the room is gated on the insert-if-absent result: a
-    // concurrent generation that lost the race must not overwrite the
-    // winner's stored verdict with its own model output.
+    // Concluding the room and recording continuity are gated on the
+    // insert-if-absent result: a concurrent generation that lost the race
+    // must not overwrite the winner's output.
     if (created) {
       await ctx.runMutation(internal.rooms.conclude, {
         id: args.roomId,
@@ -260,6 +283,27 @@ export const generate = action({
           confidence: verdictConfidence,
         },
       })
+
+      const rawContinuity = parsed.continuity ?? {}
+      const continuitySummary =
+        typeof rawContinuity.summary === "string"
+          ? rawContinuity.summary.trim().slice(0, CONTINUITY_SUMMARY_CHARS)
+          : ""
+      const actionItems: string[] = Array.isArray(rawContinuity.actionItems)
+        ? rawContinuity.actionItems
+            .filter((text: unknown): text is string => typeof text === "string")
+            .map((text: string) => text.trim().slice(0, ACTION_ITEM_CHARS))
+            .filter((text: string) => text.length > 0)
+            .slice(0, MAX_SESSION_ACTION_ITEMS)
+        : []
+      if (simulation.ideaId && (continuitySummary || actionItems.length > 0)) {
+        await ctx.runMutation(internal.ideas.recordContinuity, {
+          ideaId: simulation.ideaId,
+          roomId: args.roomId,
+          summary: continuitySummary,
+          actionItems,
+        })
+      }
     }
 
     return { reportId }

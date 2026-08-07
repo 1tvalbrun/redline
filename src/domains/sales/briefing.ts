@@ -1,7 +1,16 @@
 import { deriveAuditRiskScores } from "../../lib/preRunScores.ts"
 import { deriveReadiness } from "../../lib/readiness.ts"
 import { bySpokenTime } from "../../lib/transcript.ts"
-import { scopeList, scopeText, type BriefingInput, type RoomBriefing } from "../types.ts"
+import {
+  composeWithinBudget,
+  deliveredItems,
+  openItems,
+  scopeList,
+  scopeText,
+  spokenCommitment,
+  type BriefingInput,
+  type RoomBriefing,
+} from "../types.ts"
 import { SALES_AXIS_KEYS } from "./axes.ts"
 
 // Same pause discipline as the founder lane, in the buyer's frame: the GWM
@@ -31,7 +40,12 @@ const SPOKEN_AXIS: Record<string, string> = {
 }
 
 // Per-session avatar briefing, assembled from what the app already knows.
-export const buildRoomBriefing = ({ scope, audit, transcript }: BriefingInput): RoomBriefing => {
+export const buildRoomBriefing = ({
+  scope,
+  audit,
+  continuity,
+  transcript,
+}: BriefingInput): RoomBriefing => {
   const offering = scopeText(scope, "offering")
   const description = scopeText(scope, "description")
   const prospect = scopeText(scope, "prospect")
@@ -79,12 +93,40 @@ export const buildRoomBriefing = ({ scope, audit, transcript }: BriefingInput): 
   // don't exist.
   const readMaterial = (audit?.claims.length ?? 0) > 0
 
+  const open = openItems(continuity)
+  const delivered = deliveredItems(continuity).slice(0, 3)
+  const continuityContext = continuity
+    ? [
+        ` You have spoken with this seller about ${offering} in an earlier session; do not introduce yourself as if meeting for the first time.`,
+        open.length > 0
+          ? ` They committed to: ${open.map((item) => item.text).join("; ")}. Follow up on these before anything new.`
+          : "",
+        delivered.length > 0
+          ? ` They have already delivered: ${delivered.map((item) => item.text).join("; ")} — you received these; thank them briefly if relevant and do not ask for them again.`
+          : "",
+        continuity.lastSessionSummary
+          ? ` Where the last session left off: ${continuity.lastSessionSummary}`
+          : "",
+      ]
+    : []
+
+  const spokenAxis = weakest ? (SPOKEN_AXIS[weakest] ?? weakest) : null
+  const startScript =
+    open.length > 0
+      ? `Good to see you again. Last time you said you'd ${spokenCommitment(open[0])} — walk me through where that landed.`
+      : spokenAxis
+        ? readMaterial
+          ? `Thanks for making the time. I read through the ${offering} material before this, and I want to start with ${spokenAxis} — that's where I have the most questions.`
+          : `Thanks for making the time. I want to start with ${spokenAxis} — that's where I have the most questions.`
+        : `Alright, you've got my attention. Tell me what you're bringing me, and why it matters for someone in my seat.`
+
   return {
-    personalityPreamble: `Session context: the seller is pitching "${offering}" — ${description.slice(0, 300)}.${roleContext}${askContext}${objectionContext}${auditContext}\n\n`,
-    startScript: weakest
-      ? readMaterial
-        ? `Thanks for making the time. I read through the ${offering} material before this, and I want to start with ${SPOKEN_AXIS[weakest] ?? weakest} — that's where I have the most questions.`
-        : `Thanks for making the time. I want to start with ${SPOKEN_AXIS[weakest] ?? weakest} — that's where I have the most questions.`
-      : `Alright, you've got my attention. Tell me what you're bringing me, and why it matters for someone in my seat.`,
+    personalityPreamble: composeWithinBudget([
+      `Session context: the seller is pitching "${offering}" — ${description.slice(0, 300)}.${roleContext}${askContext}`,
+      ...continuityContext,
+      objectionContext,
+      auditContext,
+    ]) + "\n\n",
+    startScript,
   }
 }

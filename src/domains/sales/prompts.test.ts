@@ -78,6 +78,7 @@ test("report keeps the grounding rules and the closed verdict contract", () => {
     characterTone: "Warm but immovable",
     notes: "(none)",
     transcript: "SELLER: hello",
+    continuity: null,
   })
   assert.match(prompt, /"decision": "buy" \| "second-meeting" \| "walk"/)
   assert.match(prompt, /verbatim words in "quote"/)
@@ -85,4 +86,27 @@ test("report keeps the grounding rules and the closed verdict contract", () => {
   assert.match(prompt, /belong ONLY in "nextSevenDays", never in "heldUp"/)
   assert.match(prompt, /"send me some info" is not a next step/)
   assert.match(prompt, /\{"day": 7, "task"/)
+  assert.match(prompt, /"continuity": \{/)
+  assert.match(prompt, /never invent a commitment/)
+})
+
+test("report compounds the engagement memory and forbids repeating tracked commitments", () => {
+  const prompt = report({
+    scope,
+    characterName: "Cole Merritt",
+    characterRole: "Director of Operations",
+    characterTone: "Warm",
+    notes: "(none)",
+    transcript: "SELLER: hello",
+    continuity: {
+      summary: "Pilot agreed in principle; price unresolved.",
+      open: ["Share a one-page draft pilot scope"],
+      delivered: ["Send two operator references"],
+    },
+  })
+  assert.match(prompt, /Previous summary: Pilot agreed in principle; price unresolved\./)
+  assert.match(prompt, /open: Share a one-page draft pilot scope/)
+  assert.match(prompt, /delivered: Send two operator references/)
+  assert.match(prompt, /UPDATE the previous summary rather than writing a fresh one/)
+  assert.match(prompt, /never repeat or rephrase a commitment already tracked/)
 })

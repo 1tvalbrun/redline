@@ -32,14 +32,20 @@ const FieldLabel = ({ htmlFor, children }: { htmlFor?: string; children: React.R
 // The declarative intake: renders any pack's scopeFields as a form. Lanes
 // with a bespoke intake (the founder's voice pitch) ship their own
 // component instead; everything else goes through here.
-export const ScopeForm = ({ pack }: { pack: DomainPack }) => {
+export const ScopeForm = ({
+  pack,
+  initialScope,
+}: {
+  pack: DomainPack
+  initialScope?: Scope
+}) => {
   const router = useRouter()
   const createSimulation = useMutation(api.simulations.create)
   const analyzeSimulation = useAction(api.simulations.analyze)
   const { uploads, addFiles, removeUpload, readyMaterials, isUploading } = useMaterialUploads()
   const materialsInputRef = useRef<HTMLInputElement>(null)
 
-  const [scope, setScope] = useState<Scope>({})
+  const [scope, setScope] = useState<Scope>(() => initialScope ?? {})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitFailed, setSubmitFailed] = useState(false)
 

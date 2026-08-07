@@ -302,15 +302,29 @@ export const ReportView = ({ simulationId }: ReportViewProps) => {
       </div>
 
       <div className="mt-[30px] flex flex-wrap items-center gap-3.5">
-        <Link href="/simulation/new" className={FLOW_BTN}>
-          Close the gaps · re-run <span aria-hidden="true">→</span>
-        </Link>
+        {simulation?.ideaId ? (
+          <Link href={`/ideas/${simulation.ideaId}`} className={FLOW_BTN}>
+            Review your commitments <span aria-hidden="true">→</span>
+          </Link>
+        ) : (
+          <Link href="/" className={FLOW_BTN}>
+            Back to overview <span aria-hidden="true">→</span>
+          </Link>
+        )}
         <Link
-          href="/"
+          href={`/simulation/new?from=${simulationId}`}
           className="focus-ring font-mono text-[11px] uppercase tracking-[.06em] text-on-surface-2 hover:text-red-fg"
         >
-          Back to overview
+          Adjust the brief · re-run
         </Link>
+        {simulation?.ideaId && (
+          <Link
+            href="/"
+            className="focus-ring font-mono text-[11px] uppercase tracking-[.06em] text-on-surface-2 hover:text-red-fg"
+          >
+            Back to overview
+          </Link>
+        )}
       </div>
       <Disclosure className="mt-5" />
     </div>

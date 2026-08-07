@@ -21,8 +21,31 @@ export const priorityValidator = v.union(
   v.literal("medium"),
   v.literal("low")
 )
+export const actionItemStatusValidator = v.union(
+  v.literal("open"),
+  v.literal("done"),
+  v.literal("dropped")
+)
 export type NoteType = Infer<typeof noteTypeValidator>
 export type Priority = Infer<typeof priorityValidator>
+export type ActionItemStatus = Infer<typeof actionItemStatusValidator>
+
+// Cross-session memory, written at report time and read into the next
+// session's briefing. Bounded (one summary, ≤10 open items), so it lives
+// inline on the idea — the durable engagement that links runs.
+export const continuityValidator = v.object({
+  lastSessionSummary: v.string(),
+  actionItems: v.array(
+    v.object({
+      id: v.string(),
+      text: v.string(),
+      status: actionItemStatusValidator,
+      fromRoomId: v.id("rooms"),
+      createdAt: v.number(),
+    })
+  ),
+  updatedAt: v.number(),
+})
 
 export default defineSchema({
   // One row per signed-in person, created at onboarding. lanes is an array
@@ -48,6 +71,11 @@ export default defineSchema({
   ideas: defineTable({
     name: v.string(),
     userId: v.string(),
+    // Lane the idea belongs to. Absent on legacy rows, which read as
+    // founder. Same-named ideas in different lanes are different ideas —
+    // without this, their continuity and trajectory would merge.
+    packId: v.optional(v.string()),
+    continuity: v.optional(continuityValidator),
   }).index("by_user_name", ["userId", "name"]),
 
   // Which Runway Character plays each pack persona. Rows are written only by

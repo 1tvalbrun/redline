@@ -1,7 +1,15 @@
 import { deriveAuditRiskScores } from "../../lib/preRunScores.ts"
 import { deriveReadiness } from "../../lib/readiness.ts"
 import { bySpokenTime } from "../../lib/transcript.ts"
-import { scopeText, type BriefingInput, type RoomBriefing } from "../types.ts"
+import {
+  composeWithinBudget,
+  deliveredItems,
+  openItems,
+  scopeText,
+  spokenCommitment,
+  type BriefingInput,
+  type RoomBriefing,
+} from "../types.ts"
 import { FOUNDER_AXES, FOUNDER_AXIS_KEYS } from "./axes.ts"
 
 // The GWM engine fills founder pauses with presence check-ins ("Still with
@@ -36,7 +44,12 @@ const axisLabel = (key: string): string =>
   FOUNDER_AXES.find((axis) => axis.key === key)?.label ?? key
 
 // Per-session avatar briefing, assembled from what the app already knows.
-export const buildRoomBriefing = ({ scope, audit, transcript }: BriefingInput): RoomBriefing => {
+export const buildRoomBriefing = ({
+  scope,
+  audit,
+  continuity,
+  transcript,
+}: BriefingInput): RoomBriefing => {
   const ideaName = scopeText(scope, "ideaName")
   const description = scopeText(scope, "description")
   if (transcript.length > 0) {
@@ -74,12 +87,39 @@ export const buildRoomBriefing = ({ scope, audit, transcript }: BriefingInput): 
   // don't exist.
   const readMaterials = (audit?.claims.length ?? 0) > 0
 
+  const open = openItems(continuity)
+  const delivered = deliveredItems(continuity).slice(0, 3)
+  const continuityContext = continuity
+    ? [
+        ` You have spoken with this founder about ${ideaName} in an earlier session; do not introduce yourself as if meeting for the first time.`,
+        open.length > 0
+          ? ` They committed to: ${open.map((item) => item.text).join("; ")}. Follow up on these.`
+          : "",
+        delivered.length > 0
+          ? ` They have already delivered: ${delivered.map((item) => item.text).join("; ")} — you received these; thank them briefly if relevant and do not ask for them again.`
+          : "",
+        continuity.lastSessionSummary
+          ? ` Where the last session left off: ${continuity.lastSessionSummary}`
+          : "",
+      ]
+    : []
+
+  const spokenAxis = weakest ? (SPOKEN_AXIS[weakest] ?? axisLabel(weakest).toLowerCase()) : null
+  const startScript =
+    open.length > 0
+      ? `Good to see you back. Last time you said you'd ${spokenCommitment(open[0])} — tell me how that went.`
+      : spokenAxis
+        ? readMaterials
+          ? `Thanks for making the time. I went through the ${ideaName} materials, and before anything else I want to get into ${spokenAxis} — that's where your case is thinnest.`
+          : `Thanks for making the time. Before anything else I want to get into ${spokenAxis} — that's where your case is thinnest.`
+        : `Alright, let's get into it. Give me the one-minute version of ${ideaName}.`
+
   return {
-    personalityPreamble: `Session context: the founder is pitching "${ideaName}" — ${description.slice(0, 300)}.${auditContext}\n\n`,
-    startScript: weakest
-      ? readMaterials
-        ? `Thanks for making the time. I went through the ${ideaName} materials, and before anything else I want to get into ${SPOKEN_AXIS[weakest] ?? axisLabel(weakest).toLowerCase()} — that's where your case is thinnest.`
-        : `Thanks for making the time. Before anything else I want to get into ${SPOKEN_AXIS[weakest] ?? axisLabel(weakest).toLowerCase()} — that's where your case is thinnest.`
-      : `Alright, let's get into it. Give me the one-minute version of ${ideaName}.`,
+    personalityPreamble: composeWithinBudget([
+      `Session context: the founder is pitching "${ideaName}" — ${description.slice(0, 300)}.`,
+      ...continuityContext,
+      auditContext,
+    ]) + "\n\n",
+    startScript,
   }
 }
