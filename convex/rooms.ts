@@ -1,56 +1,71 @@
 import { v } from "convex/values"
-import { internalMutation, mutation, query } from "./_generated/server"
+import { internalMutation, mutation, query, type MutationCtx } from "./_generated/server"
+import type { Id } from "./_generated/dataModel"
 import { boundRiskDelta } from "../src/lib/readiness"
 import { axisKeys, getPack, scopeOf } from "../src/domains/registry"
-import { scopeText } from "../src/domains/types"
+import { scopeText, type DomainPack } from "../src/domains/types"
 import { noteTypeValidator, transcriptTypeValidator } from "./schema"
 import { ownedOrNull, requireIdentity } from "./guard"
+
+// Persona text comes from the pack and the Runway avatar id from the
+// registry, so neither can be injected. Only the session-relevant slice of
+// the persona is stored — the pack carries UI-only fields (image, attack,
+// bio, tags, axes) that would fail the room schema. Shared by rooms.create
+// and simulations.continueRun.
+export const insertRoomForPersona = async (
+  ctx: MutationCtx,
+  simulationId: Id<"simulations">,
+  userId: string,
+  pack: DomainPack,
+  personaId: string
+): Promise<Id<"rooms">> => {
+  const persona = pack.personas.find((p) => p.id === personaId)
+  if (!persona) throw new Error("Unknown character")
+  const avatar = await ctx.db
+    .query("avatars")
+    .withIndex("by_pack_persona", (q) =>
+      q.eq("packId", pack.id).eq("personaId", persona.id)
+    )
+    .first()
+  if (!avatar) throw new Error("No avatar registered for this panelist")
+  return await ctx.db.insert("rooms", {
+    simulationId,
+    userId,
+    characters: [
+      {
+        id: persona.id,
+        archetypeId: persona.archetypeId,
+        name: persona.name,
+        role: persona.role,
+        tone: persona.tone,
+        avatarId: avatar.runwayAvatarId,
+        status: "idle",
+      },
+    ],
+    activeCharacterId: persona.id,
+    transcript: [],
+    riskScores: {},
+    liveNotes: [],
+    status: "live",
+  })
+}
 
 export const create = mutation({
   args: {
     simulationId: v.id("simulations"),
-    // The client only names which persona it wants. Persona text comes from
-    // the simulation's pack and the Runway avatar id from the registry, so
-    // neither can be injected.
     characterId: v.string(),
   },
   handler: async (ctx, args) => {
     const identity = await requireIdentity(ctx)
     const simulation = ownedOrNull(identity, await ctx.db.get(args.simulationId))
     if (!simulation) throw new Error("Simulation not found")
-    const pack = getPack(simulation.packId)
-    const persona = pack.personas.find((p) => p.id === args.characterId)
-    if (!persona) throw new Error("Unknown character")
-    const avatar = await ctx.db
-      .query("avatars")
-      .withIndex("by_pack_persona", (q) =>
-        q.eq("packId", pack.id).eq("personaId", persona.id)
-      )
-      .first()
-    if (!avatar) throw new Error("No avatar registered for this panelist")
-    // Store only the session-relevant slice of the persona. The pack carries
-    // UI-only fields (image, attack, bio, tags, axes); a spread would write
-    // them into the room and fail the schema validator.
-    return await ctx.db.insert("rooms", {
-      simulationId: args.simulationId,
-      userId: identity.subject,
-      characters: [
-        {
-          id: persona.id,
-          archetypeId: persona.archetypeId,
-          name: persona.name,
-          role: persona.role,
-          tone: persona.tone,
-          avatarId: avatar.runwayAvatarId,
-          status: "idle",
-        },
-      ],
-      activeCharacterId: persona.id,
-      transcript: [],
-      riskScores: {},
-      liveNotes: [],
-      status: "live",
-    })
+    return await insertRoomForPersona(
+      ctx,
+      args.simulationId,
+      identity.subject,
+      getPack(simulation.packId),
+      args.characterId
+    )
   },
 })
 

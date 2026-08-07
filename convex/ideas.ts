@@ -1,8 +1,98 @@
 import { v } from "convex/values"
-import { query } from "./_generated/server"
+import { internalMutation, mutation, query } from "./_generated/server"
 import { getPack, scopeOf } from "../src/domains/registry"
 import { scopeText, type Brief, type Scope } from "../src/domains/types"
 import { ownedOrNull, requireIdentity } from "./guard"
+
+const MAX_OPEN_ITEMS = 10
+const MAX_TOTAL_ITEMS = 30
+
+// Internal: written only by reports.generate after the winning report
+// insert (its insert-if-absent guard makes this once-per-room). New items
+// fill the remaining open slots; settled history is kept newest-first up
+// to the total cap so the array stays bounded forever.
+export const recordContinuity = internalMutation({
+  args: {
+    ideaId: v.id("ideas"),
+    roomId: v.id("rooms"),
+    summary: v.string(),
+    actionItems: v.array(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const idea = await ctx.db.get(args.ideaId)
+    if (!idea) return
+    const existing = idea.continuity?.actionItems ?? []
+    const open = existing.filter((item) => item.status === "open")
+    const now = Date.now()
+    // The report prompt is told not to re-emit tracked commitments; this is
+    // the server-side backstop for when it does anyway.
+    const normalize = (text: string) => text.toLowerCase().replace(/[^a-z0-9 ]/g, "").trim()
+    const tracked = new Set(existing.map((item) => normalize(item.text)))
+    const fresh = args.actionItems
+      .filter((text) => !tracked.has(normalize(text)))
+      .slice(0, Math.max(0, MAX_OPEN_ITEMS - open.length))
+      .map((text, i) => ({
+        id: `${args.roomId}:${i}`,
+        text,
+        status: "open" as const,
+        fromRoomId: args.roomId,
+        createdAt: now,
+      }))
+    const settled = existing
+      .filter((item) => item.status !== "open")
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .slice(0, Math.max(0, MAX_TOTAL_ITEMS - open.length - fresh.length))
+    await ctx.db.patch(args.ideaId, {
+      continuity: {
+        lastSessionSummary: args.summary || idea.continuity?.lastSessionSummary || "",
+        actionItems: [...open, ...fresh, ...settled],
+        updatedAt: now,
+      },
+    })
+  },
+})
+
+// The user settling their own commitment — or undoing a mis-click. Legal
+// transitions: open → done/dropped, and done/dropped → open (reopen). An
+// unknown, unowned, or same-state item reads as missing.
+export const setActionItemStatus = mutation({
+  args: {
+    ideaId: v.id("ideas"),
+    itemId: v.string(),
+    status: v.union(v.literal("done"), v.literal("dropped"), v.literal("open")),
+  },
+  handler: async (ctx, args) => {
+    const identity = await requireIdentity(ctx)
+    const idea = ownedOrNull(identity, await ctx.db.get(args.ideaId))
+    if (!idea?.continuity) throw new Error("Not found")
+    const target = idea.continuity.actionItems.find((item) => item.id === args.itemId)
+    const legal =
+      args.status === "open" ? target && target.status !== "open" : target?.status === "open"
+    if (!target || !legal) throw new Error("Not found")
+    await ctx.db.patch(args.ideaId, {
+      continuity: {
+        ...idea.continuity,
+        actionItems: idea.continuity.actionItems.map((item) =>
+          item.id === args.itemId ? { ...item, status: args.status } : item
+        ),
+        updatedAt: Date.now(),
+      },
+    })
+  },
+})
+
+// Continuity for a run's briefing, resolved through the owned simulation so
+// the connect route fetches it in the same parallel round trip as the rest.
+export const continuityForSimulation = query({
+  args: { simulationId: v.id("simulations") },
+  handler: async (ctx, args) => {
+    const identity = await requireIdentity(ctx)
+    const simulation = ownedOrNull(identity, await ctx.db.get(args.simulationId))
+    if (!simulation?.ideaId) return null
+    const idea = ownedOrNull(identity, await ctx.db.get(simulation.ideaId))
+    return idea?.continuity ?? null
+  },
+})
 
 // The pack's subtitle fields (e.g. stage · business model), resolved from
 // whichever scope shape the row stores.
@@ -55,7 +145,7 @@ export const listWithStats = query({
         return {
           ideaId: idea._id,
           name: idea.name,
-          packId: getPack(latest?.packId).id,
+          packId: getPack(idea.packId ?? latest?.packId).id,
           meta: subtitleOf(latest),
           runs,
           lastRunAt: latest?._creationTime ?? idea._creationTime,
@@ -111,8 +201,9 @@ export const getDetail = query({
     return {
       ideaId: idea._id,
       name: idea.name,
-      packId: getPack(latest?.packId).id,
+      packId: getPack(idea.packId ?? latest?.packId).id,
       meta: subtitleOf(latest),
+      continuity: idea.continuity ?? null,
       lastRunAt: latest?._creationTime ?? idea._creationTime,
       runs: runs.map((run) => ({
         simulationId: run.simulationId,

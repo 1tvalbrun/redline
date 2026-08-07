@@ -31,10 +31,11 @@ const authorizeSession = async (
   if (!simulationId) return null
   try {
     const id = simulationId as Id<"simulations">
-    const [simulation, audit, room] = await Promise.all([
+    const [simulation, audit, room, continuity] = await Promise.all([
       convex.query(api.simulations.get, { id }),
       convex.query(api.audits.getBySimulation, { simulationId: id }),
       convex.query(api.rooms.getBySimulation, { simulationId: id }),
+      convex.query(api.ideas.continuityForSimulation, { simulationId: id }),
     ])
     if (!simulation || !room) return null
     if (room.status !== "live") return null
@@ -44,6 +45,7 @@ const authorizeSession = async (
       briefing: pack.briefing({
         scope: scopeOf(simulation),
         audit: audit ? { claims: audit.claims, gaps: audit.gaps } : null,
+        continuity,
         transcript: room.transcript,
       }),
       turnTaking: pack.turnTaking,

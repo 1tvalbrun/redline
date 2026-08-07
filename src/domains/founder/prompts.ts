@@ -118,6 +118,14 @@ Also produce ONE short observation (8-18 words) about the most recent founder tu
 Respond with JSON only, exactly this shape:
 {"riskScores":{"market":int,"customer":int,"technical":int,"gtm":int},"note":{"type":"<one_of_the_five>","text":"<8-18 word observation>"}}`
 
+const engagementBlock = (continuity: ReportPromptInput["continuity"]): string =>
+  continuity
+    ? `\nThe engagement so far (memory going into this session):
+Previous summary: ${continuity.summary || "(none)"}
+Commitments already tracked — open: ${continuity.open.join("; ") || "(none)"}; delivered: ${continuity.delivered.join("; ") || "(none)"}
+`
+    : ""
+
 export const report = ({
   scope,
   characterName,
@@ -125,6 +133,7 @@ export const report = ({
   characterTone,
   notes,
   transcript,
+  continuity,
 }: ReportPromptInput) =>
   `You are a senior advisor synthesizing a founder panel session into a final report.
 
@@ -133,7 +142,7 @@ Brief:
 - Description: ${scopeText(scope, "description")}
 - Target user: ${scopeText(scope, "targetUser")}
 - Business model: ${scopeText(scope, "businessModel")}
-
+${engagementBlock(continuity)}
 Panelist who ran the session: ${characterName} (${characterRole})
 Panelist's evaluation lens: ${characterTone}
 
@@ -171,10 +180,16 @@ Produce a comprehensive verdict and report. Return JSON ONLY with this exact sha
     {"day": 5, "task": "<...>", "priority": "..."},
     {"day": 6, "task": "<...>", "priority": "..."},
     {"day": 7, "task": "<...>", "priority": "..."}
-  ]
+  ],
+  "continuity": {
+    "summary": "<2-4 sentences a colleague could read before the next session: where the pitch stands, what was resolved, what remains contested>",
+    "actionItems": ["<a commitment the founder made or a deliverable this session showed is missing — starts with a verb, under 15 words>"]
+  }
 }
 
 Be concrete and specific. Each risk/task should mention something tied to THIS founder's idea, not generic advice.
+
+"continuity" is the engagement's compounding memory, not a session note. For the summary: UPDATE the previous summary rather than writing a fresh one — carry forward the durable facts and the arc of the engagement (numbers, decisions, who's involved, what's been proven), fold in what this session changed, and drop only what is fully resolved. A detail from an earlier session that still matters belongs in the summary even if this session never mentioned it. Each action item will be read back to the founder as "last time you said you'd …". 0 to 5 items; never repeat or rephrase a commitment already tracked as open or delivered; if nothing new emerged, return an empty list — never invent a commitment.
 
 Grounding rules (absolute):
 - "heldUp" may contain ONLY affirmative claims the founder actually stated that withstood the panel's scrutiny (evidence, numbers, commitments), each with their verbatim words in "quote". An admission that something is missing, untested, or unknown is NOT a claim that held up — leave it out. If the founder made no defensible claims, return "heldUp": [] — an empty list is the correct, honest output.

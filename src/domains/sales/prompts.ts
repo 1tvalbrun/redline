@@ -94,6 +94,14 @@ Also produce ONE short observation (8-18 words) about the most recent seller tur
 Respond with JSON only, exactly this shape:
 {"riskScores":{"value":int,"fit":int,"objections":int,"close":int},"note":{"type":"<one_of_the_five>","text":"<8-18 word observation>"}}`
 
+const engagementBlock = (continuity: ReportPromptInput["continuity"]): string =>
+  continuity
+    ? `\nThe engagement so far (memory going into this session):
+Previous summary: ${continuity.summary || "(none)"}
+Commitments already tracked — open: ${continuity.open.join("; ") || "(none)"}; delivered: ${continuity.delivered.join("; ") || "(none)"}
+`
+    : ""
+
 export const report = ({
   scope,
   characterName,
@@ -101,12 +109,13 @@ export const report = ({
   characterTone,
   notes,
   transcript,
+  continuity,
 }: ReportPromptInput) =>
   `You are a sales coach synthesizing a live pitch session into a deal-readiness report.
 
 The seller's scope:
 ${scopeBlock(scope)}
-
+${engagementBlock(continuity)}
 Buyer who ran the session: ${characterName} (${characterRole})
 Buyer's evaluation lens: ${characterTone}
 
@@ -144,10 +153,16 @@ Produce a comprehensive verdict and report. Return JSON ONLY with this exact sha
     {"day": 5, "task": "<...>", "priority": "..."},
     {"day": 6, "task": "<...>", "priority": "..."},
     {"day": 7, "task": "<...>", "priority": "..."}
-  ]
+  ],
+  "continuity": {
+    "summary": "<2-4 sentences a colleague could read before the next session: where the deal stands, what was resolved, what remains contested>",
+    "actionItems": ["<a commitment the seller made or a deliverable this session showed is missing — starts with a verb, under 15 words>"]
+  }
 }
 
 Judge the close honestly: if the session ended without a specific, scheduled next step, say so in the executive summary and reflect it in the score — "send me some info" is not a next step.
+
+"continuity" is the engagement's compounding memory, not a session note. For the summary: UPDATE the previous summary rather than writing a fresh one — carry forward the durable facts and the arc of the engagement (numbers, decisions, who's involved, what's been proven), fold in what this session changed, and drop only what is fully resolved. A detail from an earlier session that still matters belongs in the summary even if this session never mentioned it. Each action item will be read back to the seller as "last time you said you'd …". 0 to 5 items; never repeat or rephrase a commitment already tracked as open or delivered; if nothing new emerged, return an empty list — never invent a commitment.
 
 Be concrete and specific. Each risk/task should mention something tied to THIS seller's offering and prospect, not generic advice.
 

@@ -80,10 +80,47 @@ test("report keeps the grounding rules and the verdict contract", () => {
     characterTone: "Sharp",
     notes: "(none)",
     transcript: "FOUNDER: hello",
+    continuity: null,
   })
   assert.match(prompt, /"decision": "advance" \| "iterate" \| "pass"/)
   assert.match(prompt, /verbatim words in "quote"/)
   assert.match(prompt, /an empty list is the correct, honest output/)
   assert.match(prompt, /belong ONLY in "nextSevenDays", never in "heldUp"/)
   assert.match(prompt, /\{"day": 7, "task"/)
+  assert.match(prompt, /"continuity": \{/)
+  assert.match(prompt, /never invent a commitment/)
+})
+
+test("report compounds the engagement memory and forbids repeating tracked commitments", () => {
+  const prompt = report({
+    scope,
+    characterName: "Victoria Chen",
+    characterRole: "Partner",
+    characterTone: "Sharp",
+    notes: "(none)",
+    transcript: "FOUNDER: hello",
+    continuity: {
+      summary: "Pricing contested since session one.",
+      open: ["Send the churn cohort data"],
+      delivered: ["Ship the pilot agreement"],
+    },
+  })
+  assert.match(prompt, /Previous summary: Pricing contested since session one\./)
+  assert.match(prompt, /open: Send the churn cohort data/)
+  assert.match(prompt, /delivered: Ship the pilot agreement/)
+  assert.match(prompt, /UPDATE the previous summary rather than writing a fresh one/)
+  assert.match(prompt, /never repeat or rephrase a commitment already tracked/)
+})
+
+test("a first session has no engagement block", () => {
+  const prompt = report({
+    scope,
+    characterName: "Victoria Chen",
+    characterRole: "Partner",
+    characterTone: "Sharp",
+    notes: "(none)",
+    transcript: "FOUNDER: hello",
+    continuity: null,
+  })
+  assert.doesNotMatch(prompt, /The engagement so far/)
 })

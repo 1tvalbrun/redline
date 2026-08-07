@@ -88,10 +88,70 @@ export type RoomBriefing = {
   startScript: string
 }
 
+// Cross-session memory (ideas.continuity): what the last session concluded
+// and what the user committed to. Written at report time, surfaced in the
+// next session's briefing and opener.
+export type ActionItemStatus = "open" | "done" | "dropped"
+export type ActionItem = {
+  id: string
+  text: string
+  status: ActionItemStatus
+  createdAt: number
+}
+export type Continuity = {
+  lastSessionSummary: string
+  actionItems: ActionItem[]
+  updatedAt: number
+}
+
 export type BriefingInput = {
   scope: Scope
   audit: { claims: Claim[]; gaps: Gap[] } | null
+  continuity: Continuity | null
   transcript: { text: string; type: "user" | "panelist"; timestamp: number; spokenAt?: number }[]
+}
+
+// The session personality override is capped by Runway (10k chars) and has
+// to leave room for the turn-taking rules and the Character's stored
+// personality, so the preamble gets a fixed budget. Sections arrive in
+// priority order; once one doesn't fit, it and everything after it are
+// dropped whole — a truncated sentence in a persona reads as a glitch.
+export const PREAMBLE_BUDGET = 4000
+
+export const composeWithinBudget = (sections: string[], budget = PREAMBLE_BUDGET): string => {
+  let remaining = budget
+  const kept: string[] = []
+  for (const section of sections) {
+    if (section.length === 0) continue
+    if (section.length > remaining) break
+    kept.push(section)
+    remaining -= section.length
+  }
+  return kept.join("")
+}
+
+// Open commitments, oldest first (the longest-standing promise is the one
+// to follow up on), and delivered items newest first (fresh wins matter).
+export const openItems = (continuity: Continuity | null): ActionItem[] =>
+  (continuity?.actionItems ?? [])
+    .filter((item) => item.status === "open")
+    .sort((a, b) => a.createdAt - b.createdAt)
+
+export const deliveredItems = (continuity: Continuity | null): ActionItem[] =>
+  (continuity?.actionItems ?? [])
+    .filter((item) => item.status === "done")
+    .sort((a, b) => b.createdAt - a.createdAt)
+
+export const droppedItems = (continuity: Continuity | null): ActionItem[] =>
+  (continuity?.actionItems ?? [])
+    .filter((item) => item.status === "dropped")
+    .sort((a, b) => b.createdAt - a.createdAt)
+
+// Action items are authored verb-first ("Send two references"), so they
+// slot into spoken lines as "you said you'd send two references".
+export const spokenCommitment = (item: ActionItem): string => {
+  const text = item.text.trim().replace(/\.$/, "")
+  return text.charAt(0).toLowerCase() + text.slice(1)
 }
 
 export type AuditPromptInput = {
@@ -115,6 +175,14 @@ export type ReportPromptInput = {
   characterTone: string
   notes: string
   transcript: string
+  // The engagement's memory going into this session, so the report can
+  // compound the summary instead of replacing it and never re-emit a
+  // commitment that's already tracked. Null on a first session.
+  continuity: {
+    summary: string
+    open: string[]
+    delivered: string[]
+  } | null
 }
 
 // Stage copy the flow UI renders. Waiting rows carry anticipatory copy

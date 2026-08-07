@@ -16,6 +16,7 @@ import {
   type BriefOption,
 } from "@/lib/briefOptions"
 import { type ExtractedBrief } from "@/lib/intake"
+import { scopeList, scopeText, type Scope } from "@/domains/types"
 import { REJECTION_MESSAGES, validateMaterialFile } from "@/lib/materials"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -154,7 +155,12 @@ const ChipGroup = ({
   </fieldset>
 )
 
-export const BriefForm = () => {
+// Chip state holds option values; a prefill scope stores the labels the
+// server validated, so map them back (unknown labels read as unselected).
+const valueForLabel = (options: BriefOption[], label: string): string =>
+  options.find((option) => option.label === label)?.value ?? ""
+
+export const BriefForm = ({ initialScope }: { initialScope?: Scope }) => {
   const router = useRouter()
   const createSimulation = useMutation(api.simulations.create)
   const analyzeSimulation = useAction(api.simulations.analyze)
@@ -167,17 +173,34 @@ export const BriefForm = () => {
   const materialsInputRef = useRef<HTMLInputElement>(null)
   const viewRef = useRef<HTMLDivElement>(null)
 
-  const [phase, setPhase] = useState<Phase>({ step: "invite" })
+  const [phase, setPhase] = useState<Phase>(() =>
+    initialScope
+      ? {
+          step: "assembled",
+          extraction: null,
+          sourceLabel: "From your last run",
+          eyebrow: "Adjust and re-run",
+        }
+      : { step: "invite" }
+  )
   const [recorderTake, setRecorderTake] = useState(0)
   const [inviteError, setInviteError] = useState<string | null>(null)
 
-  const [ideaName, setIdeaName] = useState("")
-  const [description, setDescription] = useState("")
-  const [whyNow, setWhyNow] = useState("")
-  const [stage, setStage] = useState("")
-  const [businessModel, setBusinessModel] = useState("")
-  const [targetUser, setTargetUser] = useState("")
-  const [focusAreas, setFocusAreas] = useState<string[]>([])
+  const [ideaName, setIdeaName] = useState(() => scopeText(initialScope ?? {}, "ideaName"))
+  const [description, setDescription] = useState(() => scopeText(initialScope ?? {}, "description"))
+  const [whyNow, setWhyNow] = useState(() => scopeText(initialScope ?? {}, "whyNow"))
+  const [stage, setStage] = useState(() =>
+    valueForLabel(STAGE_OPTIONS, scopeText(initialScope ?? {}, "stage"))
+  )
+  const [businessModel, setBusinessModel] = useState(() =>
+    valueForLabel(BUSINESS_MODEL_OPTIONS, scopeText(initialScope ?? {}, "businessModel"))
+  )
+  const [targetUser, setTargetUser] = useState(() =>
+    valueForLabel(TARGET_OPTIONS, scopeText(initialScope ?? {}, "targetUser"))
+  )
+  const [focusAreas, setFocusAreas] = useState<string[]>(() =>
+    scopeList(initialScope ?? {}, "focusAreas")
+  )
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitFailed, setSubmitFailed] = useState(false)
 

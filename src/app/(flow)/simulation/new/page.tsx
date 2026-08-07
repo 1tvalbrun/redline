@@ -4,32 +4,43 @@ import { use } from "react"
 import Link from "next/link"
 import { useQuery } from "convex/react"
 import { api } from "@convex/_generated/api"
+import { Id } from "@convex/_generated/dataModel"
 import { cn } from "@/lib/utils"
-import { getPack, isPackId } from "@/domains/registry"
+import { getPack, isPackId, scopeOf } from "@/domains/registry"
 import { FlowShell } from "@/components/simulation/flow/FlowShell"
 import { BriefForm } from "@/components/simulation/intake/BriefForm"
 import { ScopeForm } from "@/components/simulation/intake/ScopeForm"
 
 // Lane resolution: an explicit ?lane= wins, else the user's default lane.
-// Lanes with a bespoke intake (founder's voice pitch) render it; everything
-// else goes through the declarative ScopeForm.
+// ?from= prefills the form from a previous run's scope (and pins its lane)
+// so adjusting a brief never means retyping it. Lanes with a bespoke intake
+// (founder's voice pitch) render it; everything else goes through the
+// declarative ScopeForm.
 const NewRunPage = ({
   searchParams,
 }: {
-  searchParams: Promise<{ lane?: string }>
+  searchParams: Promise<{ lane?: string; from?: string }>
 }) => {
-  const { lane } = use(searchParams)
+  const { lane, from } = use(searchParams)
   const user = useQuery(api.users.getCurrent)
+  const source = useQuery(
+    api.simulations.get,
+    from ? { id: from as Id<"simulations"> } : "skip"
+  )
 
   if (user === undefined) return null
+  // A prefill source that's still loading would flash a blank form; one the
+  // caller doesn't own resolves to null and falls through to a blank form.
+  if (from && source === undefined) return null
 
   const requested = lane && isPackId(lane) ? lane : undefined
-  const pack = getPack(requested ?? user?.defaultLane)
+  const pack = getPack(source?.packId ?? requested ?? user?.defaultLane)
   const lanes = (user?.lanes ?? []).filter(isPackId)
+  const initialScope = source ? scopeOf(source) : undefined
 
   return (
     <FlowShell stage="brief">
-      {lanes.length > 1 && (
+      {lanes.length > 1 && !source && (
         <nav
           aria-label="Practice lane"
           className="mx-auto mb-7 flex w-full max-w-[760px] gap-2"
@@ -51,7 +62,11 @@ const NewRunPage = ({
           ))}
         </nav>
       )}
-      {pack.prompts.extractBrief ? <BriefForm /> : <ScopeForm pack={pack} />}
+      {pack.prompts.extractBrief ? (
+        <BriefForm key={`${pack.id}:${from ?? "new"}`} initialScope={initialScope} />
+      ) : (
+        <ScopeForm key={`${pack.id}:${from ?? "new"}`} pack={pack} initialScope={initialScope} />
+      )}
     </FlowShell>
   )
 }

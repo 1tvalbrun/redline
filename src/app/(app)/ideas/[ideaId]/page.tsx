@@ -1,8 +1,9 @@
 "use client"
 
-import { use } from "react"
+import { use, useState } from "react"
 import Link from "next/link"
-import { useQuery } from "convex/react"
+import { useRouter } from "next/navigation"
+import { useMutation, useQuery } from "convex/react"
 import { api } from "@convex/_generated/api"
 import { Id } from "@convex/_generated/dataModel"
 import { deriveReadiness, READY_LINE } from "@/lib/readiness"
@@ -11,14 +12,32 @@ import { deriveTrajectory } from "@/lib/trajectory"
 import { formatAgo, formatDay } from "@/lib/utils"
 import { useNow } from "@/lib/useNow"
 import { Panel } from "@/components/shared/Panel"
+import { CommitmentsPanel } from "@/components/workspace/CommitmentsPanel"
 import { TrajectoryChart } from "@/components/workspace/TrajectoryChart"
 import { VerdictBadge } from "@/components/workspace/VerdictBadge"
 import { WORKSPACE_CTA } from "@/components/workspace/cta"
 
 const IdeaDetailPage = ({ params }: { params: Promise<{ ideaId: string }> }) => {
   const { ideaId } = use(params)
+  const router = useRouter()
   const detail = useQuery(api.ideas.getDetail, { ideaId: ideaId as Id<"ideas"> })
+  const continueRun = useMutation(api.simulations.continueRun)
+  const [continuing, setContinuing] = useState(false)
+  const [continueFailed, setContinueFailed] = useState(false)
   const nowMs = useNow()
+
+  const handleContinue = async (simulationId: Id<"simulations">) => {
+    if (continuing) return
+    setContinuing(true)
+    setContinueFailed(false)
+    try {
+      const { simulationId: nextId, roomId } = await continueRun({ simulationId })
+      router.push(`/simulation/${nextId}/${roomId ? "room" : "panel"}`)
+    } catch {
+      setContinueFailed(true)
+      setContinuing(false)
+    }
+  }
 
   if (detail === undefined) {
     return (
@@ -41,6 +60,7 @@ const IdeaDetailPage = ({ params }: { params: Promise<{ ideaId: string }> }) => 
     )
   }
 
+  const latestRun = detail.runs[detail.runs.length - 1] ?? null
   const readiness = deriveReadiness(
     axisKeys(getPack(detail.packId)),
     detail.latestRiskScores ?? undefined
@@ -134,6 +154,12 @@ const IdeaDetailPage = ({ params }: { params: Promise<{ ideaId: string }> }) => 
         </div>
 
         <div>
+          <CommitmentsPanel
+            ideaId={detail.ideaId}
+            continuity={detail.continuity}
+            className="mb-[22px]"
+          />
+
           <Panel title="Open risks" meta="from the last verdict">
             {detail.topRisks.length === 0 ? (
               <p className="text-[12.5px] text-on-surface-2">
@@ -179,12 +205,38 @@ const IdeaDetailPage = ({ params }: { params: Promise<{ ideaId: string }> }) => 
             </Panel>
           )}
 
-          <div className="mt-6 flex items-center gap-3">
-            <Link href="/simulation/new" className={WORKSPACE_CTA}>
-              Close the gaps · re-run <span aria-hidden="true">→</span>
-            </Link>
-            <span className="font-mono text-[11px] uppercase text-on-surface-3">~12 min</span>
+          <div className="mt-6 flex flex-wrap items-center gap-3">
+            {latestRun ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => handleContinue(latestRun.simulationId)}
+                  disabled={continuing}
+                  className={WORKSPACE_CTA}
+                >
+                  {continuing
+                    ? "Opening the room…"
+                    : `Continue with ${latestRun.panelist ?? "your panelist"}`}{" "}
+                  <span aria-hidden="true">→</span>
+                </button>
+                <Link
+                  href={`/simulation/new?from=${latestRun.simulationId}`}
+                  className="focus-ring font-mono text-[11px] uppercase tracking-[.06em] text-on-surface-2 hover:text-red-fg"
+                >
+                  Adjust the brief · re-run
+                </Link>
+              </>
+            ) : (
+              <Link href="/simulation/new" className={WORKSPACE_CTA}>
+                Start a run <span aria-hidden="true">→</span>
+              </Link>
+            )}
           </div>
+          {continueFailed && (
+            <p role="alert" className="mt-3 text-[13px] text-red-fg">
+              Couldn&apos;t open the room. Check your connection and try again.
+            </p>
+          )}
         </div>
       </div>
     </div>

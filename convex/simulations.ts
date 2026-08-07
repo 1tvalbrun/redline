@@ -6,6 +6,7 @@ import { parseExtractedBrief } from "../src/lib/intake"
 import { createOpenAI, resolveModel } from "../src/lib/openai"
 import { getPack, isPackId, scopeOf } from "../src/domains/registry"
 import type { Scope } from "../src/domains/types"
+import { insertRoomForPersona } from "./rooms"
 import { ownedOrNull, requireIdentity } from "./guard"
 
 const MULTI_MAX_ITEMS = 8
@@ -63,15 +64,24 @@ export const create = mutation({
       throw new Error("Missing a name for this run")
     }
 
-    const existingIdea = await ctx.db
+    // Same name in another lane is a different idea — continuity and the
+    // trajectory must not merge across lanes. Legacy rows (no packId) are
+    // founder by definition. The index narrows to one name; the same-name
+    // set is at most one row per lane.
+    const sameName = await ctx.db
       .query("ideas")
       .withIndex("by_user_name", (q) =>
         q.eq("userId", identity.subject).eq("name", subject)
       )
-      .first()
+      .collect()
+    const existingIdea = sameName.find((idea) => getPack(idea.packId).id === pack.id)
     const ideaId =
       existingIdea?._id ??
-      (await ctx.db.insert("ideas", { name: subject, userId: identity.subject }))
+      (await ctx.db.insert("ideas", {
+        name: subject,
+        userId: identity.subject,
+        packId: pack.id,
+      }))
     const simulationId = await ctx.db.insert("simulations", {
       // The subject is the title; deriving it here keeps one validated
       // source instead of a second client-supplied copy.
@@ -111,6 +121,96 @@ export const get = query({
   handler: async (ctx, args) => {
     const identity = await requireIdentity(ctx)
     return ownedOrNull(identity, await ctx.db.get(args.id))
+  },
+})
+
+// The returning-user path: a new run that reuses the previous run's scope,
+// read, audit, and panelist, and goes straight back into the room — the
+// continuity briefing carries the memory. A changed brief goes through the
+// prefilled intake instead, where read and audit legitimately run again.
+export const continueRun = mutation({
+  args: { simulationId: v.id("simulations") },
+  handler: async (ctx, args) => {
+    const identity = await requireIdentity(ctx)
+    const clicked = ownedOrNull(identity, await ctx.db.get(args.simulationId))
+    if (!clicked) throw new Error("Simulation not found")
+
+    // The conversation to continue is the idea's most recent run that
+    // actually had a session — the clicked run itself may be an abandoned
+    // adjust-run with no room, which must not dead-end the button.
+    let source = clicked
+    let sourceRoom = await ctx.db
+      .query("rooms")
+      .withIndex("by_simulation", (q) => q.eq("simulationId", clicked._id))
+      .first()
+    if (!sourceRoom && clicked.ideaId) {
+      const siblings = await ctx.db
+        .query("simulations")
+        .withIndex("by_idea", (q) => q.eq("ideaId", clicked.ideaId))
+        .collect()
+      siblings.sort((a, b) => b._creationTime - a._creationTime)
+      for (const sibling of siblings) {
+        const room = await ctx.db
+          .query("rooms")
+          .withIndex("by_simulation", (q) => q.eq("simulationId", sibling._id))
+          .first()
+        if (room) {
+          source = sibling
+          sourceRoom = room
+          break
+        }
+      }
+    }
+    const previousCharacter = sourceRoom?.characters[0]
+    if (!sourceRoom || !previousCharacter) {
+      // No session anywhere under this idea: the continuation of an
+      // abandoned run is picking its panelist, not an error.
+      return { simulationId: clicked._id, roomId: null }
+    }
+
+    // A still-live room is the session to return to — rejoin it rather
+    // than minting a parallel run (and a second billable avatar session).
+    if (sourceRoom.status === "live") {
+      return { simulationId: source._id, roomId: sourceRoom._id }
+    }
+
+    const pack = getPack(source.packId)
+    const simulationId = await ctx.db.insert("simulations", {
+      title: source.title,
+      packId: pack.id,
+      // scopeOf also folds a legacy brief into scope, so continued legacy
+      // runs come out in the current shape.
+      scope: scopeOf(source),
+      context: source.context,
+      ideaId: source.ideaId,
+      userId: identity.subject,
+      status: "ready",
+      version: 1,
+    })
+
+    // Carry the audit findings rather than re-deriving them from materials
+    // that didn't change; the citations keep their material names as text.
+    const sourceAudit = await ctx.db
+      .query("audits")
+      .withIndex("by_simulation", (q) => q.eq("simulationId", source._id))
+      .first()
+    if (sourceAudit?.status === "ready") {
+      await ctx.db.insert("audits", {
+        simulationId,
+        status: "ready",
+        claims: sourceAudit.claims,
+        gaps: sourceAudit.gaps,
+      })
+    }
+
+    const roomId = await insertRoomForPersona(
+      ctx,
+      simulationId,
+      identity.subject,
+      pack,
+      previousCharacter.id
+    )
+    return { simulationId, roomId }
   },
 })
 
