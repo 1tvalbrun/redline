@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useMutation, useAction } from "convex/react"
-import { Keyboard, Mic, Upload, X } from "lucide-react"
+import { Keyboard, Mic, Upload } from "lucide-react"
 import { api } from "@convex/_generated/api"
 import { Id } from "@convex/_generated/dataModel"
 import { cn, formatElapsed } from "@/lib/utils"
@@ -21,12 +21,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { FLOW_BTN } from "@/components/simulation/flow/FlowShell"
 import { PitchRecorder } from "./PitchRecorder"
-
-type UploadEntry = { key: string; name: string; size: number } & (
-  | { state: "uploading" }
-  | { state: "ready"; storageId: Id<"_storage"> }
-  | { state: "rejected"; reason: string }
-)
+import { UploadList, useMaterialUploads } from "./materialUploads"
 
 type PitchOrigin = { kind: "voice"; seconds: number } | { kind: "deck"; fileName: string }
 
@@ -35,9 +30,6 @@ type Phase =
   | { step: "capturing"; guided: boolean }
   | { step: "drafting"; origin: PitchOrigin; pitch: string; failed: boolean }
   | { step: "assembled"; extraction: ExtractedBrief | null; sourceLabel: string; eyebrow: string }
-
-const formatSize = (bytes: number) =>
-  bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)}MB` : `${Math.ceil(bytes / 1024)}KB`
 
 const chipClass = (active: boolean) =>
   cn(
@@ -169,6 +161,8 @@ export const BriefForm = () => {
   const extractBrief = useAction(api.simulations.extractBrief)
   const extractUpload = useAction(api.ingest.extractUpload)
   const generateUploadUrl = useMutation(api.materials.generateUploadUrl)
+  const { uploads, setUploads, addFiles, removeUpload, readyMaterials, isUploading } =
+    useMaterialUploads()
   const deckInputRef = useRef<HTMLInputElement>(null)
   const materialsInputRef = useRef<HTMLInputElement>(null)
   const viewRef = useRef<HTMLDivElement>(null)
@@ -184,7 +178,6 @@ export const BriefForm = () => {
   const [businessModel, setBusinessModel] = useState("")
   const [targetUser, setTargetUser] = useState("")
   const [focusAreas, setFocusAreas] = useState<string[]>([])
-  const [uploads, setUploads] = useState<UploadEntry[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitFailed, setSubmitFailed] = useState(false)
 
@@ -269,74 +262,22 @@ export const BriefForm = () => {
     }
   }
 
-  const uploadFile = async (key: string, file: File) => {
-    const fail = (reason: string) =>
-      setUploads((prev) =>
-        prev.map((entry) =>
-          entry.key === key
-            ? { key, name: file.name, size: file.size, state: "rejected", reason }
-            : entry
-        )
-      )
-    try {
-      const uploadUrl = await generateUploadUrl()
-      const response = await fetch(uploadUrl, {
-        method: "POST",
-        headers: { "Content-Type": file.type || "application/octet-stream" },
-        body: file,
-      })
-      if (!response.ok) return fail("Upload failed. Try again.")
-      const { storageId } = (await response.json()) as { storageId: Id<"_storage"> }
-      setUploads((prev) =>
-        prev.map((entry) =>
-          entry.key === key
-            ? { key, name: file.name, size: file.size, state: "ready", storageId }
-            : entry
-        )
-      )
-    } catch {
-      fail("Upload failed. Check your connection and try again.")
-    }
-  }
-
-  const handleMaterialsAdded = (files: FileList | null) => {
-    for (const file of Array.from(files ?? [])) {
-      const key = crypto.randomUUID()
-      const rejection = validateMaterialFile(file.name, file.size)
-      if (rejection) {
-        setUploads((prev) => [
-          ...prev,
-          { key, name: file.name, size: file.size, state: "rejected", reason: REJECTION_MESSAGES[rejection] },
-        ])
-        continue
-      }
-      setUploads((prev) => [...prev, { key, name: file.name, size: file.size, state: "uploading" }])
-      uploadFile(key, file)
-    }
-  }
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!ideaName || !description) return
     setIsSubmitting(true)
     setSubmitFailed(false)
 
-    const readyMaterials = uploads.flatMap((entry) =>
-      entry.state === "ready"
-        ? [{ storageId: entry.storageId, name: entry.name, size: entry.size }]
-        : []
-    )
-
     try {
       const id = await createSimulation({
-        title: ideaName,
-        brief: {
+        packId: "founder",
+        scope: {
           ideaName,
           stage: optionLabel(STAGE_OPTIONS, stage),
           description,
           targetUser: optionLabel(TARGET_OPTIONS, targetUser),
           businessModel: optionLabel(BUSINESS_MODEL_OPTIONS, businessModel),
-          whyNow: whyNow.trim() ? whyNow.trim() : undefined,
+          ...(whyNow.trim() ? { whyNow: whyNow.trim() } : {}),
           focusAreas,
         },
         materials: readyMaterials.length > 0 ? readyMaterials : undefined,
@@ -350,8 +291,6 @@ export const BriefForm = () => {
       setIsSubmitting(false)
     }
   }
-
-  const isUploading = uploads.some((entry) => entry.state === "uploading")
 
   const fieldStatus = (
     extraction: ExtractedBrief | null,
@@ -584,7 +523,7 @@ export const BriefForm = () => {
               className="sr-only"
               aria-label="Add materials"
               onChange={(e) => {
-                handleMaterialsAdded(e.target.files)
+                addFiles(e.target.files)
                 e.target.value = ""
               }}
             />
@@ -596,42 +535,7 @@ export const BriefForm = () => {
               <Upload aria-hidden="true" className="h-4 w-4 flex-none" />
               Add a deck, model, or one-pager for the audit
             </button>
-            {uploads.length > 0 && (
-              <ul className="mt-2.5 flex flex-col gap-2">
-                {uploads.map((entry) => (
-                  <li
-                    key={entry.key}
-                    className="flex items-center gap-2.5 border border-line bg-surface px-[11px] py-[9px] text-[13px]"
-                  >
-                    <span className="flex-none bg-on-surface px-1.5 py-[2px] font-mono text-[9px] tracking-[.06em] text-surface">
-                      {entry.name.split(".").pop()?.toUpperCase().slice(0, 4) ?? "?"}
-                    </span>
-                    <span className="min-w-0 flex-1 truncate">{entry.name}</span>
-                    {entry.state === "uploading" && (
-                      <span className="font-mono text-[10px] uppercase text-on-surface-3">Uploading…</span>
-                    )}
-                    {entry.state === "ready" && (
-                      <span className="font-mono text-[10px] uppercase text-on-surface-3">
-                        <span aria-hidden="true" className="text-ok">✓</span> {formatSize(entry.size)}
-                      </span>
-                    )}
-                    {entry.state === "rejected" && (
-                      <span role="alert" className="text-[11.5px] text-red-fg">
-                        {entry.reason}
-                      </span>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => setUploads((prev) => prev.filter((u) => u.key !== entry.key))}
-                      aria-label={`Remove ${entry.name}`}
-                      className="focus-ring flex-none text-on-surface-3 hover:text-red-fg"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
+            <UploadList uploads={uploads} onRemove={removeUpload} />
           </div>
 
           <div className="flex items-center gap-3.5 border-t border-line pt-6">

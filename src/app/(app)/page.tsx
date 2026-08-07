@@ -3,13 +3,8 @@
 import Link from "next/link"
 import { useQuery } from "convex/react"
 import { api } from "@convex/_generated/api"
-import {
-  deriveReadiness,
-  AXIS_LABELS,
-  INVESTOR_READY_LINE,
-  type Axis,
-  type Readiness,
-} from "@/lib/readiness"
+import { deriveReadiness, READY_LINE, type Readiness } from "@/lib/readiness"
+import { axisKeys, axisLabel, getPack } from "@/domains/registry"
 import { formatAgo, formatDay } from "@/lib/utils"
 import { useNow } from "@/lib/useNow"
 import { ReadinessGauge } from "@/components/shared/ReadinessGauge"
@@ -48,7 +43,7 @@ const Module = ({
 
 type WeakestSignal = {
   idea: IdeaStats
-  axis: Axis
+  axis: string
   value: Readiness
 }
 
@@ -58,10 +53,13 @@ type WeakestSignal = {
 const findWeakestSignal = (ideas: IdeaStats[]): WeakestSignal | null => {
   let weakest: WeakestSignal | null = null
   for (const idea of ideas) {
-    const readiness = deriveReadiness(idea.latestRiskScores ?? undefined)
+    const readiness = deriveReadiness(
+      axisKeys(getPack(idea.packId)),
+      idea.latestRiskScores ?? undefined
+    )
     if (readiness.underFire === null) continue
     const value = readiness.perAxis[readiness.underFire]
-    if (value === null || value >= INVESTOR_READY_LINE) continue
+    if (value === null || value >= READY_LINE) continue
     if (weakest === null || value < weakest.value) {
       weakest = { idea, axis: readiness.underFire, value }
     }
@@ -96,7 +94,7 @@ const OverviewPage = () => {
           No ideas tested yet
         </p>
         <h1 className="font-display text-[clamp(26px,3.2vw,40px)] font-bold tracking-[-.01em]">
-          Let&apos;s find the crack before your investors do.
+          Let&apos;s find the crack before the room does.
         </h1>
         <p className="mx-auto mb-7 mt-3.5 max-w-[42ch] text-[15.5px] text-on-surface-2">
           Add your first idea and brief the panel in ninety seconds. Redline reads
@@ -111,7 +109,11 @@ const OverviewPage = () => {
 
   const weakest = findWeakestSignal(ideas)
   const closest = ideas
-    .map((idea) => ({ idea, overall: deriveReadiness(idea.latestRiskScores ?? undefined).overall }))
+    .map((idea) => ({
+      idea,
+      overall: deriveReadiness(axisKeys(getPack(idea.packId)), idea.latestRiskScores ?? undefined)
+        .overall,
+    }))
     .filter((entry): entry is { idea: IdeaStats; overall: Readiness } => entry.overall !== null)
     .sort((a, b) => b.overall - a.overall)[0]
   return (
@@ -135,13 +137,13 @@ const OverviewPage = () => {
             <h2 className="max-w-[26ch] font-display text-[clamp(19px,2vw,26px)] font-bold leading-[1.14] tracking-[-.01em]">
               {weakest.idea.name}&apos;s{" "}
               <span className="border-b-2 border-red">
-                {AXIS_LABELS[weakest.axis].toLowerCase()} readiness
+                {axisLabel(getPack(weakest.idea.packId), weakest.axis).toLowerCase()} readiness
               </span>{" "}
               is its weakest axis, and it&apos;s holding the whole score down.
             </h2>
             <p className="mt-3 max-w-[44ch] text-sm leading-[1.55] text-on-surface-2">
               The last run scored it {weakest.value} of 100. Close the gap and re-run.
-              That&apos;s the fastest path toward the investor-ready line.
+              That&apos;s the fastest path toward the ready line.
             </p>
             <div className="mt-5 flex items-center gap-3">
               <Link href={`/ideas/${weakest.idea.ideaId}`} className={WORKSPACE_CTA}>
@@ -160,7 +162,7 @@ const OverviewPage = () => {
             className="flex flex-col items-center justify-center bg-surface p-6 text-on-surface"
           >
             <p className="font-mono text-[10px] uppercase tracking-[.16em] text-on-surface-2">
-              {AXIS_LABELS[weakest.axis]} axis
+              {axisLabel(getPack(weakest.idea.packId), weakest.axis)} axis
             </p>
             <p className="my-1.5 font-display text-6xl font-extrabold leading-none tracking-[-.03em] text-red-fg tabular-nums">
               {weakest.value}
@@ -173,11 +175,11 @@ const OverviewPage = () => {
               <span
                 aria-hidden="true"
                 className="absolute -inset-y-[2px] w-px bg-white"
-                style={{ left: `${INVESTOR_READY_LINE}%` }}
+                style={{ left: `${READY_LINE}%` }}
               />
             </div>
             <p className="mt-2 self-start font-mono text-[9.5px] uppercase tracking-[.1em] text-on-surface-2">
-              {INVESTOR_READY_LINE - weakest.value} below the ready line
+              {READY_LINE - weakest.value} below the ready line
             </p>
           </div>
         </section>
@@ -208,15 +210,19 @@ const OverviewPage = () => {
               action={{ label: "Open →", href: `/ideas/${closest.idea.ideaId}` }}
             >
               <div className="flex flex-col items-center text-center">
-                <ReadinessGauge value={closest.overall} className="h-[120px] w-[180px]" />
+                <ReadinessGauge
+                  value={closest.overall}
+                  targetLabel={getPack(closest.idea.packId).targetLine.label}
+                  className="h-[120px] w-[180px]"
+                />
                 <p className="mt-0.5 font-display text-[17px] font-bold">{closest.idea.name}</p>
                 <p className="mt-1.5 text-[12.5px] text-on-surface-2">
-                  {closest.overall >= INVESTOR_READY_LINE ? (
+                  {closest.overall >= READY_LINE ? (
                     <b className="font-semibold text-ok">Over the line.</b>
                   ) : (
                     <>
                       <b className="font-semibold text-ok">
-                        {INVESTOR_READY_LINE - closest.overall} to go.
+                        {READY_LINE - closest.overall} to go.
                       </b>{" "}
                       Close the weakest axis and it crosses the line.
                     </>
@@ -241,7 +247,7 @@ const OverviewPage = () => {
                     >
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-[13px] font-semibold">
-                          {session.ideaName}
+                          {session.subject}
                           {session.panelist && ` · ${session.panelist}`}
                         </span>
                         <span className="font-mono text-[10px] uppercase tracking-[.04em] text-on-surface-3">

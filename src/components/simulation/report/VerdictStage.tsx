@@ -2,7 +2,14 @@
 
 import Image from "next/image"
 import { cn } from "@/lib/utils"
-import { DEFAULT_CHARACTERS } from "@/components/simulation/characters"
+import type { Persona } from "@/domains/types"
+
+// One column per panelist; every shipped pack has 1-3.
+const GRID_COLS: Record<number, string> = {
+  1: "grid-cols-1",
+  2: "grid-cols-2",
+  3: "grid-cols-3",
+}
 
 // Mirrors reports.spokenVerdict: the one-line verdict and who delivers it.
 export type SpokenVerdict = {
@@ -15,16 +22,18 @@ type VerdictStageProps = {
   // undefined while the report is still being written — the stage holds the
   // deliberating state over the composed still panel.
   spokenVerdict: SpokenVerdict | undefined
-  ideaName: string
+  subject: string
+  personas: Persona[]
   verdictLabel: string | null
   className?: string
 }
 
-// The verdict tableau: the three panelists in one composed shot, the
+// The verdict tableau: the pack's panel in one composed shot, the
 // delivering panelist's seat lit, their one-line verdict quoted beneath.
 export const VerdictStage = ({
   spokenVerdict,
-  ideaName,
+  subject,
+  personas,
   verdictLabel,
   className,
 }: VerdictStageProps) => {
@@ -33,14 +42,19 @@ export const VerdictStage = ({
   return (
     <section
       data-surface="dark"
-      aria-label="The panel's verdict"
+      aria-label="The verdict"
       className={cn(
         "relative overflow-hidden border border-on-surface bg-[#100e0a] text-white",
         className
       )}
     >
-      <div className="relative grid grid-cols-3 max-md:aspect-video md:aspect-[21/9]">
-        {DEFAULT_CHARACTERS.map((char) => {
+      <div
+        className={cn(
+          "relative grid max-md:aspect-video md:aspect-[21/9]",
+          GRID_COLS[personas.length] ?? "grid-cols-3"
+        )}
+      >
+        {personas.map((char) => {
           const isSpeaker = char.id === speakerId
           return (
             <div key={char.id} className="relative overflow-hidden">
@@ -83,7 +97,7 @@ export const VerdictStage = ({
         {!spokenVerdict && (
           <div className="absolute inset-0 flex items-center justify-center bg-[rgba(16,14,10,.55)] px-6 text-center">
             <p className="max-w-[38ch] font-display text-[clamp(15px,1.8vw,21px)] font-semibold leading-[1.3] tracking-[-.01em]">
-              The panel is deliberating.
+              Still deliberating.
             </p>
           </div>
         )}
@@ -94,13 +108,13 @@ export const VerdictStage = ({
       </div>
       {verdictLabel && (
         <div className="pointer-events-none absolute right-[18px] top-4 border border-white/25 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[.14em] text-white/80">
-          {ideaName} · {verdictLabel}
+          {subject} · {verdictLabel}
         </div>
       )}
 
       <div className="border-t border-white/10 px-[22px] py-4">
         <p className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[.2em] text-red-fg">
-          The panel&apos;s verdict
+          The verdict
           {spokenVerdict && (
             <span className="normal-case tracking-[.08em] text-white/60">
               · delivered by {spokenVerdict.speakerName}
@@ -117,7 +131,7 @@ export const VerdictStage = ({
               <span aria-hidden="true" className="motion-safe:animate-pulse">
                 ●
               </span>{" "}
-              Writing the panel&apos;s verdict
+              Writing the verdict
             </span>
           </p>
         )}

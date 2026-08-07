@@ -5,7 +5,8 @@ import Link from "next/link"
 import { useQuery } from "convex/react"
 import { api } from "@convex/_generated/api"
 import { Id } from "@convex/_generated/dataModel"
-import { deriveReadiness, INVESTOR_READY_LINE } from "@/lib/readiness"
+import { deriveReadiness, READY_LINE } from "@/lib/readiness"
+import { axisKeys, getPack } from "@/domains/registry"
 import { deriveTrajectory } from "@/lib/trajectory"
 import { formatAgo, formatDay } from "@/lib/utils"
 import { useNow } from "@/lib/useNow"
@@ -40,7 +41,10 @@ const IdeaDetailPage = ({ params }: { params: Promise<{ ideaId: string }> }) => 
     )
   }
 
-  const readiness = deriveReadiness(detail.latestRiskScores ?? undefined)
+  const readiness = deriveReadiness(
+    axisKeys(getPack(detail.packId)),
+    detail.latestRiskScores ?? undefined
+  )
   const trajectory = deriveTrajectory(detail.runs)
   const lastVerdict = [...detail.runs].reverse().find((run) => run.verdict !== null)
   // openQuestions arrives as one prose blob; split it back into questions.
@@ -66,7 +70,7 @@ const IdeaDetailPage = ({ params }: { params: Promise<{ ideaId: string }> }) => 
             {detail.name}
           </h1>
           <p className="mt-2.5 font-mono text-[11px] uppercase tracking-[.1em] text-on-surface-3">
-            {[detail.stage, detail.businessModel].filter(Boolean).join(" · ") || "Not yet briefed"} ·{" "}
+            {detail.meta.join(" · ") || "Not yet briefed"} ·{" "}
             {detail.runs.length} {detail.runs.length === 1 ? "run" : "runs"} · last run{" "}
             {formatAgo(detail.lastRunAt, nowMs)}
           </p>
@@ -80,17 +84,20 @@ const IdeaDetailPage = ({ params }: { params: Promise<{ ideaId: string }> }) => 
           <p className="mt-1 font-mono text-[10px] uppercase tracking-[.1em] text-on-surface-3">
             {readiness.overall === null
               ? "No scored runs yet"
-              : readiness.overall >= INVESTOR_READY_LINE
-                ? "Clear of the investor-ready line"
-                : `${INVESTOR_READY_LINE - readiness.overall} below the ready line`}
+              : readiness.overall >= READY_LINE
+                ? "Clear of the ready line"
+                : `${READY_LINE - readiness.overall} below the ready line`}
           </p>
         </div>
       </div>
 
       <div className="mt-7 grid items-start gap-[26px] md:grid-cols-[1.15fr_1fr]">
         <div>
-          <Panel title="Readiness over runs" meta={`target ${INVESTOR_READY_LINE}`}>
-            <TrajectoryChart points={trajectory} />
+          <Panel title="Readiness over runs" meta={`target ${READY_LINE}`}>
+            <TrajectoryChart
+              points={trajectory}
+              targetLabel={getPack(detail.packId).targetLine.label}
+            />
           </Panel>
 
           <Panel title="Run history" meta="verdict · score" className="mt-[22px]">

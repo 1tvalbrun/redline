@@ -207,6 +207,11 @@ export const startFounderTranscription = (
         sample_rate: String(audioContext.sampleRate),
         encoding: "pcm_s16le",
         format_turns: "true",
+        // The default model transcribes 18 languages and, unpinned, decodes
+        // silence and breath noise into whichever language they resemble
+        // (observed live: pauses arriving as Chinese and Japanese filler).
+        // Sessions are English; pin the decoder to English.
+        language_codes: "en",
       })
       const ws = new WebSocket(`${STREAM_URL}?${params.toString()}`)
       ws.onopen = () => {

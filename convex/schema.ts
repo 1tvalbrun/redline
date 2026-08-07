@@ -13,18 +13,15 @@ export const noteTypeValidator = v.union(
   v.literal("weak_assumption"),
   v.literal("objection")
 )
-export const decisionValidator = v.union(
-  v.literal("advance"),
-  v.literal("iterate"),
-  v.literal("pass")
-)
+// Verdict decisions are pack vocabulary (pack.verdicts), enforced where the
+// value is produced — reports.generate validates model output against the
+// simulation's pack. The schema stores the string; it can't know the pack.
 export const priorityValidator = v.union(
   v.literal("high"),
   v.literal("medium"),
   v.literal("low")
 )
 export type NoteType = Infer<typeof noteTypeValidator>
-export type Decision = Infer<typeof decisionValidator>
 export type Priority = Infer<typeof priorityValidator>
 
 export default defineSchema({
@@ -77,26 +74,26 @@ export default defineSchema({
     // read as the founder pack.
     packId: v.optional(v.string()),
     status: v.union(v.literal("draft"), v.literal("analyzing"), v.literal("ready")),
-    brief: v.object({
-      ideaName: v.string(),
-      stage: v.string(),
-      description: v.string(),
-      targetUser: v.string(),
-      businessModel: v.string(),
-      whyNow: v.optional(v.string()),
-      focusAreas: v.array(v.string()),
-    }),
-    context: v.optional(
+    // Legacy rows only (founder-shaped). Superseded by scope; simulations
+    // .create stopped writing it. Read through scopeOf, never directly.
+    brief: v.optional(
       v.object({
-        problem: v.string(),
-        targetCustomer: v.string(),
-        coreAssumption: v.string(),
-        revenueModel: v.string(),
-        primaryRisk: v.string(),
-        competitors: v.string(),
-        openQuestions: v.string(),
+        ideaName: v.string(),
+        stage: v.string(),
+        description: v.string(),
+        targetUser: v.string(),
+        businessModel: v.string(),
+        whyNow: v.optional(v.string()),
+        focusAreas: v.array(v.string()),
       })
     ),
+    // What the user is bringing into the session, keyed by the pack's
+    // scopeFields. Keys and sizes are validated in simulations.create
+    // against the pack — the schema can't know which pack a row belongs to.
+    scope: v.optional(v.record(v.string(), v.union(v.string(), v.array(v.string())))),
+    // The Read stage's extraction, keyed by the pack's contextFields.
+    // Legacy founder rows (fixed 7-key object) conform to the record shape.
+    context: v.optional(v.record(v.string(), v.string())),
     version: v.number(),
   })
     .index("by_idea", ["ideaId"])
@@ -134,12 +131,10 @@ export default defineSchema({
         type: transcriptTypeValidator,
       })
     ),
-    riskScores: v.object({
-      market: v.optional(v.number()),
-      customer: v.optional(v.number()),
-      technical: v.optional(v.number()),
-      gtm: v.optional(v.number()),
-    }),
+    // Live per-axis risk, keyed by the pack's axes (legacy founder rows
+    // conform: same shape, founder keys). Axis keys are validated against
+    // the pack inside updateRiskScores.
+    riskScores: v.record(v.string(), v.number()),
     liveNotes: v.array(
       v.object({
         type: noteTypeValidator,
@@ -153,7 +148,8 @@ export default defineSchema({
     status: v.union(v.literal("live"), v.literal("concluded")),
     verdict: v.optional(
       v.object({
-        decision: decisionValidator,
+        // Pack verdict vocabulary; validated in reports.generate.
+        decision: v.string(),
         summary: v.string(),
         confidence: v.number(),
       })
@@ -162,7 +158,7 @@ export default defineSchema({
     .index("by_simulation", ["simulationId"])
     .index("by_user", ["userId"]),
 
-  // Extracted text from founder materials, keyed to a simulation. Text is
+  // Extracted text from intake materials, keyed to a simulation. Text is
   // consumed by the audit pipeline server-side and never listed back to the
   // client wholesale (this is not a data room).
   materials: defineTable({
@@ -181,7 +177,7 @@ export default defineSchema({
     text: v.optional(v.string()),
   }).index("by_simulation", ["simulationId"]),
 
-  // Pre-run audit derived from the founder's materials. Every stored claim
+  // Pre-run audit derived from the user's materials. Every stored claim
   // carries a citation that grounding has verified against the extracted
   // text; ungrounded assertions only exist here as "unsupported" gaps.
   audits: defineTable({
@@ -197,7 +193,8 @@ export default defineSchema({
     roomId: v.id("rooms"),
     userId: v.string(),
     overallScore: v.number(),
-    verdict: decisionValidator,
+    // Pack verdict vocabulary; validated in reports.generate.
+    verdict: v.string(),
     executiveSummary: v.string(),
     panelVerdicts: v.array(
       v.object({
@@ -210,7 +207,7 @@ export default defineSchema({
     ),
     topRisks: v.array(v.string()),
     // "Held up" findings. Populated only through groundHeldUp — every entry
-    // traces to a verbatim founder quote; empty means nothing survived.
+    // traces to a verbatim user quote; empty means nothing survived.
     opportunities: v.array(v.string()),
     nextSevenDays: v.array(
       v.object({

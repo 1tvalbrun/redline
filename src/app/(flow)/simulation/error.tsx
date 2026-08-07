@@ -19,7 +19,7 @@ const SimulationError = ({ reset }: { error: Error; reset: () => void }) => (
       </button>{" "}
       or{" "}
       <Link href="/simulation/new" className="focus-ring underline hover:text-red-fg">
-        start a new stress test
+        start a new run
       </Link>
       .
     </p>

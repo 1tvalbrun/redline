@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation"
 import { useQuery } from "convex/react"
 import { UserButton } from "@clerk/nextjs"
 import { api } from "@convex/_generated/api"
-import { INVESTOR_READY_LINE } from "@/lib/readiness"
+import { READY_LINE } from "@/lib/readiness"
 import { AppRail } from "@/components/layout/AppRail"
 
 const CRUMBS: Record<string, string> = {
@@ -46,7 +46,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
               Best <b className="font-semibold text-on-surface tabular-nums">{counts?.best ?? "—"}</b>
             </span>
             <span>
-              Ready line <b className="font-semibold text-red-fg tabular-nums">{INVESTOR_READY_LINE}</b>
+              Ready line <b className="font-semibold text-red-fg tabular-nums">{READY_LINE}</b>
             </span>
           </div>
           <UserButton

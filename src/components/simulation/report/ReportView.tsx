@@ -6,7 +6,9 @@ import { useAction, useQuery } from "convex/react"
 import { api } from "@convex/_generated/api"
 import { Id } from "@convex/_generated/dataModel"
 import { cn } from "@/lib/utils"
-import { INVESTOR_READY_LINE } from "@/lib/readiness"
+import { READY_LINE } from "@/lib/readiness"
+import { getPack, scopeOf } from "@/domains/registry"
+import { scopeText, type VerdictTone } from "@/domains/types"
 import { Panel } from "@/components/shared/Panel"
 import { ReadinessGauge, useCountUp } from "@/components/shared/ReadinessGauge"
 import { FLOW_BTN, StageKicker } from "@/components/simulation/flow/FlowShell"
@@ -14,10 +16,10 @@ import { IdeaNotFound } from "@/components/simulation/flow/IdeaNotFound"
 import { VerdictStage } from "./VerdictStage"
 import { Disclosure } from "@/components/shared/Disclosure"
 
-const VERDICT_STYLE: Record<string, { label: string; className: string }> = {
-  advance: { label: "Advance", className: "border-ok text-ok" },
-  iterate: { label: "Iterate", className: "border-amber-fg text-amber-fg" },
-  pass: { label: "Pass", className: "border-red text-red-fg" },
+const TONE_CLASS: Record<VerdictTone, string> = {
+  good: "border-ok text-ok",
+  mid: "border-amber-fg text-amber-fg",
+  bad: "border-red text-red-fg",
 }
 
 const PRIORITY_COLOR: Record<string, string> = {
@@ -30,9 +32,9 @@ const Shimmer = ({ className }: { className?: string }) => (
   <div className={cn("animate-pulse bg-surface-2", className)} />
 )
 
-// Generation is fired once, fire-and-forget, as the founder leaves the room
+// Generation is fired once, fire-and-forget, as the user leaves the room
 // — if that call died there is no other writer, so past this deadline the
-// shimmer is dishonest and the founder gets a retry instead.
+// shimmer is dishonest and the user gets a retry instead.
 const SLOW_REPORT_MS = 30_000
 
 type ReportViewProps = {
@@ -86,7 +88,19 @@ export const ReportView = ({ simulationId }: ReportViewProps) => {
     return earlierScored.length > 0 ? earlierScored[earlierScored.length - 1].score : null
   })()
 
-  const verdict = report ? VERDICT_STYLE[report.verdict] ?? VERDICT_STYLE.iterate : null
+  const pack = getPack(simulation?.packId)
+  const subject = simulation
+    ? scopeText(scopeOf(simulation), pack.subjectField) || simulation.title
+    : null
+  // The pack's verdict vocabulary is closed, so an unmatched stored value
+  // can only be the fallback's own row.
+  const verdictOption = report
+    ? (pack.verdicts.options.find((option) => option.value === report.verdict) ??
+      pack.verdicts.options.find((option) => option.value === pack.verdicts.fallback))
+    : null
+  const verdict = verdictOption
+    ? { label: verdictOption.label, className: TONE_CLASS[verdictOption.tone] }
+    : null
   const panelVerdict = report?.panelVerdicts[0]
 
   if (simulation === null) return <IdeaNotFound />
@@ -112,7 +126,7 @@ export const ReportView = ({ simulationId }: ReportViewProps) => {
             <Shimmer className="h-8 w-24" />
           )}
           <h1 className="mt-4 max-w-[16ch] font-display text-[clamp(28px,3.6vw,44px)] font-bold leading-[1.06] tracking-[-.02em]">
-            {simulation?.brief.ideaName ?? "Your idea"}
+            {subject ?? "Your run"}
           </h1>
           {report ? (
             <p className="mt-3.5 max-w-[52ch] text-[15.5px] leading-[1.55] text-on-surface-2">
@@ -147,7 +161,11 @@ export const ReportView = ({ simulationId }: ReportViewProps) => {
         </div>
 
         <div className="flex flex-none items-center gap-5">
-          <ReadinessGauge value={report ? report.overallScore : null} className="h-[140px] w-[200px]" />
+          <ReadinessGauge
+            value={report ? report.overallScore : null}
+            targetLabel={pack.targetLine.label}
+            className="h-[140px] w-[200px]"
+          />
           <div>
             <p className="font-display text-[54px] font-extrabold leading-none tracking-[-.03em] tabular-nums">
               {displayedScore ?? "—"}
@@ -165,9 +183,9 @@ export const ReportView = ({ simulationId }: ReportViewProps) => {
             )}
             <p className="mt-1.5 font-mono text-[10px] uppercase tracking-[.1em] text-on-surface-3">
               {report
-                ? report.overallScore >= INVESTOR_READY_LINE
-                  ? "clear of the investor-ready line"
-                  : `${INVESTOR_READY_LINE - report.overallScore} below the investor-ready line`
+                ? report.overallScore >= READY_LINE
+                  ? `clear of the ${pack.targetLine.label.toLowerCase()} line`
+                  : `${READY_LINE - report.overallScore} below the ${pack.targetLine.label.toLowerCase()} line`
                 : "score arrives with the verdict"}
             </p>
           </div>
@@ -177,7 +195,8 @@ export const ReportView = ({ simulationId }: ReportViewProps) => {
       <VerdictStage
         className="mt-8"
         spokenVerdict={report?.spokenVerdict}
-        ideaName={simulation?.brief.ideaName ?? "Your idea"}
+        subject={subject ?? "Your run"}
+        personas={pack.personas}
         verdictLabel={verdict?.label ?? null}
       />
 

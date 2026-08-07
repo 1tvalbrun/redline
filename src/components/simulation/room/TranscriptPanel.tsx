@@ -7,7 +7,7 @@ import type { TranscriptEntry } from "@/types/panel"
 type TranscriptPanelProps = {
   transcript: TranscriptEntry[]
   startedAt: number
-  // Display-only hold on the founder's finalized turns: a "user" entry is
+  // Display-only hold on the user's finalized turns: a "user" entry is
   // revealed once it has been written for this many ms, matching the
   // avatar's inherent transcript lag so both sides land at one cadence.
   // Omit (session replay, concluded rooms) to show everything at once.

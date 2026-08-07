@@ -1,6 +1,21 @@
 import { v } from "convex/values"
 import { query } from "./_generated/server"
+import { getPack, scopeOf } from "../src/domains/registry"
+import { scopeText, type Brief, type Scope } from "../src/domains/types"
 import { ownedOrNull, requireIdentity } from "./guard"
+
+// The pack's subtitle fields (e.g. stage · business model), resolved from
+// whichever scope shape the row stores.
+const subtitleOf = (
+  simulation: { packId?: string; scope?: Scope; brief?: Brief } | undefined
+): string[] => {
+  if (!simulation) return []
+  const pack = getPack(simulation.packId)
+  const scope = scopeOf(simulation)
+  return pack.subtitleFields
+    .map((key) => scopeText(scope, key))
+    .filter((value) => value.length > 0)
+}
 
 export const listWithStats = query({
   args: {},
@@ -40,8 +55,8 @@ export const listWithStats = query({
         return {
           ideaId: idea._id,
           name: idea.name,
-          stage: latest?.brief.stage ?? null,
-          businessModel: latest?.brief.businessModel ?? null,
+          packId: getPack(latest?.packId).id,
+          meta: subtitleOf(latest),
           runs,
           lastRunAt: latest?._creationTime ?? idea._creationTime,
           latestSimulationId: latest?._id ?? null,
@@ -96,8 +111,8 @@ export const getDetail = query({
     return {
       ideaId: idea._id,
       name: idea.name,
-      stage: latest?.brief.stage ?? null,
-      businessModel: latest?.brief.businessModel ?? null,
+      packId: getPack(latest?.packId).id,
+      meta: subtitleOf(latest),
       lastRunAt: latest?._creationTime ?? idea._creationTime,
       runs: runs.map((run) => ({
         simulationId: run.simulationId,

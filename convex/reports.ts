@@ -6,13 +6,9 @@ import { bySpokenTime } from "../src/lib/transcript"
 import { selectVerdictSpeaker } from "../src/lib/readiness"
 import { groundHeldUp } from "../src/lib/reportGrounding"
 import { createOpenAI, resolveModel } from "../src/lib/openai"
-import { getPack } from "../src/domains/registry"
-import {
-  decisionValidator,
-  priorityValidator,
-  type Decision,
-  type Priority,
-} from "./schema"
+import { axisKeys, axisOwners, getPack, scopeOf } from "../src/domains/registry"
+import { scopeText } from "../src/domains/types"
+import { priorityValidator, type Priority } from "./schema"
 import { ownedOrNull, requireIdentity } from "./guard"
 
 // Internal: the only caller is reports.generate. Insert-if-absent on the
@@ -26,7 +22,8 @@ export const create = internalMutation({
     roomId: v.id("rooms"),
     userId: v.string(),
     overallScore: v.number(),
-    verdict: decisionValidator,
+    // Pack verdict vocabulary; generate validates before calling.
+    verdict: v.string(),
     executiveSummary: v.string(),
     panelVerdicts: v.array(
       v.object({
@@ -76,7 +73,6 @@ export const getBySimulation = query({
 })
 
 const PRIORITIES = new Set(["high", "medium", "low"])
-const DECISIONS = new Set(["advance", "iterate", "pass"])
 // Same discipline as the audit's per-material budget: a marathon session
 // must not blow the context window. The oldest turns are dropped first —
 // the verdict weighs how the session ended, not how it opened.
@@ -108,7 +104,9 @@ export const generate = action({
     const character = room.characters[0]
     if (!character) throw new Error("No character in room")
 
-    const founderTurns = room.transcript
+    const pack = getPack(simulation.packId)
+
+    const userTurns = room.transcript
       .filter((e) => e.type === "user")
       .map((e) => e.text)
     const fullTranscript =
@@ -116,7 +114,7 @@ export const generate = action({
         ? bySpokenTime(room.transcript)
             .map((e) =>
               e.type === "user"
-                ? `FOUNDER: ${e.text}`
+                ? `${pack.userLabel}: ${e.text}`
                 : `${character.name.toUpperCase()}: ${e.text}`
             )
             .join("\n")
@@ -136,7 +134,6 @@ export const generate = action({
 
     const openai = await createOpenAI()
     const model = resolveModel("quality")
-    const pack = getPack(simulation.packId)
 
     const response = await openai.chat.completions.create({
       model,
@@ -144,7 +141,7 @@ export const generate = action({
         {
           role: "system",
           content: pack.prompts.report({
-            brief: simulation.brief,
+            scope: scopeOf(simulation),
             characterName: character.name,
             characterRole: character.role,
             characterTone: character.tone,
@@ -161,10 +158,13 @@ export const generate = action({
 
     const parsed = JSON.parse(content)
 
+    // The pack's verdict vocabulary is the closed set; anything else the
+    // model emits falls back to the pack's middle-ground verdict.
+    const decisions = new Set(pack.verdicts.options.map((option) => option.value))
     const rawVerdict = parsed.verdict ?? {}
-    const decision: Decision = DECISIONS.has(rawVerdict.decision)
-      ? (rawVerdict.decision as Decision)
-      : "iterate"
+    const decision: string = decisions.has(rawVerdict.decision)
+      ? rawVerdict.decision
+      : pack.verdicts.fallback
     const verdictSummary =
       typeof rawVerdict.summary === "string"
         ? rawVerdict.summary
@@ -200,9 +200,9 @@ export const generate = action({
     const topRisks = Array.isArray(parsed.topRisks)
       ? parsed.topRisks.filter((r: unknown) => typeof r === "string").slice(0, 5)
       : []
-    // "Held up" is grounded like audit claims: a finding the founder can't
+    // "Held up" is grounded like audit claims: a finding the user can't
     // be quoted on is dropped, and zero survivors is a legitimate report.
-    const heldUp = groundHeldUp(parsed.heldUp, founderTurns)
+    const heldUp = groundHeldUp(parsed.heldUp, userTurns)
     const proposed = Array.isArray(parsed.heldUp) ? parsed.heldUp.length : 0
     if (proposed > heldUp.length) {
       console.warn(
@@ -223,10 +223,12 @@ export const generate = action({
           }))
       : []
 
-    // Who delivers the verdict: the panelist the founder faced, or the
+    // Who delivers the verdict: the panelist the user faced, or the
     // weakest-axis owner when they faced several (same mapping as the
     // Panel recommendation).
-    const speaker = selectVerdictSpeaker(room.characters, room.riskScores) ?? character
+    const speaker =
+      selectVerdictSpeaker(axisKeys(pack), axisOwners(pack), room.characters, room.riskScores) ??
+      character
 
     const { reportId, created } = await ctx.runMutation(internal.reports.create, {
       simulationId: room.simulationId,
@@ -276,10 +278,14 @@ export const list = query({
     return Promise.all(
       reports.map(async (report) => {
         const simulation = await ctx.db.get(report.simulationId)
+        const pack = getPack(simulation?.packId)
         return {
           reportId: report._id,
           simulationId: report.simulationId,
-          ideaName: simulation?.brief.ideaName ?? "Unknown idea",
+          packId: pack.id,
+          subject: simulation
+            ? scopeText(scopeOf(simulation), pack.subjectField) || simulation.title
+            : "Unknown",
           verdict: report.verdict,
           score: report.overallScore,
           panelist: report.panelVerdicts[0]?.characterName ?? null,

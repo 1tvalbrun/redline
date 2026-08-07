@@ -1,13 +1,13 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { INVESTOR_READY_LINE } from "@/lib/readiness"
+import { READY_LINE } from "@/lib/readiness"
 import { cn } from "@/lib/utils"
 
 const START_DEG = 155
 const SWEEP_DEG = 230
 const TICK_COUNT = 40
-const READY_FRACTION = INVESTOR_READY_LINE / 100
+const READY_FRACTION = READY_LINE / 100
 
 const CX = 100
 const CY = 120
@@ -21,10 +21,12 @@ const polar = (t: number, r: number): [number, number] => {
 type ReadinessGaugeProps = {
   /** 0-100 readiness score; null renders the pending state */
   value: number | null
+  /** What the pack calls the bar (e.g. "Investor-ready"); neutral default for cross-lane surfaces. */
+  targetLabel?: string
   className?: string
 }
 
-export const ReadinessGauge = ({ value, className }: ReadinessGaugeProps) => {
+export const ReadinessGauge = ({ value, targetLabel = "Ready", className }: ReadinessGaugeProps) => {
   // Mount flag flipped after the first painted frame so the needle
   // transitions from rest to the value (CSS transitions need a starting
   // frame to animate from).
@@ -46,7 +48,7 @@ export const ReadinessGauge = ({ value, className }: ReadinessGaugeProps) => {
       aria-label={
         pending
           ? "Readiness pending, no score yet"
-          : `Readiness ${value} of 100; investor-ready at ${INVESTOR_READY_LINE}`
+          : `Readiness ${value} of 100; ${targetLabel.toLowerCase()} at ${READY_LINE}`
       }
       className={cn("block", className)}
     >
@@ -93,7 +95,7 @@ export const ReadinessGauge = ({ value, className }: ReadinessGaugeProps) => {
         fill="var(--red)"
         className="font-mono text-[7px] tracking-[1.4px]"
       >
-        INVESTOR-READY {INVESTOR_READY_LINE}
+        {targetLabel.toUpperCase()} {READY_LINE}
       </text>
     </svg>
   )

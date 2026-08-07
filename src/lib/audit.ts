@@ -8,10 +8,10 @@ export const citationValidator = v.object({
 })
 
 // Axis is optional only because audits generated before axis-tagging
-// existed remain valid; new generations always tag it.
-const axisValidator = v.optional(
-  v.union(v.literal("market"), v.literal("customer"), v.literal("technical"), v.literal("gtm"))
-)
+// existed remain valid; new generations always tag it. The value vocabulary
+// is the owning pack's axes, enforced where model output is grounded — the
+// schema can't know which pack a row belongs to.
+const axisValidator = v.optional(v.string())
 
 // A claim without a citation cannot be constructed — grounding is the type.
 export const claimValidator = v.object({
@@ -67,18 +67,19 @@ const parseSeverity = (value: string | undefined): Gap["severity"] =>
 const parseKind = (value: string | undefined): Gap["kind"] =>
   value === "unsupported" ? "unsupported" : "absent"
 
-const AXES_SET: ReadonlySet<string> = new Set(["market", "customer", "technical", "gtm"])
-
-const parseAxis = (value: string | undefined): Claim["axis"] =>
-  value !== undefined && AXES_SET.has(value) ? (value as Claim["axis"]) : undefined
+const parseAxis = (value: string | undefined, axes: ReadonlySet<string>): Claim["axis"] =>
+  value !== undefined && axes.has(value) ? value : undefined
 
 // Validates model output against the actual materials. Claims that cite a
 // real source and location survive; everything else is demoted to an
-// "unsupported" gap. The model cannot assert what it cannot cite.
+// "unsupported" gap. The model cannot assert what it cannot cite. Axis tags
+// outside the pack's vocabulary are dropped the same way citations are.
 export const groundAudit = (
   raw: { claims?: unknown; gaps?: unknown },
-  materials: GroundingMaterial[]
+  materials: GroundingMaterial[],
+  axes: readonly string[]
 ): AuditResult => {
+  const axisSet: ReadonlySet<string> = new Set(axes)
   const sources = new Map(
     materials.map((material) => [normalize(material.name), locationsIn(material.text)])
   )
@@ -92,7 +93,7 @@ export const groundAudit = (
     if (!text) continue
     const source = asString(field(entry, "source"))
     const location = asString(field(entry, "location"))
-    const axis = parseAxis(asString(field(entry, "axis"))?.toLowerCase())
+    const axis = parseAxis(asString(field(entry, "axis"))?.toLowerCase(), axisSet)
     if (
       source !== null &&
       location !== null &&
@@ -115,7 +116,7 @@ export const groundAudit = (
     if (gaps.length >= MAX_GAPS) break
     const title = asString(field(entry, "title"))
     if (!title) continue
-    const axis = parseAxis(asString(field(entry, "axis"))?.toLowerCase())
+    const axis = parseAxis(asString(field(entry, "axis"))?.toLowerCase(), axisSet)
     gaps.push({
       severity: parseSeverity(asString(field(entry, "severity"))?.toLowerCase()),
       kind: parseKind(asString(field(entry, "kind"))?.toLowerCase()),

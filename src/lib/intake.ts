@@ -17,7 +17,7 @@ export type ExtractedBrief = {
   targetUser: string | null
 }
 
-export const FREE_TEXT_LIMITS = { ideaName: 60, description: 600, whyNow: 400 } as const
+const FREE_TEXT_LIMITS = { ideaName: 60, description: 600, whyNow: 400 } as const
 
 const freeText = (value: unknown, limit: number): string | null => {
   if (typeof value !== "string") return null

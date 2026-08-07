@@ -45,10 +45,10 @@ export const LiveNotes = ({ notes, startedAt }: LiveNotesProps) => {
       <ScrollArea className="min-h-0 flex-1 px-[18px]">
         {notes.length === 0 ? (
           <p className="py-[11px] text-[12.5px] leading-relaxed text-on-surface-2">
-            Observations will appear here as the panel reacts.
+            Observations will appear here as the session unfolds.
           </p>
         ) : (
-          <div role="log" aria-label="Panel observations">
+          <div role="log" aria-label="Live observations">
             {notes.map((note, i) => {
               const marker = NOTE_MARKERS[note.type] ?? FALLBACK_MARKER
               return (

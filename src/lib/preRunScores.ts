@@ -1,5 +1,4 @@
 import type { AuditResult } from "./audit.ts"
-import { AXES, type Axis, type RiskScores } from "./readiness.ts"
 
 const BASELINE_RISK = 50
 const CLAIM_RELIEF = 6
@@ -16,10 +15,11 @@ const MAX_RISK = 95
 // without an axis tag (legacy audits) carry no signal. Entirely separate
 // from the live in-room scoring in orchestrator.decide.
 export const deriveAuditRiskScores = (
-  audit: Pick<AuditResult, "claims" | "gaps">
-): Required<RiskScores> => {
-  const risk = {} as Record<Axis, number>
-  for (const axis of AXES) {
+  audit: Pick<AuditResult, "claims" | "gaps">,
+  axes: readonly string[]
+): Record<string, number> => {
+  const risk: Record<string, number> = {}
+  for (const axis of axes) {
     const claimCount = audit.claims.filter((claim) => claim.axis === axis).length
     const gapLoad = audit.gaps
       .filter((gap) => gap.axis === axis)

@@ -16,7 +16,7 @@ const SessionsPage = () => {
     <div>
       <h1 className="font-display text-[clamp(26px,3vw,38px)] font-bold">Sessions</h1>
       <p className="mt-2 max-w-[52ch] text-[14px] text-on-surface-2">
-        Every interrogation you&apos;ve run, with the transcript and the panel&apos;s
+        Every session you&apos;ve run, with the transcript and the panel&apos;s
         turn-by-turn notes.
       </p>
 
@@ -30,7 +30,7 @@ const SessionsPage = () => {
           <p className="text-[13.5px] text-on-surface-2">
             No sessions yet. Enter the room and the recording lands here.{" "}
             <Link href="/simulation/new" className="focus-ring underline hover:text-red-fg">
-              Start a stress test
+              Start a run
             </Link>
             .
           </p>
@@ -45,7 +45,7 @@ const SessionsPage = () => {
                   <span className="font-mono text-[11px] text-on-surface-3">{formatDay(session.at)}</span>
                   <span className="min-w-0">
                     <span className="block truncate font-display text-base font-bold tracking-[-.01em]">
-                      {session.ideaName}
+                      {session.subject}
                     </span>
                     <span className="font-mono text-[10px] uppercase tracking-[.04em] text-on-surface-3">
                       {session.panelist ?? "No panelist"} · {session.turns} turns

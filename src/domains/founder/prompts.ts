@@ -3,11 +3,13 @@ import {
   STAGE_OPTIONS,
   TARGET_OPTIONS,
 } from "../../lib/briefOptions.ts"
-import type {
-  AuditPromptInput,
-  Brief,
-  OrchestratePromptInput,
-  ReportPromptInput,
+import {
+  scopeList,
+  scopeText,
+  type AuditPromptInput,
+  type OrchestratePromptInput,
+  type ReportPromptInput,
+  type Scope,
 } from "../types.ts"
 
 // The founder lane's OpenAI prompts, moved verbatim from the Convex actions
@@ -17,8 +19,8 @@ import type {
 
 export const analyzeSystem = `You are a business analyst. Extract structured context from a startup brief. Return JSON only with these fields: problem, targetCustomer, coreAssumption, revenueModel, primaryRisk, competitors, openQuestions. Each field is a string.`
 
-export const analyzeUser = (brief: Brief) =>
-  `Idea: ${brief.ideaName}\nStage: ${brief.stage}\nDescription: ${brief.description}\nTarget User: ${brief.targetUser}\nBusiness Model: ${brief.businessModel}\nFocus Areas: ${brief.focusAreas.join(", ")}`
+export const analyzeUser = (scope: Scope) =>
+  `Idea: ${scopeText(scope, "ideaName")}\nStage: ${scopeText(scope, "stage")}\nDescription: ${scopeText(scope, "description")}\nTarget User: ${scopeText(scope, "targetUser")}\nBusiness Model: ${scopeText(scope, "businessModel")}\nFocus Areas: ${scopeList(scope, "focusAreas").join(", ")}`
 
 export const extractBrief = ({ source, pitch }: { source: "voice" | "deck"; pitch: string }) => {
   const stageValues = STAGE_OPTIONS.map((o) => o.value).join(" | ")
@@ -43,15 +45,15 @@ The pitch:
 ${pitch.slice(0, 12_000)}`
 }
 
-export const audit = ({ brief, unreadableCount, materialSections }: AuditPromptInput) =>
+export const audit = ({ scope, unreadableCount, materialSections }: AuditPromptInput) =>
   `You are a diligence analyst auditing a founder's materials before a panel session.
 
 The founder's brief (their own words, NOT evidence):
-- Idea: ${brief.ideaName}
-- Stage: ${brief.stage}
-- Description: ${brief.description}
-- Target user: ${brief.targetUser}
-- Business model: ${brief.businessModel}
+- Idea: ${scopeText(scope, "ideaName")}
+- Stage: ${scopeText(scope, "stage")}
+- Description: ${scopeText(scope, "description")}
+- Target user: ${scopeText(scope, "targetUser")}
+- Business model: ${scopeText(scope, "businessModel")}
 ${unreadableCount > 0 ? `\n${unreadableCount} uploaded file(s) could not be read and are not available as evidence.\n` : ""}
 The materials (the ONLY citable evidence). Location markers look like [page 3], [slide 2], [sheet ARR]:
 
@@ -70,16 +72,16 @@ export const orchestrate = ({
   characterName,
   characterRole,
   characterTone,
-  brief,
+  scope,
   current,
 }: OrchestratePromptInput) =>
   `You are observing a live founder pitch and scoring it in real time alongside ${characterName} (${characterRole}).
 
 Pitch context:
-- Idea: ${brief.ideaName}
-- Description: ${brief.description}
-- Target user: ${brief.targetUser}
-- Business model: ${brief.businessModel}
+- Idea: ${scopeText(scope, "ideaName")}
+- Description: ${scopeText(scope, "description")}
+- Target user: ${scopeText(scope, "targetUser")}
+- Business model: ${scopeText(scope, "businessModel")}
 
 ${characterName}'s evaluation lens (guides which risks you watch hardest, but you MUST score all four):
 ${characterTone}
@@ -117,7 +119,7 @@ Respond with JSON only, exactly this shape:
 {"riskScores":{"market":int,"customer":int,"technical":int,"gtm":int},"note":{"type":"<one_of_the_five>","text":"<8-18 word observation>"}}`
 
 export const report = ({
-  brief,
+  scope,
   characterName,
   characterRole,
   characterTone,
@@ -127,10 +129,10 @@ export const report = ({
   `You are a senior advisor synthesizing a founder panel session into a final report.
 
 Brief:
-- Idea: ${brief.ideaName}
-- Description: ${brief.description}
-- Target user: ${brief.targetUser}
-- Business model: ${brief.businessModel}
+- Idea: ${scopeText(scope, "ideaName")}
+- Description: ${scopeText(scope, "description")}
+- Target user: ${scopeText(scope, "targetUser")}
+- Business model: ${scopeText(scope, "businessModel")}
 
 Panelist who ran the session: ${characterName} (${characterRole})
 Panelist's evaluation lens: ${characterTone}
