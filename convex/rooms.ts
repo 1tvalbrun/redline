@@ -1,8 +1,9 @@
 import { v } from "convex/values"
 import { internalMutation, mutation, query } from "./_generated/server"
-import { AXES, boundRiskDelta } from "../src/lib/readiness"
-import { getPack } from "../src/domains/registry"
-import { decisionValidator, noteTypeValidator, transcriptTypeValidator } from "./schema"
+import { boundRiskDelta } from "../src/lib/readiness"
+import { axisKeys, getPack, scopeOf } from "../src/domains/registry"
+import { scopeText } from "../src/domains/types"
+import { noteTypeValidator, transcriptTypeValidator } from "./schema"
 import { ownedOrNull, requireIdentity } from "./guard"
 
 export const create = mutation({
@@ -27,10 +28,23 @@ export const create = mutation({
       )
       .first()
     if (!avatar) throw new Error("No avatar registered for this panelist")
+    // Store only the session-relevant slice of the persona. The pack carries
+    // UI-only fields (image, attack, bio, tags, axes); a spread would write
+    // them into the room and fail the schema validator.
     return await ctx.db.insert("rooms", {
       simulationId: args.simulationId,
       userId: identity.subject,
-      characters: [{ ...persona, avatarId: avatar.runwayAvatarId, status: "idle" }],
+      characters: [
+        {
+          id: persona.id,
+          archetypeId: persona.archetypeId,
+          name: persona.name,
+          role: persona.role,
+          tone: persona.tone,
+          avatarId: avatar.runwayAvatarId,
+          status: "idle",
+        },
+      ],
       activeCharacterId: persona.id,
       transcript: [],
       riskScores: {},
@@ -111,22 +125,21 @@ export const addTranscriptEntry = mutation({
 // Internal: written only by orchestrator.decide as it scores the live room.
 // Takes the model's *proposed* scores and bounds each against the score in
 // the document, inside the serializable mutation — an action-side clamp
-// would bound against a stale read when two turns land concurrently.
+// would bound against a stale read when two turns land concurrently. Axis
+// keys are validated against the simulation's pack here, so a proposal
+// outside the pack's vocabulary never lands in the document.
 export const updateRiskScores = internalMutation({
   args: {
     id: v.id("rooms"),
-    proposed: v.object({
-      market: v.optional(v.number()),
-      customer: v.optional(v.number()),
-      technical: v.optional(v.number()),
-      gtm: v.optional(v.number()),
-    }),
+    proposed: v.record(v.string(), v.number()),
   },
   handler: async (ctx, args) => {
     const room = await ctx.db.get(args.id)
     if (!room) throw new Error("Room not found")
+    const simulation = await ctx.db.get(room.simulationId)
+    const axes = axisKeys(getPack(simulation?.packId))
     const applied = Object.fromEntries(
-      AXES.flatMap((axis) => {
+      axes.flatMap((axis) => {
         const proposal = args.proposed[axis]
         if (typeof proposal !== "number") return []
         return [[axis, boundRiskDelta(room.riskScores[axis] ?? 50, proposal)]]
@@ -159,12 +172,13 @@ export const addLiveNote = internalMutation({
   },
 })
 
-// Internal: written only by reports.generate when the session ends.
+// Internal: written only by reports.generate when the session ends, which
+// validates the decision against the pack's verdict vocabulary.
 export const conclude = internalMutation({
   args: {
     id: v.id("rooms"),
     verdict: v.object({
-      decision: decisionValidator,
+      decision: v.string(),
       summary: v.string(),
       confidence: v.number(),
     }),
@@ -189,11 +203,15 @@ export const list = query({
     return Promise.all(
       rooms.map(async (room) => {
         const simulation = await ctx.db.get(room.simulationId)
+        const pack = getPack(simulation?.packId)
         const lastEntry = room.transcript[room.transcript.length - 1]
         return {
           roomId: room._id,
           simulationId: room.simulationId,
-          ideaName: simulation?.brief.ideaName ?? "Unknown idea",
+          packId: pack.id,
+          subject: simulation
+            ? scopeText(scopeOf(simulation), pack.subjectField) || simulation.title
+            : "Unknown",
           panelist: room.characters[0]?.name ?? null,
           at: room._creationTime,
           lastActivityAt: lastEntry?.timestamp ?? room._creationTime,

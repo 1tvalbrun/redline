@@ -1,10 +1,10 @@
 import { asString, field } from "./audit.ts"
 
 // Grounding for the report's "held up" findings, the same discipline
-// groundAudit applies to claims: a finding the founder cannot be quoted on
+// groundAudit applies to claims: a finding the user cannot be quoted on
 // cannot be constructed. The model proposes {finding, quote} candidates;
-// only those whose quote is verbatim founder speech survive. Zero survivors
-// is a legitimate report — a founder who made no defensible claims has
+// only those whose quote is verbatim user speech survive. Zero survivors
+// is a legitimate report — a user who made no defensible claims has
 // nothing that held up.
 export type HeldUpFinding = { finding: string; quote: string }
 
@@ -21,8 +21,8 @@ const normalize = (value: string) =>
     .replace(/\s+/g, " ")
     .trim()
 
-export const groundHeldUp = (raw: unknown, founderTurns: string[]): HeldUpFinding[] => {
-  const speech = normalize(founderTurns.join("\n"))
+export const groundHeldUp = (raw: unknown, userTurns: string[]): HeldUpFinding[] => {
+  const speech = normalize(userTurns.join("\n"))
   if (!speech) return []
 
   const candidates: unknown[] = Array.isArray(raw) ? raw.slice(0, MAX_HELD_UP) : []

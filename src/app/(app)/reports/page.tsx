@@ -5,15 +5,21 @@ import Link from "next/link"
 import { useQuery } from "convex/react"
 import { api } from "@convex/_generated/api"
 import { cn, formatDay } from "@/lib/utils"
+import { ALL_PACKS, findVerdict } from "@/domains/registry"
 import { VerdictBadge } from "@/components/workspace/VerdictBadge"
 
-const FILTERS = ["all", "advance", "iterate", "pass"] as const
-type Filter = (typeof FILTERS)[number]
+// Pack order keeps the filter row stable; membership comes from the data,
+// so a verdict value with no reports never renders a dead filter.
+const VERDICT_ORDER = ALL_PACKS.flatMap((pack) =>
+  pack.verdicts.options.map((option) => option.value)
+)
 
 const VerdictsPage = () => {
   const reports = useQuery(api.reports.list)
-  const [filter, setFilter] = useState<Filter>("all")
+  const [filter, setFilter] = useState("all")
 
+  const present = new Set(reports?.map((r) => r.verdict))
+  const filters = ["all", ...VERDICT_ORDER.filter((value) => present.has(value))]
   const filtered = reports?.filter((r) => filter === "all" || r.verdict === filter)
 
   return (
@@ -21,7 +27,7 @@ const VerdictsPage = () => {
       <h1 className="font-display text-[clamp(26px,3vw,38px)] font-bold">Verdicts</h1>
 
       <div className="mt-5 flex gap-2" role="group" aria-label="Filter by verdict">
-        {FILTERS.map((f) => (
+        {filters.map((f) => (
           <button
             key={f}
             type="button"
@@ -34,7 +40,7 @@ const VerdictsPage = () => {
                 : "border-line-2 bg-surface-raised text-on-surface-2 hover:text-on-surface"
             )}
           >
-            {f === "all" ? "All" : f}
+            {f === "all" ? "All" : (findVerdict(f)?.label ?? f)}
           </button>
         ))}
       </div>
@@ -49,12 +55,10 @@ const VerdictsPage = () => {
           <p className="text-[13.5px] text-on-surface-2">
             No verdicts yet. They land here after each run.{" "}
             <Link href="/simulation/new" className="focus-ring underline hover:text-red-fg">
-              Start a stress test
+              Start a run
             </Link>
             .
           </p>
-        ) : filtered && filtered.length === 0 ? (
-          <p className="text-[13.5px] text-on-surface-2">No {filter} verdicts yet.</p>
         ) : (
           <ul>
             {filtered?.map((report) => (
@@ -65,7 +69,7 @@ const VerdictsPage = () => {
                 >
                   <span className="font-mono text-[11px] text-on-surface-3">{formatDay(report.at)}</span>
                   <span className="truncate font-display text-base font-bold tracking-[-.01em]">
-                    {report.ideaName}
+                    {report.subject}
                   </span>
                   <span className="truncate font-mono text-[9.5px] uppercase text-on-surface-3 max-md:hidden">
                     {report.panelist ?? "—"}

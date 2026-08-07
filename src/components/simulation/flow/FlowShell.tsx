@@ -60,7 +60,7 @@ export const FlowShell = ({ stage, simulationId, fullBleed, children }: FlowShel
           <span className="font-display text-[17px] font-extrabold tracking-[-.02em]">Redline</span>
         </Link>
 
-        <nav aria-label="Stress test progress" className="flex flex-1 justify-center">
+        <nav aria-label="Run progress" className="flex flex-1 justify-center">
           <ol className="flex items-center">
             {STAGES.map((s, i) => {
               const state = i < currentIndex ? "done" : i === currentIndex ? "active" : "upcoming"

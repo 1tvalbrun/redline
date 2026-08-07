@@ -2,23 +2,20 @@ import { v } from "convex/values"
 import { internalMutation, mutation, query, action } from "./_generated/server"
 import { api, internal } from "./_generated/api"
 import { materialFileType, validateMaterialFile } from "../src/lib/materials"
-import { FREE_TEXT_LIMITS, parseExtractedBrief } from "../src/lib/intake"
+import { parseExtractedBrief } from "../src/lib/intake"
 import { createOpenAI, resolveModel } from "../src/lib/openai"
-import { getPack } from "../src/domains/registry"
+import { getPack, isPackId, scopeOf } from "../src/domains/registry"
+import type { Scope } from "../src/domains/types"
 import { ownedOrNull, requireIdentity } from "./guard"
+
+const MULTI_MAX_ITEMS = 8
+const MULTI_ITEM_CHARS = 80
+const TEXT_FALLBACK_CHARS = 60
 
 export const create = mutation({
   args: {
-    title: v.string(),
-    brief: v.object({
-      ideaName: v.string(),
-      stage: v.string(),
-      description: v.string(),
-      targetUser: v.string(),
-      businessModel: v.string(),
-      whyNow: v.optional(v.string()),
-      focusAreas: v.array(v.string()),
-    }),
+    packId: v.string(),
+    scope: v.record(v.string(), v.union(v.string(), v.array(v.string()))),
     materials: v.optional(
       v.array(
         v.object({
@@ -31,35 +28,56 @@ export const create = mutation({
   },
   handler: async (ctx, args) => {
     const identity = await requireIdentity(ctx)
-    // Brief fields are interpolated into every downstream prompt, and the
-    // UI can be bypassed — hold them to the same sizes the intake extractor
-    // enforces before they're stored.
-    const brief = {
-      ...args.brief,
-      ideaName: args.brief.ideaName.trim().slice(0, FREE_TEXT_LIMITS.ideaName),
-      description: args.brief.description.trim().slice(0, FREE_TEXT_LIMITS.description),
-      whyNow: args.brief.whyNow?.trim().slice(0, FREE_TEXT_LIMITS.whyNow),
-      stage: args.brief.stage.trim().slice(0, 60),
-      targetUser: args.brief.targetUser.trim().slice(0, 60),
-      businessModel: args.brief.businessModel.trim().slice(0, 60),
-      focusAreas: args.brief.focusAreas.slice(0, 8).map((area) => area.trim().slice(0, 80)),
+    if (!isPackId(args.packId)) throw new Error("Unknown lane")
+    const pack = getPack(args.packId)
+
+    // Scope values are interpolated into every downstream prompt, and the
+    // UI can be bypassed — validate against the pack's field list: unknown
+    // keys are dropped, free text is clamped, multi values are capped, and
+    // fields with a declared vocabulary only accept its labels.
+    const scope: Scope = {}
+    for (const field of pack.scopeFields) {
+      const raw = args.scope[field.key]
+      const labels = field.options?.map((option) => option.label)
+      if (field.kind === "multi") {
+        if (Array.isArray(raw)) {
+          const items = raw
+            .slice(0, MULTI_MAX_ITEMS)
+            .map((item) => item.trim().slice(0, MULTI_ITEM_CHARS))
+          scope[field.key] = labels ? items.filter((item) => labels.includes(item)) : items
+        }
+      } else if (typeof raw === "string") {
+        const value = raw.trim().slice(0, field.maxLength ?? TEXT_FALLBACK_CHARS)
+        // Empty means "not chosen" for chip fields, same as the forms send.
+        if (field.kind !== "chips" || !labels || value === "" || labels.includes(value)) {
+          scope[field.key] = value
+        }
+      }
+      if (field.required && !scope[field.key]) {
+        throw new Error(`Missing ${field.label}`)
+      }
+    }
+
+    const subject = scope[pack.subjectField]
+    if (typeof subject !== "string" || subject.length === 0) {
+      throw new Error("Missing a name for this run")
     }
 
     const existingIdea = await ctx.db
       .query("ideas")
       .withIndex("by_user_name", (q) =>
-        q.eq("userId", identity.subject).eq("name", brief.ideaName)
+        q.eq("userId", identity.subject).eq("name", subject)
       )
       .first()
     const ideaId =
       existingIdea?._id ??
-      (await ctx.db.insert("ideas", { name: brief.ideaName, userId: identity.subject }))
+      (await ctx.db.insert("ideas", { name: subject, userId: identity.subject }))
     const simulationId = await ctx.db.insert("simulations", {
-      title: args.title.trim().slice(0, 120),
-      // The founder flow is the only lane with an intake today; lane choice
-      // at creation arrives with the second lane.
-      packId: "founder",
-      brief,
+      // The subject is the title; deriving it here keeps one validated
+      // source instead of a second client-supplied copy.
+      title: subject,
+      packId: pack.id,
+      scope,
       ideaId,
       userId: identity.subject,
       status: "draft",
@@ -108,19 +126,12 @@ export const setStatus = internalMutation({
   },
 })
 
-// Internal: written only by simulations.analyze.
+// Internal: written only by simulations.analyze, which filters the model
+// output to the pack's contextFields before calling.
 export const setContext = internalMutation({
   args: {
     id: v.id("simulations"),
-    context: v.object({
-      problem: v.string(),
-      targetCustomer: v.string(),
-      coreAssumption: v.string(),
-      revenueModel: v.string(),
-      primaryRisk: v.string(),
-      competitors: v.string(),
-      openQuestions: v.string(),
-    }),
+    context: v.record(v.string(), v.string()),
     status: v.union(v.literal("draft"), v.literal("analyzing"), v.literal("ready")),
   },
   handler: async (ctx, args) => {
@@ -152,7 +163,7 @@ export const analyze = action({
         model,
         messages: [
           { role: "system", content: pack.prompts.analyzeSystem },
-          { role: "user", content: pack.prompts.analyzeUser(simulation.brief) },
+          { role: "user", content: pack.prompts.analyzeUser(scopeOf(simulation)) },
         ],
         response_format: { type: "json_object" },
       })
@@ -160,7 +171,16 @@ export const analyze = action({
       const content = response.choices[0].message.content
       if (!content) throw new Error("No response from OpenAI")
 
-      const context = JSON.parse(content)
+      // Hold the model to the pack's contract: every declared field, as a
+      // string, nothing extra stored. A malformed response throws into the
+      // catch below and reverts to draft, same as before.
+      const parsed = JSON.parse(content) as Record<string, unknown>
+      const context: Record<string, string> = {}
+      for (const field of pack.contextFields) {
+        const value = parsed[field.key]
+        if (typeof value !== "string") throw new Error(`Analysis missing ${field.key}`)
+        context[field.key] = value
+      }
 
       await ctx.runMutation(internal.simulations.setContext, {
         id: args.id,
@@ -195,15 +215,17 @@ export const extractBrief = action({
     const openai = await createOpenAI()
     const model = resolveModel("fast")
     // Stateless intake with no simulation yet; the founder lane is the only
-    // one with a pitch intake until the second lane arrives.
+    // one with a pitch intake — packs without one never reach this action.
     const pack = getPack()
+    const extractPrompt = pack.prompts.extractBrief
+    if (!extractPrompt) throw new Error("This lane has no pitch intake")
 
     const response = await openai.chat.completions.create({
       model,
       messages: [
         {
           role: "system",
-          content: pack.prompts.extractBrief({ source: args.source, pitch: args.pitch }),
+          content: extractPrompt({ source: args.source, pitch: args.pitch }),
         },
       ],
       response_format: { type: "json_object" },

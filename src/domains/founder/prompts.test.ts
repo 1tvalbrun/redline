@@ -1,14 +1,14 @@
 import test from "node:test"
 import assert from "node:assert/strict"
 import { analyzeSystem, analyzeUser, audit, extractBrief, orchestrate, report } from "./prompts.ts"
-import type { Brief } from "../types.ts"
+import type { Scope } from "../types.ts"
 
 // Pin tests for the founder prompts, written when the templates moved out of
 // the Convex actions. They hold the load-bearing lines (grounding rules,
 // JSON contracts, honesty rules) in place; a failure means the prompt
 // changed, which should only ever happen deliberately.
 
-const brief: Brief = {
+const scope: Scope = {
   ideaName: "Acme",
   stage: "Pre-seed",
   description: "Inventory forecasting for pharmacies",
@@ -22,7 +22,7 @@ test("analyze extracts the seven context fields from the brief", () => {
     analyzeSystem,
     /problem, targetCustomer, coreAssumption, revenueModel, primaryRisk, competitors, openQuestions/
   )
-  const user = analyzeUser(brief)
+  const user = analyzeUser(scope)
   assert.match(user, /Idea: Acme/)
   assert.match(user, /Focus Areas: pricing/)
 })
@@ -42,7 +42,7 @@ test("extractBrief clamps the pitch to its char budget", () => {
 })
 
 test("audit keeps the evidence split, the axis set, and the citation contract", () => {
-  const prompt = audit({ brief, unreadableCount: 1, materialSections: "=== deck.pdf ===" })
+  const prompt = audit({ scope, unreadableCount: 1, materialSections: "=== deck.pdf ===" })
   assert.match(prompt, /their own words, NOT evidence/)
   assert.match(prompt, /the ONLY citable evidence/)
   assert.match(prompt, /"market" \(TAM, demand, timing\)/)
@@ -52,7 +52,7 @@ test("audit keeps the evidence split, the axis set, and the citation contract", 
 })
 
 test("audit omits the unreadable-files line when everything was read", () => {
-  const prompt = audit({ brief, unreadableCount: 0, materialSections: "x" })
+  const prompt = audit({ scope, unreadableCount: 0, materialSections: "x" })
   assert.doesNotMatch(prompt, /could not be read/)
 })
 
@@ -61,7 +61,7 @@ test("orchestrate keeps the four axes, the echo of current scores, and the rules
     characterName: "Victoria Chen",
     characterRole: "Partner",
     characterTone: "Sharp",
-    brief,
+    scope,
     current: { market: 55, customer: 50, technical: 45, gtm: 60 },
   })
   assert.match(prompt, /alongside Victoria Chen \(Partner\)/)
@@ -74,7 +74,7 @@ test("orchestrate keeps the four axes, the echo of current scores, and the rules
 
 test("report keeps the grounding rules and the verdict contract", () => {
   const prompt = report({
-    brief,
+    scope,
     characterName: "Victoria Chen",
     characterRole: "Partner",
     characterTone: "Sharp",

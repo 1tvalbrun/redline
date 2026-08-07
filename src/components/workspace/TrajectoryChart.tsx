@@ -1,4 +1,4 @@
-import { INVESTOR_READY_LINE } from "@/lib/readiness"
+import { READY_LINE } from "@/lib/readiness"
 import type { TrajectoryPoint } from "@/lib/trajectory"
 
 const W = 520
@@ -12,7 +12,13 @@ const PLOT_H = H - TOP - BOTTOM
 
 const y = (score: number) => TOP + PLOT_H - (score / 100) * PLOT_H
 
-export const TrajectoryChart = ({ points }: { points: TrajectoryPoint[] }) => {
+export const TrajectoryChart = ({
+  points,
+  targetLabel = "Ready",
+}: {
+  points: TrajectoryPoint[]
+  targetLabel?: string
+}) => {
   if (points.length === 0) {
     return (
       <div className="flex h-[180px] items-center justify-center border border-dashed border-line-2">
@@ -35,7 +41,7 @@ export const TrajectoryChart = ({ points }: { points: TrajectoryPoint[] }) => {
       role="img"
       aria-label={`Readiness over ${points.length} ${points.length === 1 ? "run" : "runs"}: ${points
         .map((p) => p.score)
-        .join(", ")}. Investor-ready at ${INVESTOR_READY_LINE}.`}
+        .join(", ")}. ${targetLabel} at ${READY_LINE}.`}
       className="block h-auto w-full"
     >
       {[0, 50, 100].map((gridValue) => (
@@ -62,21 +68,21 @@ export const TrajectoryChart = ({ points }: { points: TrajectoryPoint[] }) => {
 
       <line
         x1={LEFT}
-        y1={y(INVESTOR_READY_LINE)}
+        y1={y(READY_LINE)}
         x2={W - RIGHT}
-        y2={y(INVESTOR_READY_LINE)}
+        y2={y(READY_LINE)}
         stroke="var(--red)"
         strokeWidth={1}
         strokeDasharray="4 4"
       />
       <text
         x={W - RIGHT}
-        y={y(INVESTOR_READY_LINE) - 5}
+        y={y(READY_LINE) - 5}
         textAnchor="end"
         fill="var(--red-fg)"
         style={{ fontFamily: "var(--font-plex-mono)", fontSize: 9 }}
       >
-        READY {INVESTOR_READY_LINE}
+        {targetLabel.toUpperCase()} {READY_LINE}
       </text>
 
       {coords.length > 1 && (

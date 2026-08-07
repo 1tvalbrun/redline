@@ -9,39 +9,25 @@ import { api } from "@convex/_generated/api"
 import { Id } from "@convex/_generated/dataModel"
 import { cn } from "@/lib/utils"
 import { deriveAuditRiskScores } from "@/lib/preRunScores"
-import { deriveReadiness, AXIS_LABELS, AXIS_TO_CHARACTER } from "@/lib/readiness"
+import { deriveReadiness } from "@/lib/readiness"
+import { axisKeys, axisLabel, axisOwners, getPack } from "@/domains/registry"
+import type { AttackSegment } from "@/domains/types"
 import { FLOW_BTN, StageKicker } from "@/components/simulation/flow/FlowShell"
 import { IdeaNotFound } from "@/components/simulation/flow/IdeaNotFound"
-import { DEFAULT_CHARACTERS } from "../characters"
 
-const ARCHETYPE_ROLES: Record<string, string> = {
-  vc: "The VC",
-  target_customer: "The buyer",
-  technical_architect: "The architect",
-}
-
-const CHARACTER_ATTACK: Record<string, React.ReactNode> = {
-  "vc-01": (
-    <>
-      Will open on <b className="text-on-surface">market size and pricing power</b>:
-      your TAM and why anyone pays.
-    </>
-  ),
-  "tc-01": (
-    <>
-      Plays your real customer. Comes for{" "}
-      <b className="text-on-surface">switching cost and procurement</b>: why he&apos;d
-      rip out what he already has.
-    </>
-  ),
-  "ta-01": (
-    <>
-      Thinks in failure modes. Goes straight at{" "}
-      <b className="text-on-surface">feasibility and reliability</b>: accuracy claims,
-      latency, and what breaks first.
-    </>
-  ),
-}
+const Attack = ({ segments }: { segments: AttackSegment[] }) => (
+  <>
+    {segments.map((segment, i) =>
+      segment.strong ? (
+        <b key={i} className="text-on-surface">
+          {segment.text}
+        </b>
+      ) : (
+        <span key={i}>{segment.text}</span>
+      )
+    )}
+  </>
+)
 
 type PanelSetupProps = {
   simulationId: string
@@ -72,11 +58,12 @@ export const PanelSetup = ({ simulationId }: PanelSetupProps) => {
 
   if (simulation === undefined || room === undefined) return null
   if (simulation === null) return <IdeaNotFound />
+  const pack = getPack(simulation.packId)
 
   if (!simulation.context) {
     return (
       <div>
-        <StageKicker>Choose your interrogator</StageKicker>
+        <StageKicker>{pack.copy.panel.kicker}</StageKicker>
         <p className="text-[13.5px] text-on-surface-2">
           Your brief is still being read. The panel needs it before the questions
           start.{" "}
@@ -95,7 +82,7 @@ export const PanelSetup = ({ simulationId }: PanelSetupProps) => {
   if (room) {
     return (
       <div>
-        <StageKicker>Choose your interrogator</StageKicker>
+        <StageKicker>{pack.copy.panel.kicker}</StageKicker>
         <h1 className="max-w-[16ch] font-display text-[clamp(28px,3.6vw,44px)] font-bold leading-[1.06] tracking-[-.02em]">
           A run is already live.
         </h1>
@@ -117,25 +104,30 @@ export const PanelSetup = ({ simulationId }: PanelSetupProps) => {
     )
   }
 
+  const axes = axisKeys(pack)
   const weakest =
     audit?.status === "ready"
-      ? deriveReadiness(deriveAuditRiskScores(audit)).underFire
+      ? deriveReadiness(axes, deriveAuditRiskScores(audit, axes)).underFire
       : null
-  const recommendedId = weakest ? AXIS_TO_CHARACTER[weakest] : null
+  const recommendedId = weakest ? (axisOwners(pack)[weakest] ?? null) : null
 
   return (
     <div>
-      <StageKicker>Choose your interrogator</StageKicker>
+      <StageKicker>{pack.copy.panel.kicker}</StageKicker>
       <h1 className="max-w-[16ch] font-display text-[clamp(28px,3.6vw,44px)] font-bold leading-[1.06] tracking-[-.02em]">
-        Who do you want to face first?
+        {pack.copy.panel.heading}
       </h1>
       <p className="mt-3.5 max-w-[52ch] text-[15.5px] leading-[1.55] text-on-surface-2">
-        Each panelist reads your brief before the room opens. Start with whoever you
-        least want to talk to. That&apos;s usually the one worth the most.
+        {pack.copy.panel.lead}
       </p>
 
-      <div className="mt-5 grid gap-[18px] max-md:grid-cols-1 md:grid-cols-3">
-        {DEFAULT_CHARACTERS.map((char) => (
+      <div
+        className={cn(
+          "mt-5 grid gap-[18px] max-md:grid-cols-1",
+          pack.personas.length > 1 ? "md:grid-cols-3" : "md:max-w-[360px]"
+        )}
+      >
+        {pack.personas.map((char) => (
           <button
             key={char.id}
             type="button"
@@ -149,7 +141,7 @@ export const PanelSetup = ({ simulationId }: PanelSetupProps) => {
           >
             {char.id === recommendedId && weakest && (
               <span className="block bg-red px-3 py-[5px] font-mono text-[9px] uppercase tracking-[.1em] text-white">
-                Recommended · targets your weakest axis ({AXIS_LABELS[weakest]})
+                Recommended · targets your weakest axis ({axisLabel(pack, weakest)})
               </span>
             )}
             <span className="relative block aspect-[4/3] overflow-hidden bg-[#1C1C1E]">
@@ -161,7 +153,7 @@ export const PanelSetup = ({ simulationId }: PanelSetupProps) => {
                 className="object-cover"
               />
               <span className="absolute bottom-3 left-3.5 font-mono text-[9.5px] uppercase tracking-[.16em] text-white [text-shadow:0_1px_5px_rgba(0,0,0,.5)]">
-                {ARCHETYPE_ROLES[char.archetypeId]}
+                {char.shortRole}
               </span>
             </span>
             <span className="block p-4">
@@ -170,7 +162,7 @@ export const PanelSetup = ({ simulationId }: PanelSetupProps) => {
               </span>
               <span className="mt-[2px] block text-xs text-on-surface-2">{char.role}</span>
               <span className="mt-3 block text-[13px] leading-[1.5] text-on-surface-2">
-                {CHARACTER_ATTACK[char.id]}
+                <Attack segments={char.attack} />
               </span>
               <span className="mt-4 flex items-center gap-2 border-t border-line pt-3.5 font-mono text-[11px] uppercase tracking-[.06em] text-on-surface transition-colors group-hover:text-red-fg">
                 {startingId === char.id ? "Entering the room…" : "Enter the room →"}

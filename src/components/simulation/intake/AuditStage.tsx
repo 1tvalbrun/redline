@@ -7,10 +7,12 @@ import { api } from "@convex/_generated/api"
 import { Id } from "@convex/_generated/dataModel"
 import type { Claim, Gap } from "@/lib/audit"
 import { deriveAuditRiskScores } from "@/lib/preRunScores"
-import { deriveReadiness, AXIS_LABELS, INVESTOR_READY_LINE, AXES } from "@/lib/readiness"
+import { deriveReadiness, READY_LINE } from "@/lib/readiness"
+import { axisKeys, axisLabel, getPack, scopeOf } from "@/domains/registry"
+import { scopeText, type DomainPack } from "@/domains/types"
 import { cn } from "@/lib/utils"
 import { FLOW_BTN, StageKicker } from "@/components/simulation/flow/FlowShell"
-import { WaitingScreen, AUDIT_WAIT } from "@/components/simulation/flow/WaitingScreen"
+import { WaitingScreen } from "@/components/simulation/flow/WaitingScreen"
 import { IdeaNotFound } from "@/components/simulation/flow/IdeaNotFound"
 
 const KIND_LABELS: Record<Gap["kind"], string> = {
@@ -31,7 +33,7 @@ const ClaimCard = ({ claim }: { claim: Claim }) => (
   </li>
 )
 
-const GapCard = ({ gap }: { gap: Gap }) => (
+const GapCard = ({ gap, pack }: { gap: Gap; pack: DomainPack }) => (
   <li
     className={cn(
       "border border-line-2 bg-surface-raised p-4",
@@ -54,7 +56,7 @@ const GapCard = ({ gap }: { gap: Gap }) => (
     <p className="mt-2 text-[12.5px] leading-[1.5] text-on-surface-2">{gap.detail}</p>
     <p className="mt-2 font-mono text-[9px] uppercase tracking-[.08em] text-on-surface-3">
       {KIND_LABELS[gap.kind]}
-      {gap.axis && ` · ${AXIS_LABELS[gap.axis]}`}
+      {gap.axis && ` · ${axisLabel(pack, gap.axis)}`}
     </p>
   </li>
 )
@@ -76,7 +78,7 @@ export const AuditStage = ({ simulationId }: AuditStageProps) => {
     generateAudit({ simulationId: typedId, force }).catch(() => setStartFailed(true))
   }
 
-  // Auto-start on first entry: the founder just asked for the read, so the
+  // Auto-start on first entry: the user just asked for the read, so the
   // audit shouldn't sit behind a button. The ref stops re-render double-fires;
   // the server's idempotent start collapses refreshes and concurrent triggers.
   useEffect(() => {
@@ -87,6 +89,8 @@ export const AuditStage = ({ simulationId }: AuditStageProps) => {
 
   if (simulation === undefined || audit === undefined) return null
   if (simulation === null) return <IdeaNotFound />
+  const pack = getPack(simulation.packId)
+  const copy = pack.copy.audit
   if (!simulation.context) {
     return (
       <p className="text-[13.5px] text-on-surface-2">
@@ -108,7 +112,7 @@ export const AuditStage = ({ simulationId }: AuditStageProps) => {
       <div>
         {failed ? (
           <>
-            <StageKicker>The audit · before the panel pushes</StageKicker>
+            <StageKicker>{copy.kicker}</StageKicker>
             <h1 className="max-w-[16ch] font-display text-[clamp(28px,3.6vw,44px)] font-bold leading-[1.06] tracking-[-.02em]">
               The audit hit a wall.
             </h1>
@@ -125,30 +129,32 @@ export const AuditStage = ({ simulationId }: AuditStageProps) => {
           </>
         ) : (
           <WaitingScreen
-            kicker="The audit · before the panel pushes"
-            heading={`Reading ${simulation.brief.ideaName} against a diligence framework.`}
-            lead="We check every claim for backing, and note everything a real diligencer would ask for."
-            {...AUDIT_WAIT}
+            kicker={pack.copy.auditWait.kicker}
+            heading={pack.copy.auditWait.heading(scopeText(scopeOf(simulation), pack.subjectField))}
+            lead={pack.copy.auditWait.lead}
+            rows={pack.copy.auditWait.rows}
+            work={pack.copy.auditWait.work}
+            ticker={pack.copy.auditWait.ticker}
+            stepMs={pack.copy.auditWait.stepMs}
           />
         )}
       </div>
     )
   }
 
-  const readiness = deriveReadiness(deriveAuditRiskScores(audit))
+  const axes = axisKeys(pack)
+  const readiness = deriveReadiness(axes, deriveAuditRiskScores(audit, axes))
 
   return (
     <div>
-      <StageKicker>The audit · before the panel pushes</StageKicker>
+      <StageKicker>{copy.kicker}</StageKicker>
       <div className="flex items-end justify-between gap-6 max-md:flex-col max-md:items-start">
         <div>
           <h1 className="max-w-[16ch] font-display text-[clamp(28px,3.6vw,44px)] font-bold leading-[1.06] tracking-[-.02em]">
-            Here&apos;s what we found, and what&apos;s missing.
+            {copy.readyHeading}
           </h1>
           <p className="mt-3.5 max-w-[52ch] text-[15.5px] leading-[1.55] text-on-surface-2">
-            Read straight from your materials before a single question. Every gap below
-            is something a real diligencer will find. The panel presses on the red ones
-            first.
+            {copy.readyLead}
           </p>
         </div>
         <div className="flex-none text-right">
@@ -162,21 +168,21 @@ export const AuditStage = ({ simulationId }: AuditStageProps) => {
           <p className="mt-1 font-mono text-[10px] uppercase tracking-[.1em] text-red-fg">
             {readiness.overall === null
               ? "Pending"
-              : readiness.overall >= INVESTOR_READY_LINE
-                ? "Clear of the investor-ready line"
-                : `${INVESTOR_READY_LINE - readiness.overall} below the ready line`}
+              : readiness.overall >= READY_LINE
+                ? `Clear of the ${pack.targetLine.label.toLowerCase()} line`
+                : `${READY_LINE - readiness.overall} below the ready line`}
           </p>
         </div>
       </div>
 
       <ul className="my-7 grid gap-3.5 max-md:grid-cols-2 md:grid-cols-4" aria-label="Readiness by axis">
-        {AXES.map((axis) => {
+        {axes.map((axis) => {
           const value = readiness.perAxis[axis]
           const weakest = axis === readiness.underFire
           return (
             <li key={axis} className="border border-line-2 bg-surface-raised p-3.5">
               <p className="flex justify-between font-mono text-[10px] uppercase tracking-[.1em] text-on-surface-2">
-                {AXIS_LABELS[axis]}
+                {axisLabel(pack, axis)}
                 {weakest && <span className="text-red-fg">weakest</span>}
               </p>
               <p
@@ -211,7 +217,7 @@ export const AuditStage = ({ simulationId }: AuditStageProps) => {
               0 claims cited
             </span>
             <span className="text-[13.5px] text-on-surface-2">
-              That&apos;s the finding: the panel will treat everything as unproven.
+              {copy.zeroClaims}
             </span>
           </p>
         ) : (
@@ -238,7 +244,7 @@ export const AuditStage = ({ simulationId }: AuditStageProps) => {
                   (a.severity === "blocker" ? 0 : 1) - (b.severity === "blocker" ? 0 : 1)
               )
               .map((gap, i) => (
-                <GapCard key={i} gap={gap} />
+                <GapCard key={i} gap={gap} pack={pack} />
               ))}
           </ul>
         )}
@@ -246,7 +252,7 @@ export const AuditStage = ({ simulationId }: AuditStageProps) => {
 
       <div className="mt-[26px] flex items-center gap-3.5">
         <Link href={`/simulation/${simulationId}/panel`} className={FLOW_BTN}>
-          Take it to the panel <span aria-hidden="true">→</span>
+          {copy.cta} <span aria-hidden="true">→</span>
         </Link>
         <button
           type="button"

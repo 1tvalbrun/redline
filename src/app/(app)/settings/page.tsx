@@ -4,6 +4,7 @@ import Link from "next/link"
 import { useState } from "react"
 import { useMutation, useQuery } from "convex/react"
 import { api } from "@convex/_generated/api"
+import { ALL_PACKS } from "@/domains/registry"
 import { Panel } from "@/components/shared/Panel"
 
 // Deletion needs no navigation here: removing the users row flips the
@@ -11,9 +12,25 @@ import { Panel } from "@/components/shared/Panel"
 const SettingsPage = () => {
   const user = useQuery(api.users.getCurrent)
   const deleteAccount = useMutation(api.users.deleteAccount)
+  const addLane = useMutation(api.users.addLane)
   const [confirming, setConfirming] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [failed, setFailed] = useState(false)
+  const [laneFailed, setLaneFailed] = useState(false)
+  const [enablingLane, setEnablingLane] = useState<string | null>(null)
+
+  const handleEnableLane = async (lane: string) => {
+    if (enablingLane) return
+    setEnablingLane(lane)
+    setLaneFailed(false)
+    try {
+      await addLane({ lane })
+    } catch {
+      setLaneFailed(true)
+    } finally {
+      setEnablingLane(null)
+    }
+  }
 
   const handleDelete = async () => {
     if (deleting) return
@@ -37,6 +54,53 @@ const SettingsPage = () => {
           Your account
         </h1>
       </div>
+
+      <Panel title="Practice lanes">
+        <p className="text-[13.5px] leading-[1.6] text-on-surface-2">
+          Every lane you enable shows up when you start a new run. Enabling a
+          lane never touches your existing history.
+        </p>
+        <ul className="mt-4 space-y-2.5">
+          {ALL_PACKS.map((pack) => {
+            const enabled = user?.lanes.includes(pack.id) ?? false
+            return (
+              <li
+                key={pack.id}
+                className="flex items-center justify-between gap-4 border border-line-2 p-3.5"
+              >
+                <span>
+                  <span className="block font-display text-[15px] font-bold tracking-[-.01em]">
+                    {pack.label}
+                  </span>
+                  <span className="mt-0.5 block text-[12.5px] leading-[1.5] text-on-surface-2">
+                    {pack.description}
+                  </span>
+                </span>
+                {enabled ? (
+                  <span className="flex-none font-mono text-[10px] uppercase tracking-[.1em] text-ok">
+                    Enabled
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => handleEnableLane(pack.id)}
+                    disabled={enablingLane !== null || user === undefined}
+                    aria-label={`Enable ${pack.label}`}
+                    className="focus-ring flex-none border border-line-2 px-3.5 py-2 font-mono text-[10.5px] uppercase tracking-[.08em] text-on-surface transition-colors hover:border-red hover:text-red-fg disabled:pointer-events-none disabled:opacity-60"
+                  >
+                    {enablingLane === pack.id ? "Enabling…" : "Enable"}
+                  </button>
+                )}
+              </li>
+            )
+          })}
+        </ul>
+        {laneFailed && (
+          <p role="alert" className="mt-3 text-[13px] text-red-fg">
+            Couldn&apos;t enable that lane. Check your connection and try again.
+          </p>
+        )}
+      </Panel>
 
       <Panel title="Legal">
         <p className="text-[13.5px] leading-[1.6] text-on-surface-2">

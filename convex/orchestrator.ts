@@ -2,9 +2,8 @@ import { v } from "convex/values"
 import { action } from "./_generated/server"
 import { api, internal } from "./_generated/api"
 import { bySpokenTime } from "../src/lib/transcript"
-import { AXES } from "../src/lib/readiness"
 import { createOpenAI, resolveModel } from "../src/lib/openai"
-import { getPack } from "../src/domains/registry"
+import { axisKeys, getPack, scopeOf } from "../src/domains/registry"
 import type { NoteType } from "./schema"
 import { requireIdentity } from "./guard"
 
@@ -17,7 +16,7 @@ const NOTE_TYPES: ReadonlySet<string> = new Set([
 ] satisfies NoteType[])
 
 type DecideResult = {
-  scores: { market: number; customer: number; technical: number; gtm: number }
+  scores: Record<string, number>
   note?: { type?: string; text?: string }
 } | null
 
@@ -39,6 +38,9 @@ export const decide = action({
     const character = room.characters[0]
     if (!character) return null
 
+    const pack = getPack(simulation.packId)
+    const axes = axisKeys(pack)
+
     // Speech order, not arrival order: an avatar turn's final arrives only
     // when her next turn starts, so unsorted the model reads answers before
     // their questions and late finals push true turns out of the window.
@@ -46,21 +48,17 @@ export const decide = action({
       .slice(-12)
       .map((e) =>
         e.type === "user"
-          ? `FOUNDER: ${e.text}`
+          ? `${pack.userLabel}: ${e.text}`
           : `${character.name.toUpperCase()}: ${e.text}`
       )
       .join("\n")
 
-    const current = {
-      market: room.riskScores.market ?? 50,
-      customer: room.riskScores.customer ?? 50,
-      technical: room.riskScores.technical ?? 50,
-      gtm: room.riskScores.gtm ?? 50,
-    }
+    const current = Object.fromEntries(
+      axes.map((axis) => [axis, room.riskScores[axis] ?? 50])
+    )
 
     const openai = await createOpenAI()
     const model = resolveModel("fast")
-    const pack = getPack(simulation.packId)
 
     const response = await openai.chat.completions.create({
       model,
@@ -71,7 +69,7 @@ export const decide = action({
             characterName: character.name,
             characterRole: character.role,
             characterTone: character.tone,
-            brief: simulation.brief,
+            scope: scopeOf(simulation),
             current,
           }),
         },
@@ -84,7 +82,7 @@ export const decide = action({
     if (!content) return null
 
     let parsed: {
-      riskScores?: Partial<Record<"market" | "customer" | "technical" | "gtm", number>>
+      riskScores?: Partial<Record<string, number>>
       note?: { type?: string; text?: string }
     }
     try {
@@ -97,20 +95,18 @@ export const decide = action({
     // committed score, so concurrent turns can't clamp against stale reads.
     const r = parsed.riskScores ?? {}
     const proposed = Object.fromEntries(
-      AXES.flatMap((axis) =>
-        typeof r[axis] === "number" ? [[axis, r[axis]]] : []
-      )
+      axes.flatMap((axis) => {
+        const value = r[axis]
+        return typeof value === "number" ? [[axis, value]] : []
+      })
     )
     const updated = await ctx.runMutation(internal.rooms.updateRiskScores, {
       id: args.roomId,
       proposed,
     })
-    const scores = {
-      market: updated.market ?? current.market,
-      customer: updated.customer ?? current.customer,
-      technical: updated.technical ?? current.technical,
-      gtm: updated.gtm ?? current.gtm,
-    }
+    const scores = Object.fromEntries(
+      axes.map((axis) => [axis, updated[axis] ?? current[axis]])
+    )
 
     const note = parsed.note
     if (

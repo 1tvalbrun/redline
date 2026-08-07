@@ -14,9 +14,11 @@ import {
   SquareStack,
   Users,
 } from "lucide-react"
+import { useQuery } from "convex/react"
 import { cn } from "@/lib/utils"
 import type { FunctionReturnType } from "convex/server"
-import type { api } from "@convex/_generated/api"
+import { api } from "@convex/_generated/api"
+import { getPack, isPackId } from "@/domains/registry"
 
 // Derived from the server function, not re-declared — the rail can't drift
 // from what ideas.counts actually returns.
@@ -110,8 +112,14 @@ const NavGroup = ({ label, items, pathname }: { label: string; items: NavItem[];
 export const AppRail = ({ counts }: { counts: NavCounts | undefined }) => {
   const pathname = usePathname()
   const router = useRouter()
+  const user = useQuery(api.users.getCurrent)
+  const displayName = user?.displayName ?? "You"
+  const laneLabels = (user?.lanes ?? [])
+    .filter(isPackId)
+    .map((lane) => getPack(lane).label)
+    .join(" · ")
 
-  // "N" starts a new stress test from anywhere in the workspace.
+  // "N" starts a new run from anywhere in the workspace.
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key !== "n" || e.metaKey || e.ctrlKey || e.altKey) return
@@ -152,7 +160,7 @@ export const AppRail = ({ counts }: { counts: NavCounts | undefined }) => {
         className="focus-ring mb-1.5 flex items-center gap-2.5 bg-on-surface px-[13px] py-3 font-mono text-xs font-medium uppercase tracking-[.04em] text-surface transition-colors hover:bg-red hover:text-white"
       >
         <Plus className="h-[15px] w-[15px]" />
-        New stress test
+        New run
         <kbd className="ml-auto border border-white/20 px-[5px] font-mono text-[10px] text-white/60">N</kbd>
       </Link>
 
@@ -179,12 +187,12 @@ export const AppRail = ({ counts }: { counts: NavCounts | undefined }) => {
             aria-hidden="true"
             className="flex h-7 w-7 items-center justify-center rounded-full bg-on-surface font-display text-xs font-bold text-surface"
           >
-            F
+            {displayName.charAt(0).toUpperCase()}
           </span>
           <span className="text-[12.5px] font-medium leading-tight">
-            Founder
+            {displayName}
             <span className="block font-mono text-[9.5px] tracking-[.05em] text-on-surface-3">
-              Single-user demo
+              {laneLabels || "Invited testing"}
             </span>
           </span>
         </div>

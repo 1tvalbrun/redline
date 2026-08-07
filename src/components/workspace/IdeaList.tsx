@@ -6,10 +6,10 @@ import { api } from "@convex/_generated/api"
 import {
   deriveReadiness,
   readinessSeverity,
-  AXIS_LABELS,
-  INVESTOR_READY_LINE,
+  READY_LINE,
   type ReadinessSeverity,
 } from "@/lib/readiness"
+import { axisKeys, axisLabel, getPack } from "@/domains/registry"
 import { deriveTrajectory, type TrajectoryPoint } from "@/lib/trajectory"
 import { cn, formatAgo } from "@/lib/utils"
 import { useNow } from "@/lib/useNow"
@@ -65,7 +65,8 @@ const Sparkline = ({ points }: { points: TrajectoryPoint[] }) => {
 }
 
 const IdeaRow = ({ idea, now }: { idea: IdeaStats; now: number }) => {
-  const readiness = deriveReadiness(idea.latestRiskScores ?? undefined)
+  const pack = getPack(idea.packId)
+  const readiness = deriveReadiness(axisKeys(pack), idea.latestRiskScores ?? undefined)
   const trajectory = deriveTrajectory(idea.runs)
   const overall = readiness.overall
   const underFire = readiness.underFire
@@ -84,7 +85,7 @@ const IdeaRow = ({ idea, now }: { idea: IdeaStats; now: number }) => {
         <span>
           <span className="block font-display text-lg font-bold tracking-[-.01em]">{idea.name}</span>
           <span className="mt-[3px] block font-mono text-[10px] uppercase tracking-[.05em] text-on-surface-3">
-            {[idea.stage, idea.businessModel].filter(Boolean).join(" · ") || "No runs yet"}
+            {idea.meta.join(" · ") || "No runs yet"}
           </span>
         </span>
 
@@ -105,7 +106,7 @@ const IdeaRow = ({ idea, now }: { idea: IdeaStats; now: number }) => {
             <span
               aria-hidden="true"
               className="absolute -inset-y-[2px] w-px bg-red"
-              style={{ left: `${INVESTOR_READY_LINE}%` }}
+              style={{ left: `${READY_LINE}%` }}
             />
           </span>
         </span>
@@ -122,7 +123,7 @@ const IdeaRow = ({ idea, now }: { idea: IdeaStats; now: number }) => {
                 className={cn("h-2 w-2 flex-none", SEVERITY_BG[readinessSeverity(underFireValue)])}
               />
               <span className="font-mono text-[10.5px] uppercase tracking-[.04em]">
-                {AXIS_LABELS[underFire]}
+                {axisLabel(pack, underFire)}
               </span>
               <span className="ml-auto font-mono text-[10.5px] tabular-nums text-on-surface-3">
                 {underFireValue}
@@ -151,7 +152,7 @@ export const IdeaList = ({ ideas }: { ideas: IdeaStats[] }) => {
   return (
     <div>
       <div className="grid grid-cols-[1.4fr_1.3fr_100px_1fr_64px] gap-4 border-b border-line-2 px-3.5 pb-[9px] pt-3.5 font-mono text-[9.5px] uppercase tracking-[.14em] text-on-surface-3 max-lg:grid-cols-[1.4fr_1.3fr_1fr]">
-        <span>Idea</span>
+        <span>Name</span>
         <span>Readiness → ready line</span>
         <span className="max-lg:hidden">Trajectory</span>
         <span>Weakest axis</span>

@@ -7,7 +7,8 @@ import { api } from "@convex/_generated/api"
 import { Id } from "@convex/_generated/dataModel"
 import { AvatarProvider, AvatarVideo } from "@runwayml/avatars-react"
 import { Mic, MicOff, Pause } from "lucide-react"
-import { deriveReadiness, AXIS_LABELS } from "@/lib/readiness"
+import { deriveReadiness } from "@/lib/readiness"
+import { axisKeys, axisLabel, getPack } from "@/domains/registry"
 import { isSessionStale, lastActivityAt } from "@/lib/session"
 import { useNow } from "@/lib/useNow"
 import { formatElapsed } from "@/lib/utils"
@@ -31,12 +32,12 @@ type RoomShellProps = {
 // create ≤60s server-side is the outlier; a healthy connect is <15s).
 const AVATAR_CONNECT_TIMEOUT_MS = 40_000
 
-// Display-only hold on the founder's finalized turns so both sides land at
+// Display-only hold on the user's finalized turns so both sides land at
 // one rhythm: the avatar's transcript inherently lags several seconds behind
-// his speech (measured ~8-10s in live sessions), the founder's commits
+// its speech (measured ~8-10s in live sessions), the user's commits
 // ~0.7s after theirs. Scoring is NOT delayed — orchestrator.decide reads
 // Convex directly. Tune the cadence here.
-const FOUNDER_TRANSCRIPT_DELAY_MS = 6000
+const USER_TRANSCRIPT_DELAY_MS = 6000
 
 // Elapsed for THIS sitting, anchored at mount — a resumed room is far older
 // than the session being recorded (anchoring at room creation once read
@@ -62,6 +63,7 @@ export const RoomShell = ({ simulationId }: RoomShellProps) => {
   const router = useRouter()
   const typedId = simulationId as Id<"simulations">
   const room = useQuery(api.rooms.getBySimulation, { simulationId: typedId })
+  const simulation = useQuery(api.simulations.get, { id: typedId })
   const generateReport = useAction(api.reports.generate)
   const ended = useRef(false)
 
@@ -102,7 +104,7 @@ export const RoomShell = ({ simulationId }: RoomShellProps) => {
 
   // The session can hang without ever erroring (observed live: LiveKit
   // connects but the avatar worker never joins, so onError never fires).
-  // A founder must not be trapped staring at an empty room — after the
+  // A user must not be trapped staring at an empty room — after the
   // deadline the failure view offers retry or a graceful exit.
   useEffect(() => {
     const timer = setTimeout(
@@ -114,7 +116,7 @@ export const RoomShell = ({ simulationId }: RoomShellProps) => {
 
   const connectTimedOut = timedOutAttempt === connectAttempt
 
-  // A room with no chosen panelist means the founder skipped the Panel
+  // A room with no chosen panelist means the user skipped the Panel
   // stage — send them there instead of defaulting one.
   useEffect(() => {
     if (room === null) {
@@ -122,8 +124,11 @@ export const RoomShell = ({ simulationId }: RoomShellProps) => {
     }
   }, [room, router, simulationId])
 
-  if (room === undefined || room === null) return null
+  // Wait for the simulation too: getPack falls back to the founder pack, so
+  // rendering before packId arrives would flash founder labels in a sales room.
+  if (room === undefined || room === null || simulation === undefined) return null
 
+  const pack = getPack(simulation?.packId)
   const character = room.characters[0]
   const concluded = room.status === "concluded"
   // A live room left idle past the threshold reads as over: one
@@ -137,7 +142,7 @@ export const RoomShell = ({ simulationId }: RoomShellProps) => {
       mountedAt
     )
   const sessionOver = concluded || stale
-  const underFire = deriveReadiness(room.riskScores).underFire
+  const underFire = deriveReadiness(axisKeys(pack), room.riskScores).underFire
 
   const handleEndSession = () => {
     if (ended.current) return
@@ -168,7 +173,7 @@ export const RoomShell = ({ simulationId }: RoomShellProps) => {
       ? avatarError?.message ?? null
       : hasConnected
         ? avatarStatus === "ended"
-          ? "The live session ended on the panel's side."
+          ? `The live session ended on ${character?.name ?? "the panelist"}'s side.`
           : null
         : attemptStarted && avatarStatus === "ended"
           ? "The avatar session closed before it connected."
@@ -194,8 +199,8 @@ export const RoomShell = ({ simulationId }: RoomShellProps) => {
       {!sessionOver && <UserSpeechBridge roomId={room._id} enabled={micLive} />}
 
       <aside className="col-start-1 row-span-2 row-start-1 flex flex-col gap-[18px] border-r border-line bg-surface-raised px-4 py-5">
-        <UserTile userName="Founder" micState={micState} onToggleMic={handleToggleMic} />
-        <PromptHelpers className="mt-auto" />
+        <UserTile userName={pack.userTitle} micState={micState} onToggleMic={handleToggleMic} />
+        <PromptHelpers prompts={pack.copy.promptHelpers} className="mt-auto" />
         <Disclosure />
       </aside>
 
@@ -220,7 +225,7 @@ export const RoomShell = ({ simulationId }: RoomShellProps) => {
         ) : avatarFailure ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
             <p className="font-mono text-[11px] uppercase tracking-[.14em] text-red-fg">
-              The panel isn&apos;t responding
+              {character?.name ?? "The panelist"} isn&apos;t responding
             </p>
             <p className="max-w-[42ch] text-center text-[13.5px] text-on-surface-2">
               {avatarFailure} Your session and everything said so far are
@@ -257,7 +262,7 @@ export const RoomShell = ({ simulationId }: RoomShellProps) => {
                 <div className="absolute inset-0 bg-[radial-gradient(62%_46%_at_50%_20%,rgba(255,255,255,.4),transparent_62%)]" />
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-2.5">
                   <p className="font-mono text-[11px] uppercase tracking-[.14em] text-[#544f45] motion-safe:animate-pulse">
-                    Connecting {character.name} to the panel…
+                    Connecting {character.name}…
                   </p>
                   <p className="font-mono text-[10px] uppercase tracking-[.1em] text-[#544f45]/70">
                     Establishing the live session — up to ~30 seconds
@@ -355,7 +360,7 @@ export const RoomShell = ({ simulationId }: RoomShellProps) => {
         </button>
         {underFire && (
           <span className="font-mono text-[11px] uppercase tracking-[.1em] text-on-surface-2">
-            {AXIS_LABELS[underFire]} under discussion
+            {axisLabel(pack, underFire)} under discussion
           </span>
         )}
         <button
@@ -373,7 +378,7 @@ export const RoomShell = ({ simulationId }: RoomShellProps) => {
           <TranscriptPanel
             transcript={room.transcript}
             startedAt={room._creationTime}
-            delayUserMs={concluded ? undefined : FOUNDER_TRANSCRIPT_DELAY_MS}
+            delayUserMs={concluded ? undefined : USER_TRANSCRIPT_DELAY_MS}
           />
         </div>
         <div className="min-h-0 flex-1">

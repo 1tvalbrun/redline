@@ -21,65 +21,13 @@ const useReduceMotion = () =>
 const TICKER_MS = 2100
 const TYPE_TICK_MS = 14
 
-type WaitingRow = { label: string; text: string }
-
 type WaitingContent = {
-  rows: WaitingRow[]
+  rows: { label: string; text: string }[]
   work: string[]
   ticker: string[]
   // Row cadence — presentational timing sized to the stage's typical wait,
   // not real backend progress.
   stepMs: number
-}
-
-export const READ_WAIT: WaitingContent = {
-  rows: [
-    { label: "Idea name", text: "Registering what you’re building…" },
-    { label: "What it is", text: "Reading the shape of the product…" },
-    { label: "Who it’s for", text: "Working out who actually buys this…" },
-    { label: "Why now", text: "Looking for what changed to make this urgent…" },
-    { label: "Stage", text: "Placing you on the maturity curve…" },
-    { label: "Business model", text: "Tracing how the money is meant to work…" },
-  ],
-  work: [
-    "Parsing your brief",
-    "Mapping the problem space",
-    "Surfacing core assumptions",
-    "Naming the primary risk",
-    "Drafting the open questions",
-  ],
-  ticker: [
-    "We only work with what you actually gave us.",
-    "Nothing gets invented — if we didn’t catch it, we ask.",
-    "A gap is a finding, not a failure.",
-    "The panel reads this before you walk in.",
-  ],
-  stepMs: 1250,
-}
-
-export const AUDIT_WAIT: WaitingContent = {
-  rows: [
-    { label: "Claims", text: "Pulling out every claim you’ve made…" },
-    { label: "Citations", text: "Tracing each one back to a page…" },
-    { label: "Evidence", text: "Checking what’s actually backed…" },
-    { label: "Omissions", text: "Finding what a diligencer expects and can’t see…" },
-    { label: "Severity", text: "Sorting blockers from gaps…" },
-    { label: "Axes", text: "Weighing market, customer, technical, go-to-market…" },
-  ],
-  work: [
-    "Reading your materials",
-    "Extracting stated claims",
-    "Verifying each against a source",
-    "Assembling the gap map",
-    "Scoring the four axes",
-  ],
-  ticker: [
-    "Every claim has to trace to a source.",
-    "If it can’t be cited, it becomes a gap.",
-    "Gaps are what the panel presses on first.",
-    "This is the read before a single question.",
-  ],
-  stepMs: 2000,
 }
 
 const TypedText = ({ text }: { text: string }) => {
@@ -111,10 +59,11 @@ type WaitingScreenProps = WaitingContent & {
   lead: string
 }
 
-// The shared Read/Audit waiting mechanic. Rows carry anticipatory copy about what's
-// being examined — never extracted values or counts; the real findings live
-// on the next screen. Callers unmount it the moment the real operation
-// finishes (never make the founder wait out the animation); if the
+// The shared Read/Audit waiting mechanic; all copy arrives from the pack
+// (pack.copy.readWait / auditWait). Rows carry anticipatory copy about
+// what's being examined — never extracted values or counts; the real
+// findings live on the next screen. Callers unmount it the moment the real
+// operation finishes (never make the user wait out the animation); if the
 // operation runs long it holds on the final row rather than faking
 // completion.
 export const WaitingScreen = ({ kicker, heading, lead, rows, work, ticker, stepMs }: WaitingScreenProps) => {

@@ -7,7 +7,9 @@ import { api } from "@convex/_generated/api"
 import { Id } from "@convex/_generated/dataModel"
 import { cn } from "@/lib/utils"
 import { FLOW_BTN } from "@/components/simulation/flow/FlowShell"
-import { WaitingScreen, READ_WAIT } from "@/components/simulation/flow/WaitingScreen"
+import { getPack, scopeOf } from "@/domains/registry"
+import { scopeText } from "@/domains/types"
+import { WaitingScreen } from "@/components/simulation/flow/WaitingScreen"
 import { IdeaNotFound } from "@/components/simulation/flow/IdeaNotFound"
 
 const SLOW_READ_MS = 20_000
@@ -28,7 +30,7 @@ export const AnalysisPipeline = ({ simulationId }: AnalysisPipelineProps) => {
   const ready = simulation?.status === "ready" && !!simulation.context
 
   // The findings live on the Audit stage — advance the moment the read
-  // completes rather than making the founder wait out the animation.
+  // completes rather than making the user wait out the animation.
   useEffect(() => {
     if (ready) router.replace(`/simulation/${simulationId}/audit`)
   }, [ready, router, simulationId])
@@ -53,13 +55,19 @@ export const AnalysisPipeline = ({ simulationId }: AnalysisPipelineProps) => {
   if (simulation === null) return <IdeaNotFound />
   if (ready) return null
 
+  const pack = getPack(simulation.packId)
+  const wait = pack.copy.readWait
+
   return (
     <div>
       <WaitingScreen
-        kicker="Reading your brief"
-        heading="Going through what you gave us."
-        lead="The panel's analyst reads every line before a single question. This takes a few seconds."
-        {...READ_WAIT}
+        kicker={wait.kicker}
+        heading={wait.heading(scopeText(scopeOf(simulation), pack.subjectField))}
+        lead={wait.lead}
+        rows={wait.rows}
+        work={wait.work}
+        ticker={wait.ticker}
+        stepMs={wait.stepMs}
       />
       {isSlow && (
         <div className="mt-8">

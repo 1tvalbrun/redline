@@ -14,7 +14,7 @@ const IdeasPage = () => {
       <div className="mb-5 flex items-end justify-between">
         <h1 className="font-display text-[clamp(26px,3vw,38px)] font-bold">Ideas</h1>
         <Link href="/simulation/new" className={WORKSPACE_CTA}>
-          New stress test
+          New run
         </Link>
       </div>
 
@@ -28,7 +28,7 @@ const IdeasPage = () => {
         <p className="text-[13.5px] text-on-surface-2">
           No ideas yet.{" "}
           <Link href="/simulation/new" className="focus-ring underline hover:text-red-fg">
-            Start your first stress test
+            Start your first run
           </Link>
           .
         </p>

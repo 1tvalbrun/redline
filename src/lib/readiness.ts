@@ -1,12 +1,15 @@
-export const AXES = ["market", "customer", "technical", "gtm"] as const
+// Pack-agnostic readiness machinery. Which axes exist, their labels, and
+// which persona owns each one are pack data (src/domains); everything here
+// takes the axis keys as input and never names one.
 
-export type Axis = (typeof AXES)[number]
-
-export type RiskScores = Partial<Record<Axis, number>>
+export type RiskScores = Partial<Record<string, number>>
 
 export type Readiness = number & { readonly __brand: "Readiness" }
 
-export const INVESTOR_READY_LINE = 90
+// The engine-wide readiness bar. What the line is *called* is pack copy
+// (pack.targetLine.label: "Investor-ready", "Deal-ready"); the height is
+// shared so scores stay comparable across lanes.
+export const READY_LINE = 90
 
 export type ReadinessSeverity = "bad" | "warn" | "ok"
 
@@ -14,38 +17,24 @@ export const readinessSeverity = (value: number): ReadinessSeverity =>
   value < 50 ? "bad" : value < 70 ? "warn" : "ok"
 
 export type ReadinessSnapshot = {
-  perAxis: Record<Axis, Readiness | null>
+  perAxis: Record<string, Readiness | null>
   overall: Readiness | null
-  underFire: Axis | null
+  underFire: string | null
 }
 
-export const AXIS_LABELS: Record<Axis, string> = {
-  market: "Market",
-  customer: "Customer",
-  technical: "Technical",
-  gtm: "Go-to-market",
-}
-
-// Which interrogator presses hardest on each axis. The buyer owns both
-// customer pain and how organizations actually buy (gtm). Shared by the
-// Panel recommendation and verdict-speaker selection — one definition.
-export const AXIS_TO_CHARACTER: Record<Axis, string> = {
-  market: "vc-01",
-  customer: "tc-01",
-  gtm: "tc-01",
-  technical: "ta-01",
-}
-
-// Who delivers the spoken verdict: the panelist the founder faced, or —
-// when they faced several — the one who owns the weakest axis.
+// Who delivers the spoken verdict: the panelist the user faced, or — when
+// they faced several — the one who owns the weakest axis. ownerOf maps an
+// axis key to the persona id that presses it (derived from the pack).
 export const selectVerdictSpeaker = <T extends { id: string }>(
+  axes: readonly string[],
+  ownerOf: Record<string, string>,
   characters: T[],
   risk: RiskScores | undefined
 ): T | null => {
   if (characters.length <= 1) return characters[0] ?? null
-  const weakest = deriveReadiness(risk).underFire
+  const weakest = deriveReadiness(axes, risk).underFire
   const owner = weakest
-    ? characters.find((c) => c.id === AXIS_TO_CHARACTER[weakest])
+    ? characters.find((c) => c.id === ownerOf[weakest])
     : undefined
   return owner ?? characters[0]
 }
@@ -67,11 +56,12 @@ export const boundRiskDelta = (current: number, proposed: number, maxDelta = 10)
 // Axes with no finite score yet are pending (null) — consumers render a
 // "no data yet" state instead of a number. Never NaN.
 export const deriveReadiness = (
+  axes: readonly string[],
   risk: RiskScores | undefined,
   previousRisk?: RiskScores
 ): ReadinessSnapshot => {
   const perAxis = Object.fromEntries(
-    AXES.map((axis) => {
+    axes.map((axis) => {
       const value = risk?.[axis]
       const readiness =
         typeof value === "number" && Number.isFinite(value)
@@ -79,9 +69,9 @@ export const deriveReadiness = (
           : null
       return [axis, readiness]
     })
-  ) as Record<Axis, Readiness | null>
+  ) as Record<string, Readiness | null>
 
-  const scored = AXES.flatMap((axis) => {
+  const scored = axes.flatMap((axis) => {
     const readiness = perAxis[axis]
     return readiness === null ? [] : [{ axis, readiness }]
   })

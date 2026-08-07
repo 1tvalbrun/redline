@@ -120,7 +120,7 @@ export const extract = internalAction({
 })
 
 // Pre-create extraction for the intake deck on-ramp: same extractors, no
-// material row yet (the founder hasn't committed to a simulation).
+// material row yet (the user hasn't committed to a simulation).
 export const extractUpload = action({
   args: { storageId: v.id("_storage"), name: v.string() },
   handler: async (ctx, args): Promise<{ ok: true; text: string } | { ok: false; reason: string }> => {

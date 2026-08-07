@@ -19,8 +19,7 @@ const claim = (axis: Claim["axis"]): Claim => ({
 
 test("a fresh session opens on the weakest audit axis and carries the gaps", () => {
   const briefing = buildRoomBriefing({
-    ideaName: "Acme",
-    description: "Inventory forecasting for pharmacies",
+    scope: { ideaName: "Acme", description: "Inventory forecasting for pharmacies" },
     audit: {
       claims: [claim("market")],
       gaps: [gap("No accuracy methodology", "technical"), gap("No pricing evidence", "gtm", "gap")],
@@ -34,8 +33,7 @@ test("a fresh session opens on the weakest audit axis and carries the gaps", () 
 
 test("a fresh session with no audit still opens, without inventing findings", () => {
   const briefing = buildRoomBriefing({
-    ideaName: "Acme",
-    description: "desc",
+    scope: { ideaName: "Acme", description: "desc" },
     audit: null,
     transcript: [],
   })
@@ -45,8 +43,7 @@ test("a fresh session with no audit still opens, without inventing findings", ()
 
 test("a resume never re-introduces and digests turns in speech order", () => {
   const briefing = buildRoomBriefing({
-    ideaName: "Acme",
-    description: "desc",
+    scope: { ideaName: "Acme", description: "desc" },
     audit: null,
     transcript: [
       // Arrival order reversed from speech order — digest must sort by spokenAt.
@@ -63,8 +60,7 @@ test("a resume never re-introduces and digests turns in speech order", () => {
 
 test("the digest keeps only the most recent turns", () => {
   const briefing = buildRoomBriefing({
-    ideaName: "Acme",
-    description: "desc",
+    scope: { ideaName: "Acme", description: "desc" },
     audit: null,
     transcript: Array.from({ length: 7 }, (_, i) => ({
       text: `turn-${i}`,
@@ -79,8 +75,7 @@ test("the digest keeps only the most recent turns", () => {
 
 test("a blocker outranks earlier plain gaps in the briefing", () => {
   const briefing = buildRoomBriefing({
-    ideaName: "Acme",
-    description: "desc",
+    scope: { ideaName: "Acme", description: "desc" },
     audit: {
       claims: [],
       gaps: [
@@ -97,10 +92,19 @@ test("a blocker outranks earlier plain gaps in the briefing", () => {
 
 test("long turns are truncated in the digest", () => {
   const briefing = buildRoomBriefing({
-    ideaName: "Acme",
-    description: "desc",
+    scope: { ideaName: "Acme", description: "desc" },
     audit: null,
     transcript: [{ text: "x".repeat(500), type: "user", timestamp: 1, spokenAt: 1 }],
   })
   assert.ok(!briefing.personalityPreamble.includes("x".repeat(200)))
+})
+
+test("an audit with nothing citable opens on the weakest axis without claiming to have read materials", () => {
+  const briefing = buildRoomBriefing({
+    scope: { ideaName: "Acme", description: "desc" },
+    audit: { claims: [], gaps: [gap("No accuracy methodology", "technical")] },
+    transcript: [],
+  })
+  assert.match(briefing.startScript, /technical/i)
+  assert.doesNotMatch(briefing.startScript, /materials/)
 })

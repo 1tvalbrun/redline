@@ -45,6 +45,24 @@ export const completeOnboarding = mutation({
   },
 })
 
+// Lanes are additive: enabling one never touches existing data, and
+// there's deliberately no remove — history in a lane stays reachable.
+export const addLane = mutation({
+  args: { lane: v.string() },
+  handler: async (ctx, args) => {
+    const identity = await requireIdentity(ctx)
+    if (!isPackId(args.lane)) throw new Error("Unknown lane")
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk", (q) => q.eq("clerkId", identity.subject))
+      .first()
+    if (!user) throw new Error("Complete onboarding first")
+    if (user.lanes.includes(args.lane)) return user._id
+    await ctx.db.patch(user._id, { lanes: [...user.lanes, args.lane] })
+    return user._id
+  },
+})
+
 // Deletes everything the caller owns, the guarantee /privacy makes.
 // materials and audits hang off simulations; their storage blobs go too.
 // The Clerk account itself survives; signing in again starts at onboarding.

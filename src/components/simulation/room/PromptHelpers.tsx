@@ -3,14 +3,13 @@
 import { useState } from "react"
 import { cn } from "@/lib/utils"
 
-const PROMPTS = [
-  "Our wedge is…",
-  "The reason this is urgent…",
-  "What would change your mind…",
-  "The honest counter-argument…",
-]
-
-export const PromptHelpers = ({ className }: { className?: string }) => {
+export const PromptHelpers = ({
+  prompts,
+  className,
+}: {
+  prompts: string[]
+  className?: string
+}) => {
   const [selected, setSelected] = useState<string | null>(null)
 
   const handleToggle = (prompt: string) => {
@@ -22,7 +21,7 @@ export const PromptHelpers = ({ className }: { className?: string }) => {
       <p className="mb-[10px] font-mono text-[9.5px] uppercase tracking-[.16em] text-on-surface-2">
         Prompt helpers
       </p>
-      {PROMPTS.map((prompt) => (
+      {prompts.map((prompt) => (
         <button
           key={prompt}
           type="button"

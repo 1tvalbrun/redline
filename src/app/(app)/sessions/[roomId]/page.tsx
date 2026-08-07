@@ -6,6 +6,8 @@ import { useQuery } from "convex/react"
 import { api } from "@convex/_generated/api"
 import { Id } from "@convex/_generated/dataModel"
 import { formatDay } from "@/lib/utils"
+import { getPack, scopeOf } from "@/domains/registry"
+import { scopeText } from "@/domains/types"
 import { TranscriptPanel } from "@/components/simulation/room/TranscriptPanel"
 import { LiveNotes } from "@/components/simulation/room/LiveNotes"
 import { VerdictBadge } from "@/components/workspace/VerdictBadge"
@@ -35,6 +37,10 @@ const SessionDetailPage = ({ params }: { params: Promise<{ roomId: string }> }) 
   }
 
   const panelist = room.characters[0]
+  const pack = getPack(simulation?.packId)
+  const subject = simulation
+    ? scopeText(scopeOf(simulation), pack.subjectField) || simulation.title
+    : null
 
   return (
     <div>
@@ -48,7 +54,7 @@ const SessionDetailPage = ({ params }: { params: Promise<{ roomId: string }> }) 
       <div className="flex items-start justify-between gap-6 max-md:flex-col">
         <div>
           <h1 className="font-display text-[clamp(26px,3vw,38px)] font-bold tracking-[-.01em]">
-            {simulation?.brief.ideaName ?? "Session"}
+            {subject ?? "Session"}
           </h1>
           <p className="mt-2 font-mono text-[11px] uppercase tracking-[.1em] text-on-surface-3">
             {panelist ? `${panelist.name} · ${panelist.role}` : "No panelist"} ·{" "}

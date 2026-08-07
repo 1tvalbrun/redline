@@ -11,7 +11,7 @@ import { api, internal } from "./_generated/api"
 import type { Id } from "./_generated/dataModel"
 import { claimValidator, gapValidator, groundAudit } from "../src/lib/audit"
 import { createOpenAI, resolveModel } from "../src/lib/openai"
-import { getPack } from "../src/domains/registry"
+import { axisKeys, getPack, scopeOf } from "../src/domains/registry"
 import { ownedOrNull, requireIdentity } from "./guard"
 
 const PROMPT_CHAR_BUDGET = 60_000
@@ -157,7 +157,7 @@ const generateAudit = async (
         {
           role: "system",
           content: pack.prompts.audit({
-            brief: simulation.brief,
+            scope: scopeOf(simulation),
             unreadableCount,
             materialSections,
           }),
@@ -172,7 +172,7 @@ const generateAudit = async (
       return
     }
 
-    const { claims, gaps } = groundAudit(JSON.parse(content), readable)
+    const { claims, gaps } = groundAudit(JSON.parse(content), readable, axisKeys(pack))
     await ctx.runMutation(internal.audits.setOutcome, {
       auditId,
       outcome: { status: "ready", claims, gaps },
