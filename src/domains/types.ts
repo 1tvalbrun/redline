@@ -253,6 +253,11 @@ export type DomainPack = {
   verdicts: { options: VerdictOption[]; fallback: string }
   // The readiness bar the gauge draws (e.g. 90 "Investor-ready").
   targetLine: { value: number; label: string }
+  // The assessor's evidence request list for the current scope, shown at
+  // intake before upload — the real-audit order is "here's what to
+  // produce", then evidence, then the interview. Only packs with a
+  // pre-declared evidence model define it.
+  evidenceRequests?: (scope: Scope) => { title: string; items: string[] }[]
   copy: PackCopy
   personas: Persona[]
   // Session-personality preamble rules and the per-session briefing builder,
