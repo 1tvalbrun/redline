@@ -1,5 +1,6 @@
 import { founderPack } from "./founder/pack.ts"
 import { salesPack } from "./sales/pack.ts"
+import { auditPack } from "./audit/pack.ts"
 import type { Brief, DomainPack, Scope, VerdictOption } from "./types.ts"
 
 // The one list of lanes. Onboarding renders it, users.lanes validates
@@ -7,6 +8,7 @@ import type { Brief, DomainPack, Scope, VerdictOption } from "./types.ts"
 export const PACKS: Record<string, DomainPack> = {
   [founderPack.id]: founderPack,
   [salesPack.id]: salesPack,
+  [auditPack.id]: auditPack,
 }
 
 export const ALL_PACKS = Object.values(PACKS)

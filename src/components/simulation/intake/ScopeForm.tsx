@@ -74,6 +74,7 @@ export const ScopeForm = ({
   const missingRequired = pack.scopeFields.some(
     (field) => field.required && scopeText(scope, field.key).trim() === ""
   )
+  const evidenceGroups = pack.evidenceRequests?.(scope) ?? []
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -167,6 +168,40 @@ export const ScopeForm = ({
       </p>
 
       {pack.scopeFields.map(renderField)}
+
+      {evidenceGroups.length > 0 && (
+        <section
+          aria-labelledby="evidence-requests-heading"
+          className="mb-[26px] border border-line-2 bg-surface-raised p-4"
+        >
+          <h2
+            id="evidence-requests-heading"
+            className="font-mono text-[10.5px] uppercase tracking-[.14em] text-on-surface-2"
+          >
+            What the assessor will ask for
+          </h2>
+          <p className="mt-1.5 text-[12.5px] leading-[1.5] text-on-surface-2">
+            The request list for this session&apos;s scope. Gather what you can and add
+            it below — anything missing becomes a finding in the pre-read.
+          </p>
+          {evidenceGroups.map((group) => (
+            <div key={group.title} className="mt-3.5 border-t border-line pt-3">
+              <h3 className="text-[13px] font-semibold leading-[1.4]">{group.title}</h3>
+              <ul className="mt-1.5">
+                {group.items.map((item) => (
+                  <li
+                    key={item}
+                    className="flex gap-2 py-[2px] text-[12.5px] leading-[1.5] text-on-surface-2"
+                  >
+                    <span aria-hidden="true" className="flex-none">·</span>
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </section>
+      )}
 
       <div className="mb-[26px]">
         <p className="mb-2 flex items-center justify-between font-mono text-[10.5px] uppercase tracking-[.14em] text-on-surface-2">
