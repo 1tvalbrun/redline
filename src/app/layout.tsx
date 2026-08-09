@@ -1,47 +1,57 @@
 import type { Metadata } from "next"
-import { Archivo, IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google"
+import { Instrument_Sans, Source_Serif_4, Spline_Sans_Mono } from "next/font/google"
 import { ClerkProvider } from "@clerk/nextjs"
+import { ThemeProvider } from "next-themes"
 import { ConvexClientProvider } from "./providers"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import "./globals.css"
 
-// Display face: Archivo variable, width axis pinned to 125 ("Expanded")
-// via --font-display--font-variation-settings in globals.css.
-const archivo = Archivo({
+const instrumentSans = Instrument_Sans({
   subsets: ["latin"],
-  axes: ["wdth"],
-  variable: "--font-archivo",
+  style: ["normal", "italic"],
+  variable: "--font-instrument",
 })
 
-const plexSans = IBM_Plex_Sans({
+// Persona voice: verdicts, quotes, and anything spoken renders in serif.
+const sourceSerif = Source_Serif_4({
   subsets: ["latin"],
-  weight: "variable",
-  variable: "--font-plex-sans",
+  style: ["normal", "italic"],
+  axes: ["opsz"],
+  variable: "--font-source-serif",
 })
 
-const plexMono = IBM_Plex_Mono({
+const splineMono = Spline_Sans_Mono({
   subsets: ["latin"],
-  weight: ["400", "500", "600"],
-  variable: "--font-plex-mono",
+  weight: ["400", "500"],
+  variable: "--font-spline-mono",
 })
 
 export const metadata: Metadata = {
-  title: "Redline · AI Panel Stress Test",
-  description: "Stress-test your ideas against live AI expert panels",
+  title: "Redline · Practice with a live AI panel",
+  description:
+    "Practice your pitch, sale, or audit interview live with an AI avatar — leave with feedback and action items.",
 }
 
 const RootLayout = ({ children }: { children: React.ReactNode }) => {
   return (
     <html
       lang="en"
-      className={`${archivo.variable} ${plexSans.variable} ${plexMono.variable} h-full antialiased`}
+      suppressHydrationWarning
+      className={`${instrumentSans.variable} ${sourceSerif.variable} ${splineMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <ClerkProvider>
-          <ConvexClientProvider>
-            <TooltipProvider>{children}</TooltipProvider>
-          </ConvexClientProvider>
-        </ClerkProvider>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <ClerkProvider>
+            <ConvexClientProvider>
+              <TooltipProvider>{children}</TooltipProvider>
+            </ConvexClientProvider>
+          </ClerkProvider>
+        </ThemeProvider>
       </body>
     </html>
   )

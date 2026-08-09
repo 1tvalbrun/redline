@@ -47,7 +47,7 @@ const TypedText = ({ text }: { text: string }) => {
     <>
       {text.slice(0, count)}
       {count < text.length && (
-        <span className="ml-[2px] inline-block h-[1.05em] w-[7px] animate-blink bg-red align-[-2px]" />
+        <span className="ml-[2px] inline-block h-[1.05em] w-[7px] animate-blink bg-accent-blue align-[-2px]" />
       )}
     </>
   )
@@ -98,11 +98,11 @@ export const WaitingScreen = ({ kicker, heading, lead, rows, work, ticker, stepM
         {kicker} — examining {activeLabel}
       </p>
 
-      <p className="mb-4 flex items-center gap-[9px] font-mono text-[10.5px] uppercase tracking-[.2em] text-red-fg">
-        <span aria-hidden="true" className="h-[7px] w-[7px] animate-pulse-red rounded-full bg-red" />
+      <p className="mb-4 flex items-center gap-2 font-mono text-[11px] uppercase tracking-[.09em] text-on-surface-3">
+        <span aria-hidden="true" className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent-blue" />
         {kicker}
       </p>
-      <h1 className="max-w-[24ch] font-display text-[clamp(28px,3.6vw,44px)] font-bold leading-[1.06] tracking-[-.02em]">
+      <h1 className="max-w-[24ch] text-[clamp(25px,3vw,34px)] font-semibold leading-[1.15] tracking-[-.02em]">
         {heading}
       </h1>
       <p className="mt-3.5 max-w-[56ch] text-[15.5px] leading-[1.55] text-on-surface-2">{lead}</p>
@@ -124,7 +124,7 @@ export const WaitingScreen = ({ kicker, heading, lead, rows, work, ticker, stepM
                   className={cn(
                     "font-mono text-[10px] uppercase tracking-[.14em] transition-colors",
                     state === "pending" && "text-on-surface-3",
-                    state === "reading" && "text-red-fg",
+                    state === "reading" && "text-accent-blue",
                     state === "done" && "text-on-surface-2"
                   )}
                 >
@@ -157,14 +157,14 @@ export const WaitingScreen = ({ kicker, heading, lead, rows, work, ticker, stepM
 
         <aside
           aria-hidden="true"
-          className="sticky top-[88px] border border-line-2 bg-surface-raised p-5 max-md:static"
+          className="sticky top-[88px] rounded-xl border border-line bg-surface-raised p-5 shadow-card max-md:static"
         >
           <p className="mb-4 font-mono text-[10px] uppercase tracking-[.16em] text-on-surface-2">
             Working
           </p>
-          <div className="relative mb-[18px] h-[2px] overflow-hidden bg-line">
+          <div className="relative mb-[18px] h-[2px] overflow-hidden rounded-full bg-line">
             <span
-              className="absolute inset-y-0 left-0 bg-red transition-[width] duration-700 ease-brand"
+              className="absolute inset-y-0 left-0 bg-accent-blue transition-[width] duration-700 ease-brand"
               style={{ width: `${progress}%` }}
             />
           </div>
@@ -185,7 +185,7 @@ export const WaitingScreen = ({ kicker, heading, lead, rows, work, ticker, stepM
                   className={cn(
                     "w-3 flex-none",
                     state === "done" && "text-ok-fg",
-                    state === "active" && "text-red-fg"
+                    state === "active" && "text-accent-blue"
                   )}
                 >
                   {state === "done" ? "✓" : state === "active" ? "●" : "○"}

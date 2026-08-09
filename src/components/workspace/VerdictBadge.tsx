@@ -3,9 +3,9 @@ import { findVerdict } from "@/domains/registry"
 import type { VerdictTone } from "@/domains/types"
 
 const TONE_STYLES: Record<VerdictTone, string> = {
-  good: "border-ok text-ok",
-  mid: "border-amber-fg text-amber-fg",
-  bad: "border-red text-red-fg",
+  good: "border-ok/30 bg-ok-bg text-ok",
+  mid: "border-warn-line bg-warn-bg text-warn",
+  bad: "border-lane-audit-line bg-lane-audit-bg text-lane-audit",
 }
 
 export const VerdictBadge = ({ decision, className }: { decision: string; className?: string }) => {
@@ -13,8 +13,8 @@ export const VerdictBadge = ({ decision, className }: { decision: string; classN
   return (
     <span
       className={cn(
-        "inline-block border px-[7px] py-[2px] font-mono text-[9px] uppercase tracking-[.08em]",
-        option ? TONE_STYLES[option.tone] : "border-line-2 text-on-surface-2",
+        "inline-block rounded-full border px-2.5 py-[2.5px] text-[9.5px] font-semibold uppercase tracking-[.07em]",
+        option ? TONE_STYLES[option.tone] : "border-line-2 bg-surface-2 text-on-surface-2",
         className
       )}
     >

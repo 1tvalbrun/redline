@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useSyncExternalStore } from "react"
+import { useEffect } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import {
@@ -16,6 +16,7 @@ import {
 } from "lucide-react"
 import { useQuery } from "convex/react"
 import { cn } from "@/lib/utils"
+import { ThemeToggle } from "@/components/shared/ThemeToggle"
 import type { FunctionReturnType } from "convex/server"
 import { api } from "@convex/_generated/api"
 import { getPack, isPackId } from "@/domains/registry"
@@ -32,58 +33,29 @@ type NavItem = {
   tag?: string
 }
 
-// The clock is an external store with a null server snapshot: the
-// prerendered HTML must not embed the server's clock/timezone, which
-// differs from the client's and makes React 19 discard the whole SSR tree
-// on hydration. Snapshots are bucketed to the tick interval so they're
-// stable between ticks.
-const CLOCK_TICK_MS = 30_000
-const subscribeClock = (onChange: () => void) => {
-  const tick = setInterval(onChange, CLOCK_TICK_MS)
-  return () => clearInterval(tick)
-}
-
-const RailClock = () => {
-  const now = useSyncExternalStore<number | null>(
-    subscribeClock,
-    () => Math.floor(Date.now() / CLOCK_TICK_MS) * CLOCK_TICK_MS,
-    () => null
-  )
-  return (
-    <span className="tabular-nums">
-      {now === null
-        ? ""
-        : new Date(now).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })}
-    </span>
-  )
-}
-
 const NavLink = ({ item, active }: { item: NavItem; active: boolean }) => {
   const Icon = item.icon
   return (
-    <li className="relative">
-      {active && (
-        <span aria-hidden="true" className="absolute -left-3.5 bottom-[7px] top-[7px] w-[2px] bg-red" />
-      )}
+    <li>
       <Link
         href={item.href}
         aria-current={active ? "page" : undefined}
         className={cn(
-          "focus-ring flex items-center gap-[11px] rounded-[3px] px-2.5 py-2 text-[13.5px] font-medium transition-colors",
+          "focus-ring flex items-center gap-2.5 rounded-[9px] border px-2.5 py-[7px] text-[13.5px] transition-colors",
           active
-            ? "bg-surface text-on-surface"
-            : "text-on-surface-2 hover:bg-on-surface/5 hover:text-on-surface"
+            ? "border-line bg-surface-raised font-medium text-on-surface shadow-btn"
+            : "border-transparent text-on-surface-2 hover:bg-surface-2"
         )}
       >
-        <Icon className="h-4 w-4 flex-none" />
+        <Icon className="h-4 w-4 flex-none text-on-surface-3" />
         {item.label}
         {item.count !== undefined && (
-          <span className="ml-auto font-mono text-[10px] tabular-nums text-on-surface-3">
+          <span className="ml-auto grid h-5 min-w-5 place-items-center rounded-full bg-surface-3 px-1.5 text-[11px] font-medium tabular-nums text-on-surface-3">
             {item.count}
           </span>
         )}
         {item.tag && (
-          <span className="ml-auto border border-line-2 px-[5px] py-px font-mono text-[8.5px] uppercase tracking-[.08em] text-on-surface-3">
+          <span className="ml-auto rounded-full border border-line-2 px-[7px] py-px font-mono text-[8.5px] uppercase tracking-[.08em] text-on-surface-3">
             {item.tag}
           </span>
         )}
@@ -93,8 +65,8 @@ const NavLink = ({ item, active }: { item: NavItem; active: boolean }) => {
 }
 
 const NavGroup = ({ label, items, pathname }: { label: string; items: NavItem[]; pathname: string }) => (
-  <div className="mb-3.5">
-    <p className="px-2.5 pb-[7px] font-mono text-[9.5px] uppercase tracking-[.2em] text-on-surface-3">
+  <div className="mb-4">
+    <p className="px-2.5 pb-[5px] text-[10.5px] font-semibold uppercase tracking-[.09em] text-on-surface-3">
       {label}
     </p>
     <ul>
@@ -147,36 +119,34 @@ export const AppRail = ({ counts }: { counts: NavCounts | undefined }) => {
   ]
 
   return (
-    <aside className="flex w-[260px] flex-none flex-col border-r border-line-2 bg-surface-rail px-3.5 pb-3 pt-[18px]">
-      <Link href="/" className="focus-ring flex items-center gap-[11px] px-2 pb-4 pt-1.5">
-        <span aria-hidden="true" className="relative h-[22px] w-[22px] flex-none overflow-hidden rounded-[5px] bg-on-surface">
-          <span className="absolute inset-x-0 top-[63%] h-[2px] bg-red" />
+    <aside className="flex w-[264px] flex-none flex-col border-r border-line bg-surface-rail px-3.5 pb-3.5 pt-5">
+      <Link href="/" className="focus-ring flex items-center gap-2.5 px-2.5 pb-5 pt-0.5">
+        <span
+          aria-hidden="true"
+          className="grid h-6 w-6 flex-none place-items-center rounded-[7px] bg-on-surface"
+        >
+          <span className="block h-[3px] w-3 rounded-[2px] bg-red" />
         </span>
-        <span className="font-display text-lg font-extrabold tracking-[-.02em]">Redline</span>
+        <span className="text-[15px] font-semibold tracking-[-.01em]">Redline</span>
       </Link>
 
       <Link
         href="/simulation/new"
-        className="focus-ring mb-1.5 flex items-center gap-2.5 bg-on-surface px-[13px] py-3 font-mono text-xs font-medium uppercase tracking-[.04em] text-surface transition-colors hover:bg-red hover:text-white"
+        className="focus-ring mb-6 flex items-center gap-2 rounded-[10px] border border-line-2 bg-surface-raised px-3 py-[9px] text-[13.5px] font-medium shadow-btn transition-colors hover:bg-surface-2"
       >
         <Plus className="h-[15px] w-[15px]" />
         New run
-        <kbd className="ml-auto border border-white/20 px-[5px] font-mono text-[10px] text-white/60">N</kbd>
+        <kbd className="ml-auto rounded-[5px] border border-line-2 bg-surface px-1.5 py-px font-mono text-[10.5px] text-on-surface-3">
+          N
+        </kbd>
       </Link>
 
-      <nav aria-label="Workspace" className="flex-1 overflow-y-auto pt-2">
+      <nav aria-label="Workspace" className="flex-1 overflow-y-auto">
         <NavGroup label="Workspace" items={workspace} pathname={pathname} />
         <NavGroup label="Prep" items={prep} pathname={pathname} />
       </nav>
 
-      <div className="mt-1.5 border-t border-line pt-2.5">
-        <p className="flex items-center justify-between px-2.5 py-[5px] font-mono text-[10px] uppercase tracking-[.1em] text-on-surface-2">
-          <span className="flex items-center gap-[7px]">
-            <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-ok" />
-            System ready
-          </span>
-          <RailClock />
-        </p>
+      <div className="mt-1.5 border-t border-line pt-3">
         <ul>
           {foot.map((item) => (
             <NavLink key={item.href} item={item} active={pathname.startsWith(item.href)} />
@@ -185,16 +155,17 @@ export const AppRail = ({ counts }: { counts: NavCounts | undefined }) => {
         <div className="flex items-center gap-2.5 px-2.5 pb-1 pt-[9px]">
           <span
             aria-hidden="true"
-            className="flex h-7 w-7 items-center justify-center rounded-full bg-on-surface font-display text-xs font-bold text-surface"
+            className="grid h-7 w-7 place-items-center rounded-full bg-surface-3 text-[11px] font-semibold text-on-surface-2"
           >
             {displayName.charAt(0).toUpperCase()}
           </span>
-          <span className="text-[12.5px] font-medium leading-tight">
+          <span className="flex-1 text-[12.5px] font-medium leading-tight text-on-surface-2">
             {displayName}
             <span className="block font-mono text-[9.5px] tracking-[.05em] text-on-surface-3">
               {laneLabels || "Invited testing"}
             </span>
           </span>
+          <ThemeToggle />
         </div>
       </div>
     </aside>

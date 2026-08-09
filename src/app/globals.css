@@ -33,13 +33,33 @@
   --color-on-surface-3: var(--on-surface-3);
   --color-line: var(--line);
   --color-line-2: var(--line-2);
+  --color-ink-4: var(--ink-4);
   --color-red: var(--red);
   --color-red-deep: var(--red-deep);
   --color-red-fg: var(--red-fg);
+  --color-accent-blue: var(--accent-blue);
+  --color-accent-blue-hover: var(--accent-blue-hover);
+  --color-accent-bg: var(--accent-bg);
+  --color-accent-line: var(--accent-line);
+  --color-lane-founder: var(--lane-founder);
+  --color-lane-founder-bg: var(--lane-founder-bg);
+  --color-lane-founder-line: var(--lane-founder-line);
+  --color-lane-sales: var(--lane-sales);
+  --color-lane-sales-bg: var(--lane-sales-bg);
+  --color-lane-sales-line: var(--lane-sales-line);
+  --color-lane-audit: var(--lane-audit);
+  --color-lane-audit-bg: var(--lane-audit-bg);
+  --color-lane-audit-line: var(--lane-audit-line);
   --color-amber: var(--amber);
   --color-amber-fg: var(--amber-fg);
+  --color-warn: var(--warn);
+  --color-warn-bg: var(--warn-bg);
+  --color-warn-line: var(--warn-line);
   --color-ok: var(--ok);
   --color-ok-fg: var(--ok-fg);
+  --color-ok-bg: var(--ok-bg);
+  --shadow-btn: var(--shadow-btn-value);
+  --shadow-card: var(--shadow-card-value);
   --animate-eq: eq 0.9s ease-in-out infinite;
   --animate-pulse-red: pulse-red 2s infinite;
   --animate-blink: blink 1s steps(2) infinite;
@@ -88,10 +108,10 @@
       box-shadow: 0 0 0 0 rgba(206, 43, 34, 0);
     }
   }
-  --font-sans: var(--font-plex-sans);
-  --font-display: var(--font-archivo);
-  --font-display--font-variation-settings: "wdth" 125;
-  --font-mono: var(--font-plex-mono);
+  --font-sans: var(--font-instrument);
+  --font-serif: var(--font-source-serif);
+  --font-display: var(--font-instrument);
+  --font-mono: var(--font-spline-mono);
   --ease-brand: cubic-bezier(0.2, 0.7, 0.2, 1);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
@@ -111,36 +131,56 @@
 }
 
 :root {
-  /* Redline design primitives (base palette) */
-  --surface: #eae8e2; /* paper */
-  --surface-2: #dfddd6; /* paper-2 */
-  --surface-3: #dfddd6; /* distinct layer only on dark; mirrors surface-2 on paper */
-  --surface-raised: #e4e2dc; /* panel */
-  --surface-rail: #e2e0d9; /* rail */
-  --on-surface: #18160f; /* ink */
-  --on-surface-2: #544f45; /* ink-2 */
-  --on-surface-3: #8a857a; /* ink-3 */
-  --line: rgba(24, 22, 15, 0.12);
-  --line-2: rgba(24, 22, 15, 0.26);
-  --red: #ce2b22;
-  --red-deep: #9e1b14;
-  --amber: #b0741a;
-  --amber-fg: #b0741a;
-  --ok: #4a6b4e;
-  --ok-fg: #4a6b4e;
-  /* Brand red is 4.3:1 on paper — below AA for small text. Text uses the
-     deep variant; fills/borders/large type keep --red. */
-  --red-fg: #9e1b14;
+  /* Design primitives — light palette from public/design-reference mocks */
+  --surface: #f7f8fa; /* paper */
+  --surface-2: #f1f4f8; /* hover */
+  --surface-3: #e8edf3; /* press */
+  --surface-raised: #ffffff; /* card */
+  --surface-rail: #ffffff; /* panel / sidebar */
+  --on-surface: #151a21; /* ink */
+  --on-surface-2: #4e5866;
+  /* Mock ink-3 is #818b98 (3.5:1) — darkened to clear AA 4.5:1 for the
+     small labels it styles. */
+  --on-surface-3: #66707e;
+  --ink-4: #b4bcc7;
+  --line: #e5e9ee;
+  --line-2: #d6dce4;
+  --red: #c93a26; /* brand mark only — actions are accent-blue */
+  --red-deep: #a82d1c;
+  --red-fg: #c93a26;
+  --accent-blue: #0e5fd8;
+  --accent-blue-hover: #0b4fb6;
+  --accent-bg: #e8f0fc;
+  --accent-line: #c4d9f6;
+  --lane-founder: #5348b8;
+  --lane-founder-bg: #ecebfa;
+  --lane-founder-line: #d9d6f3;
+  --lane-sales: #0e6e55;
+  --lane-sales-bg: #e6f2ec;
+  --lane-sales-line: #cce4d8;
+  --lane-audit: #b04a28;
+  --lane-audit-bg: #f6ebe4;
+  --lane-audit-line: #ead3c5;
+  --ok: #3d7a32;
+  --ok-fg: #3d7a32;
+  --ok-bg: #eaf2e4;
+  --amber: #8a5a12;
+  --amber-fg: #8a5a12;
+  --warn: #8a5a12;
+  --warn-bg: #f6eedb;
+  --warn-line: #e9d9b6;
+  --shadow-btn-value: 0 1px 2px rgba(21, 26, 33, 0.13);
+  --shadow-card-value: 0 1px 3px rgba(21, 26, 33, 0.06);
 
   /* shadcn semantics resolved from the primitives above */
   --background: var(--surface);
   --foreground: var(--on-surface);
   --card: var(--surface-raised);
   --card-foreground: var(--on-surface);
-  --popover: var(--surface);
+  --popover: var(--surface-raised);
   --popover-foreground: var(--on-surface);
-  --primary: var(--on-surface);
-  --primary-foreground: var(--surface);
+  --primary: var(--accent-blue);
+  --primary-foreground: #ffffff;
   --secondary: var(--surface-2);
   --secondary-foreground: var(--on-surface);
   --muted: var(--surface-2);
@@ -151,35 +191,62 @@
   --destructive-foreground: #ffffff;
   --border: var(--line);
   --input: var(--line-2);
-  --ring: var(--on-surface);
-  --radius: 0rem;
+  --ring: var(--accent-blue);
+  --radius: 0.875rem; /* lg = 14px cards · md ≈ 11px inputs · buttons rounded-[10px] */
   --sidebar: var(--surface-rail);
   --sidebar-foreground: var(--on-surface);
-  --sidebar-primary: var(--on-surface);
-  --sidebar-primary-foreground: var(--surface);
-  --sidebar-accent: var(--surface);
+  --sidebar-primary: var(--accent-blue);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: var(--surface-2);
   --sidebar-accent-foreground: var(--on-surface);
-  --sidebar-border: var(--line-2);
-  --sidebar-ring: var(--on-surface);
+  --sidebar-border: var(--line);
+  --sidebar-ring: var(--accent-blue);
 }
 
-/* The one dark cinematic surface (the Room subtree). Redefines the same
-   primitives, so every semantic var above resolves dark without
-   per-component variants. Dark values from redline-room.html. */
+/* Dark palette (mocks' html[data-theme="dark"]). Applies to the user theme
+   (.dark via next-themes) and to the always-dark Room subtree
+   ([data-surface="dark"]), which stays cinematic in both themes. */
+.dark,
 [data-surface="dark"] {
-  --surface: #141210; /* dark */
-  --surface-2: #100e0b; /* controls strip */
-  --surface-3: #221e18; /* dark-3, helper buttons */
-  --surface-raised: #1c1915; /* dark-2, rails */
-  --surface-rail: #1c1915;
-  --on-surface: #e9e6df; /* on-dark */
-  --on-surface-2: #9c968a; /* on-dark-2 */
-  --on-surface-3: #6a655c; /* on-dark-3 */
-  --line: rgba(255, 255, 255, 0.07); /* line-d */
-  --line-2: rgba(255, 255, 255, 0.13); /* line-d2 */
-  --ok-fg: #8fb093;
-  --red-fg: #e0655c;
-  --amber-fg: #d19a4e;
+  --surface: #101418;
+  --surface-2: #1c222a;
+  --surface-3: #262d36;
+  --surface-raised: #171c22;
+  --surface-rail: #0b0f13;
+  --on-surface: #e7eaee;
+  --on-surface-2: #a5adb8;
+  --on-surface-3: #76808c;
+  --ink-4: #4a5461;
+  --line: #262d36;
+  --line-2: #333c47;
+  --red: #e05540;
+  --red-deep: #c94734;
+  --red-fg: #e05540;
+  --accent-blue: #7fb0f9;
+  --accent-blue-hover: #9cc3fb;
+  --accent-bg: #152944;
+  --accent-line: #2a4a74;
+  --lane-founder: #a49af0;
+  --lane-founder-bg: #211f31;
+  --lane-founder-line: #37344f;
+  --lane-sales: #6bbf9f;
+  --lane-sales-bg: #182a22;
+  --lane-sales-line: #27443a;
+  --lane-audit: #e5906b;
+  --lane-audit-bg: #2e1f16;
+  --lane-audit-line: #463024;
+  --ok: #8fbf7f;
+  --ok-fg: #8fbf7f;
+  --ok-bg: #22301d;
+  --amber: #d9a853;
+  --amber-fg: #d9a853;
+  --warn: #d9a853;
+  --warn-bg: #2c2515;
+  --warn-line: #443921;
+  --shadow-btn-value: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-card-value: 0 1px 3px rgba(0, 0, 0, 0.3);
+  /* dark accent-blue is light — flip button label to dark ink */
+  --primary-foreground: #0b1526;
 }
 
 @layer base {
@@ -189,20 +256,9 @@
   body {
     @apply bg-background text-foreground font-sans;
   }
-  /* Film grain over the whole viewport, both surfaces (per mocks) */
-  body::after {
-    content: "";
-    position: fixed;
-    inset: 0;
-    z-index: 9999;
-    pointer-events: none;
-    opacity: 0.04;
-    mix-blend-mode: multiply;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  }
   ::selection {
-    background: var(--red);
-    color: #eae8e2; /* paper — constant on both surfaces, per mocks */
+    background: var(--accent-bg);
+    color: var(--accent-blue-hover);
   }
   /* Chrome paints autofilled fields with its own pale background via an
      internal style that normal `background` rules can't override. The inset

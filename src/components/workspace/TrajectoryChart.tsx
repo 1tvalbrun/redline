@@ -59,7 +59,7 @@ export const TrajectoryChart = ({
             y={y(gridValue) + 3}
             textAnchor="end"
             fill="var(--on-surface-2)"
-            style={{ fontFamily: "var(--font-plex-mono)", fontSize: 9 }}
+            style={{ fontFamily: "var(--font-spline-mono)", fontSize: 9 }}
           >
             {gridValue}
           </text>
@@ -80,7 +80,7 @@ export const TrajectoryChart = ({
         y={y(READY_LINE) - 5}
         textAnchor="end"
         fill="var(--red-fg)"
-        style={{ fontFamily: "var(--font-plex-mono)", fontSize: 9 }}
+        style={{ fontFamily: "var(--font-spline-mono)", fontSize: 9 }}
       >
         {targetLabel.toUpperCase()} {READY_LINE}
       </text>
@@ -102,7 +102,7 @@ export const TrajectoryChart = ({
             y={c.y - 11}
             textAnchor="middle"
             fill="var(--on-surface)"
-            style={{ fontFamily: "var(--font-archivo)", fontVariationSettings: "'wdth' 125", fontWeight: 700, fontSize: 12 }}
+            style={{ fontFamily: "var(--font-instrument)", fontWeight: 600, fontSize: 12 }}
           >
             {c.score}
           </text>
@@ -111,7 +111,7 @@ export const TrajectoryChart = ({
             y={H - 7}
             textAnchor="middle"
             fill="var(--on-surface-2)"
-            style={{ fontFamily: "var(--font-plex-mono)", fontSize: 8.5 }}
+            style={{ fontFamily: "var(--font-spline-mono)", fontSize: 8.5 }}
           >
             RUN {i + 1}
           </text>

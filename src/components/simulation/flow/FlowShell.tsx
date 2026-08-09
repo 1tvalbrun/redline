@@ -24,13 +24,13 @@ const STAGE_ROUTES: Record<FlowStage, (simulationId: string) => string> = {
   verdict: (id) => `/simulation/${id}/report`,
 }
 
-// Mock .btn — shared by every stage CTA.
+// Mock .btn-primary — shared by every stage CTA.
 export const FLOW_BTN =
-  "focus-ring inline-flex cursor-pointer items-center gap-[10px] border border-on-surface bg-on-surface px-[26px] py-[15px] font-mono text-[13px] font-medium uppercase tracking-[.04em] text-surface transition-colors hover:border-red hover:bg-red hover:text-white disabled:pointer-events-none disabled:opacity-40"
+  "focus-ring inline-flex cursor-pointer items-center justify-center gap-2 rounded-[10px] bg-accent-blue px-[18px] py-2.5 text-[13.5px] font-medium text-primary-foreground shadow-btn transition hover:bg-accent-blue-hover active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50"
 
 export const StageKicker = ({ children }: { children: React.ReactNode }) => (
-  <p className="mb-4 flex items-center gap-[9px] font-mono text-[10.5px] uppercase tracking-[.2em] text-red-fg">
-    <span aria-hidden="true" className="h-[7px] w-[7px] rounded-full bg-red" />
+  <p className="mb-4 flex items-center gap-2 font-mono text-[11px] uppercase tracking-[.09em] text-on-surface-3">
+    <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-accent-blue" />
     {children}
   </p>
 )
@@ -52,12 +52,15 @@ export const FlowShell = ({ stage, simulationId, fullBleed, children }: FlowShel
 
   return (
     <div className="flex h-dvh flex-col bg-surface">
-      <header className="flex flex-none items-center gap-[26px] border-b border-line-2 bg-surface px-7 py-3.5">
-        <Link href="/" className="focus-ring flex items-center gap-[10px]">
-          <span aria-hidden="true" className="relative h-5 w-5 flex-none overflow-hidden rounded-[5px] bg-on-surface">
-            <span className="absolute inset-x-0 top-[63%] h-[2px] bg-red" />
+      <header className="flex flex-none items-center gap-[26px] border-b border-line bg-surface-rail px-6 py-3.5">
+        <Link href="/" className="focus-ring flex items-center gap-2">
+          <span
+            aria-hidden="true"
+            className="grid h-[22px] w-[22px] flex-none place-items-center rounded-md bg-on-surface"
+          >
+            <span className="block h-[3px] w-[11px] rounded-[2px] bg-red" />
           </span>
-          <span className="font-display text-[17px] font-extrabold tracking-[-.02em]">Redline</span>
+          <span className="text-sm font-semibold">Redline</span>
         </Link>
 
         <nav aria-label="Run progress" className="flex flex-1 justify-center">
@@ -69,26 +72,16 @@ export const FlowShell = ({ stage, simulationId, fullBleed, children }: FlowShel
                   ? STAGE_ROUTES[s.key](simulationId)
                   : null
               const step = (
-                <span className="flex items-center gap-[10px]">
-                  <span
-                    aria-hidden="true"
-                    className={cn(
-                      "font-mono text-[10px]",
-                      state === "active" ? "text-red-fg" : "text-on-surface-3"
-                    )}
-                  >
-                    {String(i + 1).padStart(2, "0")}
-                  </span>
-                  <span
-                    className={cn(
-                      "font-mono text-[11px] uppercase tracking-[.14em]",
-                      state === "active" && "text-on-surface",
-                      state === "done" && "text-on-surface-2",
-                      state === "upcoming" && "text-on-surface-3"
-                    )}
-                  >
-                    {s.label}
-                  </span>
+                <span
+                  className={cn(
+                    "flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[.04em]",
+                    state === "active" && "text-accent-blue",
+                    state === "done" && "text-on-surface-3",
+                    state === "upcoming" && "text-ink-4"
+                  )}
+                >
+                  <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-current" />
+                  {s.label}
                 </span>
               )
               return (
@@ -105,13 +98,7 @@ export const FlowShell = ({ stage, simulationId, fullBleed, children }: FlowShel
                     step
                   )}
                   {i < STAGES.length - 1 && (
-                    <span
-                      aria-hidden="true"
-                      className={cn(
-                        "mx-3.5 h-px w-[34px]",
-                        state === "upcoming" ? "bg-line-2" : "bg-on-surface"
-                      )}
-                    />
+                    <span aria-hidden="true" className="mx-2.5 h-px w-[26px] bg-line-2" />
                   )}
                 </li>
               )
@@ -121,9 +108,9 @@ export const FlowShell = ({ stage, simulationId, fullBleed, children }: FlowShel
 
         <Link
           href="/"
-          className="focus-ring font-mono text-[11px] uppercase tracking-[.1em] text-on-surface-3 transition-colors hover:text-red-fg"
+          className="focus-ring rounded-lg px-2.5 py-1.5 text-[13px] text-on-surface-3 transition-colors hover:bg-surface-2"
         >
-          Save &amp; exit ✕
+          Save &amp; exit
         </Link>
       </header>
 
