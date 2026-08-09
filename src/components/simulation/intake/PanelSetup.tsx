@@ -8,9 +8,7 @@ import { useQuery, useMutation } from "convex/react"
 import { api } from "@convex/_generated/api"
 import { Id } from "@convex/_generated/dataModel"
 import { cn } from "@/lib/utils"
-import { deriveAuditRiskScores } from "@/lib/preRunScores"
-import { deriveReadiness } from "@/lib/readiness"
-import { axisKeys, axisLabel, axisOwners, getPack } from "@/domains/registry"
+import { getPack } from "@/domains/registry"
 import type { AttackSegment } from "@/domains/types"
 import { FLOW_BTN, StageKicker } from "@/components/simulation/flow/FlowShell"
 import { IdeaNotFound } from "@/components/simulation/flow/IdeaNotFound"
@@ -35,20 +33,19 @@ type PanelSetupProps = {
 
 export const PanelSetup = ({ simulationId }: PanelSetupProps) => {
   const router = useRouter()
-  const typedId = simulationId as Id<"simulations">
-  const simulation = useQuery(api.simulations.get, { id: typedId })
-  const room = useQuery(api.rooms.getBySimulation, { simulationId: typedId })
-  const audit = useQuery(api.audits.getBySimulation, { simulationId: typedId })
-  const createRoom = useMutation(api.rooms.create)
+  const typedId = simulationId as Id<"practices">
+  const practice = useQuery(api.practices.get, { id: typedId })
+  const liveSession = useQuery(api.sessions.getLive, { practiceId: typedId })
+  const createSession = useMutation(api.sessions.create)
   const [startingId, setStartingId] = useState<string | null>(null)
   const [enterFailed, setEnterFailed] = useState(false)
 
-  const handleEnterRoom = async (characterId: string) => {
+  const handleEnterRoom = async (personaId: string) => {
     if (startingId) return
-    setStartingId(characterId)
+    setStartingId(personaId)
     setEnterFailed(false)
     try {
-      await createRoom({ simulationId: typedId, characterId })
+      await createSession({ practiceId: typedId, personaId })
       router.push(`/simulation/${simulationId}/room`)
     } catch {
       setEnterFailed(true)
@@ -56,11 +53,11 @@ export const PanelSetup = ({ simulationId }: PanelSetupProps) => {
     }
   }
 
-  if (simulation === undefined || room === undefined) return null
-  if (simulation === null) return <IdeaNotFound />
-  const pack = getPack(simulation.packId)
+  if (practice === undefined || liveSession === undefined) return null
+  if (practice === null) return <IdeaNotFound />
+  const pack = getPack(practice.packId)
 
-  if (!simulation.context) {
+  if (!practice.context) {
     return (
       <div>
         <StageKicker>{pack.copy.panel.kicker}</StageKicker>
@@ -69,7 +66,7 @@ export const PanelSetup = ({ simulationId }: PanelSetupProps) => {
           start.{" "}
           <Link
             href={`/simulation/${simulationId}/analyze`}
-            className="focus-ring underline hover:text-red-fg"
+            className="focus-ring underline hover:text-accent-blue"
           >
             Back to the read
           </Link>
@@ -79,37 +76,30 @@ export const PanelSetup = ({ simulationId }: PanelSetupProps) => {
     )
   }
 
-  if (room) {
+  // startingId wins over liveSession: createSession commits the live
+  // session before navigation lands, and the reactive query would flash
+  // the rejoin branch during the transition.
+  if (liveSession && !startingId) {
     return (
       <div>
         <StageKicker>{pack.copy.panel.kicker}</StageKicker>
         <h1 className="max-w-[16ch] font-display text-[clamp(28px,3.6vw,44px)] font-bold leading-[1.06] tracking-[-.02em]">
-          A run is already live.
+          A session is already live.
         </h1>
         <p className="mt-3.5 max-w-[52ch] text-[15.5px] leading-[1.55] text-on-surface-2">
-          {room.characters[0]?.name} is in the room for this idea.
-          {room.status === "concluded" && " That session has concluded."} One run per
-          stress test for now.
+          {liveSession.persona.name} is in the room for this practice. Rejoin to
+          pick up where you left off.
         </p>
         <div className="mt-6">
-          <Link
-            href={`/simulation/${simulationId}/${room.status === "concluded" ? "report" : "room"}`}
-            className={FLOW_BTN}
-          >
-            {room.status === "concluded" ? "View the verdict" : "Rejoin the room"}{" "}
-            <span aria-hidden="true">→</span>
+          <Link href={`/simulation/${simulationId}/room`} className={FLOW_BTN}>
+            Rejoin the room <span aria-hidden="true">→</span>
           </Link>
         </div>
       </div>
     )
   }
 
-  const axes = axisKeys(pack)
-  const weakest =
-    audit?.status === "ready"
-      ? deriveReadiness(axes, deriveAuditRiskScores(audit, axes)).underFire
-      : null
-  const recommendedId = weakest ? (axisOwners(pack)[weakest] ?? null) : null
+  const recommendedId = practice.personaId ?? pack.personas[0]?.id ?? null
 
   return (
     <div>
@@ -134,14 +124,16 @@ export const PanelSetup = ({ simulationId }: PanelSetupProps) => {
             onClick={() => handleEnterRoom(char.id)}
             disabled={startingId !== null}
             className={cn(
-              "focus-ring group overflow-hidden border text-left transition-colors duration-200 hover:border-red disabled:pointer-events-none disabled:opacity-60",
-              char.id === recommendedId ? "border-red" : "border-line-2",
+              "focus-ring group overflow-hidden border text-left transition-colors duration-200 hover:border-accent-blue disabled:pointer-events-none disabled:opacity-60",
+              char.id === recommendedId ? "border-accent-blue" : "border-line-2",
               "bg-surface-raised"
             )}
           >
-            {char.id === recommendedId && weakest && (
-              <span className="block bg-red px-3 py-[5px] font-mono text-[9px] uppercase tracking-[.1em] text-white">
-                Recommended · targets your weakest axis ({axisLabel(pack, weakest)})
+            {char.id === recommendedId && (
+              <span className="block bg-accent-blue px-3 py-[5px] font-mono text-[9px] uppercase tracking-[.1em] text-primary-foreground">
+                {practice.personaId
+                  ? "Recommended · you've worked together before"
+                  : "Recommended"}
               </span>
             )}
             <span className="relative block aspect-[4/3] overflow-hidden bg-[#1C1C1E]">
@@ -164,7 +156,7 @@ export const PanelSetup = ({ simulationId }: PanelSetupProps) => {
               <span className="mt-3 block text-[13px] leading-[1.5] text-on-surface-2">
                 <Attack segments={char.attack} />
               </span>
-              <span className="mt-4 flex items-center gap-2 border-t border-line pt-3.5 font-mono text-[11px] uppercase tracking-[.06em] text-on-surface transition-colors group-hover:text-red-fg">
+              <span className="mt-4 flex items-center gap-2 border-t border-line pt-3.5 font-mono text-[11px] uppercase tracking-[.06em] text-on-surface transition-colors group-hover:text-accent-blue">
                 {startingId === char.id ? "Entering the room…" : "Enter the room →"}
               </span>
             </span>

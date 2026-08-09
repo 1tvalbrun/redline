@@ -5,7 +5,7 @@ import type { VerdictTone } from "@/domains/types"
 const TONE_STYLES: Record<VerdictTone, string> = {
   good: "border-ok/30 bg-ok-bg text-ok",
   mid: "border-warn-line bg-warn-bg text-warn",
-  bad: "border-lane-audit-line bg-lane-audit-bg text-lane-audit",
+  bad: "border-red-fg/25 bg-red-fg/10 text-red-fg",
 }
 
 export const VerdictBadge = ({ decision, className }: { decision: string; className?: string }) => {

@@ -7,7 +7,7 @@ import { api } from "@convex/_generated/api"
 import { Id } from "@convex/_generated/dataModel"
 import { cn } from "@/lib/utils"
 import { FLOW_BTN } from "@/components/simulation/flow/FlowShell"
-import { getPack, scopeOf } from "@/domains/registry"
+import { getPack } from "@/domains/registry"
 import { scopeText } from "@/domains/types"
 import { WaitingScreen } from "@/components/simulation/flow/WaitingScreen"
 import { IdeaNotFound } from "@/components/simulation/flow/IdeaNotFound"
@@ -20,14 +20,14 @@ type AnalysisPipelineProps = {
 
 export const AnalysisPipeline = ({ simulationId }: AnalysisPipelineProps) => {
   const router = useRouter()
-  const typedId = simulationId as Id<"simulations">
-  const simulation = useQuery(api.simulations.get, { id: typedId })
-  const analyzeSimulation = useAction(api.simulations.analyze)
+  const typedId = simulationId as Id<"practices">
+  const practice = useQuery(api.practices.get, { id: typedId })
+  const analyzePractice = useAction(api.practices.analyze)
   const [isSlow, setIsSlow] = useState(false)
   const [retrying, setRetrying] = useState(false)
   const [attempt, setAttempt] = useState(0)
 
-  const ready = simulation?.status === "ready" && !!simulation.context
+  const ready = practice?.status === "ready" && !!practice.context
 
   // The findings live on the Audit stage — advance the moment the read
   // completes rather than making the user wait out the animation.
@@ -46,23 +46,23 @@ export const AnalysisPipeline = ({ simulationId }: AnalysisPipelineProps) => {
     setIsSlow(false)
     setRetrying(true)
     setAttempt((n) => n + 1)
-    analyzeSimulation({ id: typedId })
+    analyzePractice({ id: typedId })
       .catch(() => setIsSlow(true))
       .finally(() => setRetrying(false))
   }
 
-  if (simulation === undefined) return null
-  if (simulation === null) return <IdeaNotFound />
+  if (practice === undefined) return null
+  if (practice === null) return <IdeaNotFound />
   if (ready) return null
 
-  const pack = getPack(simulation.packId)
+  const pack = getPack(practice.packId)
   const wait = pack.copy.readWait
 
   return (
     <div>
       <WaitingScreen
         kicker={wait.kicker}
-        heading={wait.heading(scopeText(scopeOf(simulation), pack.subjectField))}
+        heading={wait.heading(scopeText(practice.scope, pack.subjectField))}
         lead={wait.lead}
         rows={wait.rows}
         work={wait.work}

@@ -1,15 +1,14 @@
 import { ASSESSOR_PERSONAS } from "./personas.ts"
 import { scopeText, type DomainPack } from "../types.ts"
-import { AUDIT_AXES } from "./axes.ts"
 import { areaByLabel, CONTROL_AREAS } from "./catalog.ts"
 import { buildRoomBriefing, turnTaking } from "./briefing.ts"
-import { analyzeSystem, analyzeUser, audit, orchestrate, report } from "./prompts.ts"
+import { analyzeSystem, analyzeUser, audit, debrief, orchestrate } from "./prompts.ts"
 
 export const auditPack: DomainPack = {
   id: "audit",
   label: "Face an audit",
   description:
-    "Rehearse an audit interview before the real one. A lead assessor reads your scope and documents, interviews you on the safeguards in session scope, and scores your readiness. Practice feedback, never a compliance determination.",
+    "Rehearse an audit interview before the real one. A lead assessor reads your scope and documents, interviews you on the safeguards in session scope, and tells you straight where you stand. Practice feedback, never a compliance determination.",
   subjectField: "systemName",
   subtitleFields: ["role", "controlArea"],
   userLabel: "AUDITEE",
@@ -68,7 +67,6 @@ export const auditPack: DomainPack = {
     { key: "likelyFindings", label: "Likely findings" },
     { key: "openQuestions", label: "Open questions" },
   ],
-  axes: AUDIT_AXES,
   verdicts: {
     options: [
       { value: "ready", label: "Audit-ready", tone: "good" },
@@ -77,7 +75,6 @@ export const auditPack: DomainPack = {
     ],
     fallback: "shaky",
   },
-  targetLine: { value: 90, label: "Audit-ready" },
   // The ERL appears once a control area is chosen — no area, no list; the
   // deliberate absence of the DEFAULT_AREA fallback here is what makes the
   // panel arrive at the moment of choice.
@@ -118,7 +115,7 @@ export const auditPack: DomainPack = {
       ],
       ticker: [
         "We only work with what you actually gave us.",
-        "Nothing gets invented — if we didn't catch it, we ask.",
+        "Nothing gets invented. If we didn't catch it, we ask.",
         "A gap is a finding, not a failure.",
         "The assessor reads this before you walk in.",
       ],
@@ -134,14 +131,14 @@ export const auditPack: DomainPack = {
         { label: "Evidence", text: "Checking what's actually on record…" },
         { label: "Omissions", text: "Finding what an assessor expects and can't see…" },
         { label: "Severity", text: "Sorting session-stallers from soft spots…" },
-        { label: "Axes", text: "Weighing process, evidence, command, cadence…" },
+        { label: "Coverage", text: "Weighing process, evidence, command, cadence…" },
       ],
       work: [
         "Reading your documents",
         "Extracting established claims",
         "Verifying each against a source",
         "Assembling the gap map",
-        "Scoring the four axes",
+        "Mapping the pressure points",
       ],
       ticker: [
         "Every claim has to trace to a source.",
@@ -174,5 +171,5 @@ export const auditPack: DomainPack = {
   personas: ASSESSOR_PERSONAS,
   turnTaking,
   briefing: buildRoomBriefing,
-  prompts: { analyzeSystem, analyzeUser, audit, orchestrate, report },
+  prompts: { analyzeSystem, analyzeUser, audit, orchestrate, debrief },
 }

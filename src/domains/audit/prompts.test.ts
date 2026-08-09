@@ -1,6 +1,6 @@
 import test from "node:test"
 import assert from "node:assert/strict"
-import { analyzeSystem, analyzeUser, audit, orchestrate, report } from "./prompts.ts"
+import { analyzeSystem, analyzeUser, audit, debrief, orchestrate } from "./prompts.ts"
 import type { Scope } from "../types.ts"
 
 // Pin tests for the audit-lane prompts. Two lines are load-bearing above
@@ -34,7 +34,8 @@ test("audit injects only the in-scope safeguards and forbids outside citations",
   assert.doesNotMatch(prompt, /Safeguard 5\.1/)
   assert.match(prompt, /never cite any other framework, standard, control, or safeguard number/)
   assert.match(prompt, /few or zero claims is the correct answer — do not invent/)
-  assert.match(prompt, /\{"claims":\[\{"text","source","location","axis"\}\]/)
+  assert.match(prompt, /\{"claims":\[\{"text","source","location"\}\]/)
+  assert.doesNotMatch(prompt, /axis/)
 })
 
 test("an unrecognized control area falls back to Data Recovery", () => {
@@ -46,24 +47,24 @@ test("an unrecognized control area falls back to Data Recovery", () => {
   assert.match(prompt, /Data Recovery \(Control 11\)/)
 })
 
-test("orchestrate keeps the four axes, the score echo, and the rules", () => {
+test("orchestrate asks for a note and a topic, never scores", () => {
   const prompt = orchestrate({
     characterName: "Priya Nair",
     characterRole: "Lead Security Assessor",
     characterTone: "Methodical",
     scope,
-    current: { process: 55, evidence: 50, command: 45, cadence: 60 },
   })
   assert.match(prompt, /alongside Priya Nair \(Lead Security Assessor\)/)
-  assert.match(prompt, /process=55/)
-  assert.match(prompt, /cadence=60/)
-  assert.match(prompt, /return the CURRENT value UNCHANGED/)
-  assert.match(prompt, /Never move by more than 10 points/)
-  assert.match(prompt, /"riskScores":\{"process":int,"evidence":int,"command":int,"cadence":int\}/)
+  assert.match(prompt, /never cite any other framework, standard, or safeguard number/)
+  assert.match(prompt, /strong_answer: auditee gave a specific, record-backed answer/)
+  assert.match(prompt, /name the topic being discussed right now, in 5 words or fewer/)
+  assert.match(prompt, /"topic":"<5 words or fewer>" \| null/)
+  assert.doesNotMatch(prompt, /riskScores/)
+  assert.doesNotMatch(prompt, /0-100/)
 })
 
-test("report keeps the closed verdicts, the language rule, and the grounding rules", () => {
-  const prompt = report({
+test("debrief keeps the closed verdicts, the language rule, and the new contract", () => {
+  const prompt = debrief({
     scope,
     characterName: "Priya Nair",
     characterRole: "Lead Security Assessor",
@@ -75,13 +76,25 @@ test("report keeps the closed verdicts, the language rule, and the grounding rul
   assert.match(prompt, /"decision": "ready" \| "shaky" \| "not-ready"/)
   assert.match(prompt, /Never state or imply a compliance determination/)
   assert.match(prompt, /never cite any other framework, standard, control, or safeguard number/)
-  assert.match(prompt, /verbatim words in "quote"/)
+  assert.match(prompt, /"title": /)
+  assert.match(prompt, /"spokenVerdict": /)
+  assert.match(prompt, /"whatHappened": /)
+  assert.match(prompt, /"heldUp": \[/)
+  assert.match(prompt, /"didntHold": \[/)
+  assert.match(prompt, /"continuity": \{/)
+  assert.match(prompt, /"priority": "high" \| "medium" \| "low"/)
+  assert.match(prompt, /"ref" may name ONLY a safeguard from the list in scope/)
+  assert.match(prompt, /copied verbatim/)
   assert.match(prompt, /an empty list is the correct, honest output/)
-  assert.match(prompt, /\{"day": 7, "task"/)
+  assert.doesNotMatch(prompt, /overallScore/)
+  assert.doesNotMatch(prompt, /riskScores/)
+  assert.doesNotMatch(prompt, /panelVerdict/)
+  assert.doesNotMatch(prompt, /nextSevenDays/)
+  assert.doesNotMatch(prompt, /topRisks/)
 })
 
-test("report compounds the engagement memory and forbids repeating tracked commitments", () => {
-  const prompt = report({
+test("debrief compounds the engagement memory and forbids repeating tracked commitments", () => {
+  const prompt = debrief({
     scope,
     characterName: "Priya Nair",
     characterRole: "Lead Security Assessor",

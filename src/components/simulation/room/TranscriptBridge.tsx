@@ -8,18 +8,18 @@ import { Id } from "@convex/_generated/dataModel"
 import { isAvatarSpeech } from "@/lib/transcript"
 
 type TranscriptBridgeProps = {
-  roomId: Id<"rooms">
+  sessionId: Id<"sessions">
   character: { id: string; name: string }
 }
 
-// Writes each avatar turn to the room transcript. Entries arrive as Runway's
+// Writes each avatar turn to the session transcript. Entries arrive as Runway's
 // flat deltas over the data channel with no timing fields, and a turn's
 // final lands only when her next turn starts — so speech onset is stamped
 // from the turn's FIRST interim (which arrives at turn onset), and the final
 // is written with that spokenAt. Interims exist for timing only; they are
 // never written to Convex or sent to the orchestrator.
-export const TranscriptBridge = ({ roomId, character }: TranscriptBridgeProps) => {
-  const addTranscriptEntry = useMutation(api.rooms.addTranscriptEntry)
+export const TranscriptBridge = ({ sessionId, character }: TranscriptBridgeProps) => {
+  const addTranscriptEntry = useMutation(api.sessions.addTranscriptEntry)
   const decide = useAction(api.orchestrator.decide)
   const session = useAvatarSession()
 
@@ -43,7 +43,7 @@ export const TranscriptBridge = ({ roomId, character }: TranscriptBridgeProps) =
       void (async () => {
         try {
           const result = await addTranscriptEntry({
-            id: roomId,
+            id: sessionId,
             entry: {
               speaker: character.id,
               speakerName: character.name,
@@ -54,7 +54,7 @@ export const TranscriptBridge = ({ roomId, character }: TranscriptBridgeProps) =
             },
           })
           if (result?.written) {
-            decide({ roomId }).catch((err) =>
+            decide({ sessionId }).catch((err) =>
               console.error("orchestrator.decide failed:", err)
             )
           }

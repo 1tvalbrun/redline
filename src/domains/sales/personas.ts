@@ -20,6 +20,5 @@ export const BUYER_PERSONAS: Persona[] = [
     ],
     bio: "Runs operations across sites and has survived a hundred vendor pitches. Likes ideas fine; buys outcomes, references, and a next step worth the calendar slot.",
     tags: ["Switching cost", "ROI proof", "Next steps"],
-    axes: ["value", "fit", "objections", "close"],
   },
 ]

@@ -19,6 +19,5 @@ export const ASSESSOR_PERSONAS: Persona[] = [
     ],
     bio: 'Twenty-five years of audit interviews across finance and SaaS. Believes every control has a paper trail or it didn’t happen; warm until an answer begins with "usually".',
     tags: ["Evidence trails", "Show don't tell", "Cadence"],
-    axes: ["process", "evidence", "command", "cadence"],
   },
 ]

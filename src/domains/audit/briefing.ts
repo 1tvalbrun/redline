@@ -1,5 +1,3 @@
-import { deriveAuditRiskScores } from "../../lib/preRunScores.ts"
-import { deriveReadiness } from "../../lib/readiness.ts"
 import { bySpokenTime } from "../../lib/transcript.ts"
 import {
   composeWithinBudget,
@@ -11,7 +9,6 @@ import {
   type BriefingInput,
   type RoomBriefing,
 } from "../types.ts"
-import { AUDIT_AXIS_KEYS } from "./axes.ts"
 import { areaByLabel, DEFAULT_AREA } from "./catalog.ts"
 
 // Same pause discipline as the other lanes, in the assessor's frame: the
@@ -32,14 +29,6 @@ your character demands.
 
 const DIGEST_TURNS = 6
 const DIGEST_TURN_CHARS = 160
-
-// How an assessor names each weak spot out loud.
-const SPOKEN_AXIS: Record<string, string> = {
-  process: "how this is supposed to work on paper",
-  evidence: "what you can show me, not just tell me",
-  command: "how well you know this environment yourself",
-  cadence: "how often these things actually happen",
-}
 
 // Per-session avatar briefing, assembled from what the app already knows.
 export const buildRoomBriefing = ({
@@ -66,9 +55,6 @@ export const buildRoomBriefing = ({
     }
   }
 
-  const weakest = audit
-    ? deriveReadiness(AUDIT_AXIS_KEYS, deriveAuditRiskScores(audit, AUDIT_AXIS_KEYS)).underFire
-    : null
   // Blockers first, same priority the pre-read UI gives them.
   const gapTitles = audit
     ? [...audit.gaps]
@@ -109,14 +95,11 @@ export const buildRoomBriefing = ({
     : []
 
   const readDocuments = (audit?.claims.length ?? 0) > 0
-  const spokenAxis = weakest ? (SPOKEN_AXIS[weakest] ?? weakest) : null
   const startScript =
     open.length > 0
       ? `Good to see you again. Last time you said you'd ${spokenCommitment(open[0])} — let's start there.`
-      : spokenAxis
-        ? readDocuments
-          ? `Thanks for making the time. I went through the ${systemName} documents before this session, and I want to start with ${spokenAxis} — that's where I have the most questions.`
-          : `Thanks for making the time. I want to start with ${spokenAxis} — that's where I have the most questions.`
+      : readDocuments
+        ? `Thanks for making the time. I went through the ${systemName} documents before this session, and I have questions. Let's get into the session scope.`
         : `Thanks for making the time. Let's begin: tell me about ${systemName} and your role in it, and then we'll get into the session scope.`
 
   return {

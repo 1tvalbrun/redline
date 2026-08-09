@@ -13,12 +13,12 @@ const SimulationError = ({ reset }: { error: Error; reset: () => void }) => (
       <button
         type="button"
         onClick={reset}
-        className="focus-ring underline hover:text-red-fg"
+        className="focus-ring underline hover:text-accent-blue"
       >
         Try again
       </button>{" "}
       or{" "}
-      <Link href="/simulation/new" className="focus-ring underline hover:text-red-fg">
+      <Link href="/simulation/new" className="focus-ring underline hover:text-accent-blue">
         start a new run
       </Link>
       .

@@ -8,16 +8,13 @@
  * @module
  */
 
-import type * as audits from "../audits.js";
 import type * as avatars from "../avatars.js";
 import type * as guard from "../guard.js";
-import type * as ideas from "../ideas.js";
 import type * as ingest from "../ingest.js";
 import type * as materials from "../materials.js";
 import type * as orchestrator from "../orchestrator.js";
-import type * as reports from "../reports.js";
-import type * as rooms from "../rooms.js";
-import type * as simulations from "../simulations.js";
+import type * as practices from "../practices.js";
+import type * as sessions from "../sessions.js";
 import type * as users from "../users.js";
 
 import type {
@@ -27,16 +24,13 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
-  audits: typeof audits;
   avatars: typeof avatars;
   guard: typeof guard;
-  ideas: typeof ideas;
   ingest: typeof ingest;
   materials: typeof materials;
   orchestrator: typeof orchestrator;
-  reports: typeof reports;
-  rooms: typeof rooms;
-  simulations: typeof simulations;
+  practices: typeof practices;
+  sessions: typeof sessions;
   users: typeof users;
 }>;
 

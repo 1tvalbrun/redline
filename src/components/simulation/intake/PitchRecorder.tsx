@@ -37,7 +37,7 @@ const resetBars = (container: HTMLDivElement) => {
 
 const BLOCKED_MESSAGES = {
   denied:
-    "We can't hear you — microphone access is blocked. Allow it in your browser and try again, or type your pitch instead.",
+    "We can't hear you. Microphone access is blocked. Allow it in your browser and try again, or type your pitch instead.",
   silent:
     "We couldn't catch any speech in that take. Try again a little closer to the mic, or type it instead.",
   error:
@@ -135,7 +135,7 @@ export const PitchRecorder = ({ guided, onComplete, onCancel, onRetry }: PitchRe
           <button
             type="button"
             onClick={onCancel}
-            className="focus-ring font-mono text-[11px] uppercase tracking-[.06em] text-on-surface-2 hover:text-red-fg"
+            className="focus-ring font-mono text-[11px] uppercase tracking-[.06em] text-on-surface-2 hover:text-accent-blue"
           >
             Back
           </button>
@@ -198,7 +198,7 @@ export const PitchRecorder = ({ guided, onComplete, onCancel, onRetry }: PitchRe
         <button
           type="button"
           onClick={handleStartOver}
-          className="focus-ring font-mono text-[11px] uppercase tracking-[.06em] text-on-surface-2 hover:text-red-fg"
+          className="focus-ring font-mono text-[11px] uppercase tracking-[.06em] text-on-surface-2 hover:text-accent-blue"
         >
           Start over
         </button>

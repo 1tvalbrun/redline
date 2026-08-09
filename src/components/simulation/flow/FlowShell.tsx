@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
+import { LogoMark } from "@/components/shared/LogoMark"
 
 const STAGES = [
   { key: "brief", label: "Brief" },
@@ -10,7 +11,6 @@ const STAGES = [
   { key: "audit", label: "Audit" },
   { key: "panel", label: "Panel" },
   { key: "room", label: "Room" },
-  { key: "verdict", label: "Verdict" },
 ] as const
 
 export type FlowStage = (typeof STAGES)[number]["key"]
@@ -21,12 +21,11 @@ const STAGE_ROUTES: Record<FlowStage, (simulationId: string) => string> = {
   audit: (id) => `/simulation/${id}/audit`,
   panel: (id) => `/simulation/${id}/panel`,
   room: (id) => `/simulation/${id}/room`,
-  verdict: (id) => `/simulation/${id}/report`,
 }
 
-// Mock .btn-primary — shared by every stage CTA.
-export const FLOW_BTN =
-  "focus-ring inline-flex cursor-pointer items-center justify-center gap-2 rounded-[10px] bg-accent-blue px-[18px] py-2.5 text-[13.5px] font-medium text-primary-foreground shadow-btn transition hover:bg-accent-blue-hover active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50"
+// Retired alias — stage CTAs migrate to BTN_PRIMARY as their stages are
+// rebuilt (Stages 3–5).
+export { BTN_PRIMARY as FLOW_BTN } from "@/components/shared/buttons"
 
 export const StageKicker = ({ children }: { children: React.ReactNode }) => (
   <p className="mb-4 flex items-center gap-2 font-mono text-[11px] uppercase tracking-[.09em] text-on-surface-3">
@@ -54,12 +53,7 @@ export const FlowShell = ({ stage, simulationId, fullBleed, children }: FlowShel
     <div className="flex h-dvh flex-col bg-surface">
       <header className="flex flex-none items-center gap-[26px] border-b border-line bg-surface-rail px-6 py-3.5">
         <Link href="/" className="focus-ring flex items-center gap-2">
-          <span
-            aria-hidden="true"
-            className="grid h-[22px] w-[22px] flex-none place-items-center rounded-md bg-on-surface"
-          >
-            <span className="block h-[3px] w-[11px] rounded-[2px] bg-red" />
-          </span>
+          <LogoMark size="sm" />
           <span className="text-sm font-semibold">Redline</span>
         </Link>
 

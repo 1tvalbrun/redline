@@ -11,18 +11,16 @@ const scope = {
   objections: ["Switching cost"],
 }
 
-const gap = (title: string, axis: Gap["axis"], severity: Gap["severity"] = "blocker"): Gap => ({
+const gap = (title: string, severity: Gap["severity"] = "blocker"): Gap => ({
   severity,
   kind: "absent",
   title,
   detail: "detail",
-  axis,
 })
 
-const claim = (axis: Claim["axis"]): Claim => ({
+const claim = (): Claim => ({
   text: "claim",
   citation: { source: "one-pager.pdf", location: "page 1" },
-  axis,
 })
 
 test("a fresh session casts the avatar as the prospect and carries the ask", () => {
@@ -33,17 +31,17 @@ test("a fresh session casts the avatar as the prospect and carries the ask", () 
   assert.match(briefing.startScript, /you've got my attention/i)
 })
 
-test("a fresh session with an audit opens on the weakest axis", () => {
+test("a fresh session with citable material earns the material clause and carries the gaps", () => {
   const briefing = buildRoomBriefing({
     scope,
     audit: {
-      claims: [claim("value")],
-      gaps: [gap("No pricing anywhere", "close"), gap("No references", "objections", "gap")],
+      claims: [claim()],
+      gaps: [gap("No pricing anywhere"), gap("No references", "gap")],
     },
     continuity: null,
     transcript: [],
   })
-  assert.match(briefing.startScript, /what exactly you're asking me to commit to/)
+  assert.match(briefing.startScript, /read through the CourtFlow material/)
   assert.match(briefing.personalityPreamble, /No pricing anywhere/)
   assert.match(briefing.personalityPreamble, /CourtFlow/)
 })
@@ -75,22 +73,34 @@ test("a session with no expected objections stays silent about them", () => {
   assert.doesNotMatch(briefing.personalityPreamble, /raise them naturally/)
 })
 
-test("an audit with nothing citable opens on the weakest axis without claiming to have read material", () => {
+test("an audit with nothing citable never claims to have read material", () => {
   const briefing = buildRoomBriefing({
     scope,
-    audit: { claims: [], gaps: [gap("No customer references", "objections")] },
+    audit: { claims: [], gaps: [gap("No customer references")] },
     continuity: null,
     transcript: [],
   })
-  assert.match(briefing.startScript, /concerns you're going to hear/)
+  assert.match(briefing.startScript, /you've got my attention/i)
   assert.doesNotMatch(briefing.startScript, /read through/)
 })
 
 const continuity = {
   lastSessionSummary: "Pilot terms agreed in principle; integration proof outstanding.",
   actionItems: [
-    { id: "r1:0", text: "Send two customer references", status: "open" as const, createdAt: 1 },
-    { id: "r1:1", text: "Deliver the security summary", status: "done" as const, createdAt: 2 },
+    {
+      id: "r1:0",
+      text: "Send two customer references",
+      priority: "high" as const,
+      status: "open" as const,
+      createdAt: 1,
+    },
+    {
+      id: "r1:1",
+      text: "Deliver the security summary",
+      priority: "medium" as const,
+      status: "done" as const,
+      createdAt: 2,
+    },
   ],
   updatedAt: 2,
 }

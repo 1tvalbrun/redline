@@ -1,5 +1,3 @@
-import { deriveAuditRiskScores } from "../../lib/preRunScores.ts"
-import { deriveReadiness } from "../../lib/readiness.ts"
 import { bySpokenTime } from "../../lib/transcript.ts"
 import {
   composeWithinBudget,
@@ -11,7 +9,6 @@ import {
   type BriefingInput,
   type RoomBriefing,
 } from "../types.ts"
-import { SALES_AXIS_KEYS } from "./axes.ts"
 
 // Same pause discipline as the founder lane, in the buyer's frame: the GWM
 // engine fills silence with presence check-ins, and a buyer who narrates
@@ -30,14 +27,6 @@ character demands.
 
 const DIGEST_TURNS = 6
 const DIGEST_TURN_CHARS = 160
-
-// How a buyer names each weak spot out loud.
-const SPOKEN_AXIS: Record<string, string> = {
-  value: "what this is actually worth to me",
-  fit: "whether this fits how we operate",
-  objections: "the concerns you're going to hear from people like me",
-  close: "what exactly you're asking me to commit to",
-}
 
 // Per-session avatar briefing, assembled from what the app already knows.
 export const buildRoomBriefing = ({
@@ -64,9 +53,6 @@ export const buildRoomBriefing = ({
     }
   }
 
-  const weakest = audit
-    ? deriveReadiness(SALES_AXIS_KEYS, deriveAuditRiskScores(audit, SALES_AXIS_KEYS)).underFire
-    : null
   // Blockers first, same priority the audit UI gives them.
   const gapTitles = audit
     ? [...audit.gaps]
@@ -88,8 +74,7 @@ export const buildRoomBriefing = ({
       : ""
 
   // Only claim to have read material when the audit actually cited some —
-  // an audit over nothing citable still finds a weakest axis, and the
-  // avatar must not open by claiming familiarity with documents that
+  // the avatar must not open by claiming familiarity with documents that
   // don't exist.
   const readMaterial = (audit?.claims.length ?? 0) > 0
 
@@ -110,14 +95,11 @@ export const buildRoomBriefing = ({
       ]
     : []
 
-  const spokenAxis = weakest ? (SPOKEN_AXIS[weakest] ?? weakest) : null
   const startScript =
     open.length > 0
       ? `Good to see you again. Last time you said you'd ${spokenCommitment(open[0])} — walk me through where that landed.`
-      : spokenAxis
-        ? readMaterial
-          ? `Thanks for making the time. I read through the ${offering} material before this, and I want to start with ${spokenAxis} — that's where I have the most questions.`
-          : `Thanks for making the time. I want to start with ${spokenAxis} — that's where I have the most questions.`
+      : readMaterial
+        ? `Thanks for making the time. I read through the ${offering} material before this, and I have questions. Tell me what you're bringing me.`
         : `Alright, you've got my attention. Tell me what you're bringing me, and why it matters for someone in my seat.`
 
   return {

@@ -162,9 +162,9 @@ const valueForLabel = (options: BriefOption[], label: string): string =>
 
 export const BriefForm = ({ initialScope }: { initialScope?: Scope }) => {
   const router = useRouter()
-  const createSimulation = useMutation(api.simulations.create)
-  const analyzeSimulation = useAction(api.simulations.analyze)
-  const extractBrief = useAction(api.simulations.extractBrief)
+  const createPractice = useMutation(api.practices.create)
+  const analyzePractice = useAction(api.practices.analyze)
+  const extractBrief = useAction(api.practices.extractBrief)
   const extractUpload = useAction(api.ingest.extractUpload)
   const generateUploadUrl = useMutation(api.materials.generateUploadUrl)
   const { uploads, setUploads, addFiles, removeUpload, readyMaterials, isUploading } =
@@ -292,7 +292,7 @@ export const BriefForm = ({ initialScope }: { initialScope?: Scope }) => {
     setSubmitFailed(false)
 
     try {
-      const id = await createSimulation({
+      const id = await createPractice({
         packId: "founder",
         scope: {
           ideaName,
@@ -307,8 +307,8 @@ export const BriefForm = ({ initialScope }: { initialScope?: Scope }) => {
       })
       router.push(`/simulation/${id}/analyze`)
       // Fire-and-forget past navigation: on failure analyze reverts the
-      // simulation to draft, and the Read stage's watchdog offers retry.
-      analyzeSimulation({ id }).catch(() => {})
+      // practice to draft, and the Read stage's watchdog offers retry.
+      analyzePractice({ id }).catch(() => {})
     } catch {
       setSubmitFailed(true)
       setIsSubmitting(false)
@@ -346,10 +346,10 @@ export const BriefForm = ({ initialScope }: { initialScope?: Scope }) => {
             onClick={() => setPhase({ step: "capturing", guided: false })}
             className="focus-ring group relative mb-[22px] h-[132px] w-[132px] rounded-full"
           >
-            <span aria-hidden="true" className="absolute inset-0 animate-ring rounded-full border border-red" />
-            <span aria-hidden="true" className="absolute inset-0 animate-ring rounded-full border border-red [animation-delay:.8s]" />
-            <span aria-hidden="true" className="absolute inset-0 animate-ring rounded-full border border-red [animation-delay:1.6s]" />
-            <span className="absolute inset-[26px] flex items-center justify-center rounded-full bg-on-surface transition-colors group-hover:bg-red">
+            <span aria-hidden="true" className="absolute inset-0 animate-ring rounded-full border border-accent-blue" />
+            <span aria-hidden="true" className="absolute inset-0 animate-ring rounded-full border border-accent-blue [animation-delay:.8s]" />
+            <span aria-hidden="true" className="absolute inset-0 animate-ring rounded-full border border-accent-blue [animation-delay:1.6s]" />
+            <span className="absolute inset-[26px] flex items-center justify-center rounded-full bg-on-surface transition-colors group-hover:bg-accent-blue">
               <Mic aria-hidden="true" className="h-[34px] w-[34px] text-surface" />
             </span>
           </button>
@@ -362,21 +362,21 @@ export const BriefForm = ({ initialScope }: { initialScope?: Scope }) => {
             <button
               type="button"
               onClick={() => assembleFrom(null, "Typing from scratch", "Fill it in, three quick fields")}
-              className="focus-ring flex items-center gap-2 border-r border-line-2 px-5 font-mono text-xs uppercase tracking-[.04em] text-on-surface-2 transition-colors hover:text-red-fg"
+              className="focus-ring flex items-center gap-2 border-r border-line-2 px-5 font-mono text-xs uppercase tracking-[.04em] text-on-surface-2 transition-colors hover:text-accent-blue"
             >
               <Keyboard aria-hidden="true" className="h-[15px] w-[15px]" /> Type it instead
             </button>
             <button
               type="button"
               onClick={() => deckInputRef.current?.click()}
-              className="focus-ring flex items-center gap-2 border-r border-line-2 px-5 font-mono text-xs uppercase tracking-[.04em] text-on-surface-2 transition-colors hover:text-red-fg"
+              className="focus-ring flex items-center gap-2 border-r border-line-2 px-5 font-mono text-xs uppercase tracking-[.04em] text-on-surface-2 transition-colors hover:text-accent-blue"
             >
               <Upload aria-hidden="true" className="h-[15px] w-[15px]" /> Upload a deck
             </button>
             <button
               type="button"
               onClick={() => setPhase({ step: "capturing", guided: true })}
-              className="focus-ring flex items-center gap-2 px-5 font-mono text-xs uppercase tracking-[.04em] text-on-surface-2 transition-colors hover:text-red-fg"
+              className="focus-ring flex items-center gap-2 px-5 font-mono text-xs uppercase tracking-[.04em] text-on-surface-2 transition-colors hover:text-accent-blue"
             >
               <Mic aria-hidden="true" className="h-[15px] w-[15px]" /> Guide me with questions
             </button>
@@ -428,7 +428,7 @@ export const BriefForm = ({ initialScope }: { initialScope?: Scope }) => {
                 <button
                   type="button"
                   onClick={handleStartOver}
-                  className="focus-ring font-mono text-[11px] uppercase tracking-[.06em] text-on-surface-2 hover:text-red-fg"
+                  className="focus-ring font-mono text-[11px] uppercase tracking-[.06em] text-on-surface-2 hover:text-accent-blue"
                 >
                   Start over
                 </button>
@@ -437,7 +437,7 @@ export const BriefForm = ({ initialScope }: { initialScope?: Scope }) => {
           ) : (
             <p aria-live="polite" className="flex items-center gap-2.5 text-[17px] text-on-surface-2">
               {phase.origin.kind === "voice" ? "Shaping your pitch into a brief…" : "Reading your deck…"}
-              <span aria-hidden="true" className="inline-block h-[15px] w-[7px] animate-blink bg-red" />
+              <span aria-hidden="true" className="inline-block h-[15px] w-[7px] animate-blink bg-accent-blue" />
             </p>
           )}
         </div>
@@ -453,7 +453,7 @@ export const BriefForm = ({ initialScope }: { initialScope?: Scope }) => {
           </h1>
           <p className="mt-4 max-w-[52ch] text-[17px] leading-[1.5] text-on-surface-2">
             Edit anything, fill the gaps we flagged, and you&apos;re set. Nothing here
-            is invented — if we didn&apos;t hear it, we ask.
+            is invented. If we didn&apos;t hear it, we ask.
           </p>
 
           <p className="my-6 inline-flex items-center gap-2 border border-line-2 bg-surface-raised px-[13px] py-2 font-mono text-[11px] uppercase tracking-[.06em] text-on-surface-2">
@@ -577,7 +577,7 @@ export const BriefForm = ({ initialScope }: { initialScope?: Scope }) => {
             <button
               type="button"
               onClick={handleStartOver}
-              className="focus-ring font-mono text-[11px] uppercase tracking-[.06em] text-on-surface-2 hover:text-red-fg"
+              className="focus-ring font-mono text-[11px] uppercase tracking-[.06em] text-on-surface-2 hover:text-accent-blue"
             >
               Start over
             </button>

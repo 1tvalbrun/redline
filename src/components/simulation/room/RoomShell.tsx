@@ -2,13 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { useQuery, useAction } from "convex/react"
+import { useQuery, useAction, useMutation } from "convex/react"
 import { api } from "@convex/_generated/api"
 import { Id } from "@convex/_generated/dataModel"
 import { AvatarProvider, AvatarVideo } from "@runwayml/avatars-react"
 import { Mic, MicOff, Pause } from "lucide-react"
-import { deriveReadiness } from "@/lib/readiness"
-import { axisKeys, axisLabel, getPack } from "@/domains/registry"
+import { getPack } from "@/domains/registry"
 import { isSessionStale, lastActivityAt } from "@/lib/session"
 import { useNow } from "@/lib/useNow"
 import { formatElapsed } from "@/lib/utils"
@@ -35,12 +34,12 @@ const AVATAR_CONNECT_TIMEOUT_MS = 40_000
 // Display-only hold on the user's finalized turns so both sides land at
 // one rhythm: the avatar's transcript inherently lags several seconds behind
 // its speech (measured ~8-10s in live sessions), the user's commits
-// ~0.7s after theirs. Scoring is NOT delayed — orchestrator.decide reads
+// ~0.7s after theirs. The orchestrator is NOT delayed — decide reads
 // Convex directly. Tune the cadence here.
 const USER_TRANSCRIPT_DELAY_MS = 6000
 
 // Elapsed for THIS sitting, anchored at mount — a resumed room is far older
-// than the session being recorded (anchoring at room creation once read
+// than the session being recorded (anchoring at session creation once read
 // "22560:17"). A mid-session refresh restarts the readout; the transcript
 // keeps the true times.
 const SessionClock = () => {
@@ -61,10 +60,11 @@ const SessionClock = () => {
 
 export const RoomShell = ({ simulationId }: RoomShellProps) => {
   const router = useRouter()
-  const typedId = simulationId as Id<"simulations">
-  const room = useQuery(api.rooms.getBySimulation, { simulationId: typedId })
-  const simulation = useQuery(api.simulations.get, { id: typedId })
-  const generateReport = useAction(api.reports.generate)
+  const typedId = simulationId as Id<"practices">
+  const session = useQuery(api.sessions.getLive, { practiceId: typedId })
+  const practice = useQuery(api.practices.get, { id: typedId })
+  const generateDebrief = useAction(api.sessions.generateDebrief)
+  const endSession = useMutation(api.sessions.end)
   const ended = useRef(false)
 
   const toggleMicRef = useRef<(() => void) | null>(null)
@@ -116,42 +116,41 @@ export const RoomShell = ({ simulationId }: RoomShellProps) => {
 
   const connectTimedOut = timedOutAttempt === connectAttempt
 
-  // A room with no chosen panelist means the user skipped the Panel
-  // stage — send them there instead of defaulting one.
+  // No live session for this practice means the user hasn't chosen a
+  // panelist (or the session concluded) — send them to the meet step.
+  // The end-session path guards with ended.current so its own navigation
+  // isn't raced by this redirect.
   useEffect(() => {
-    if (room === null) {
+    if (session === null && !ended.current) {
       router.replace(`/simulation/${simulationId}/panel`)
     }
-  }, [room, router, simulationId])
+  }, [session, router, simulationId])
 
-  // Wait for the simulation too: getPack falls back to the founder pack, so
+  // Wait for the practice too: getPack falls back to the founder pack, so
   // rendering before packId arrives would flash founder labels in a sales room.
-  if (room === undefined || room === null || simulation === undefined) return null
+  if (session === undefined || session === null || practice === undefined) return null
 
-  const pack = getPack(simulation?.packId)
-  const character = room.characters[0]
-  const concluded = room.status === "concluded"
-  // A live room left idle past the threshold reads as over: one
+  const pack = getPack(practice?.packId)
+  const persona = session.persona
+  // A live session left idle past the threshold reads as over: one
   // interrogation is one sitting. Judged against mount time so the state
   // can't flip mid-visit.
-  const stale =
-    !concluded &&
-    isSessionStale(
-      room.transcript.length,
-      lastActivityAt(room.transcript, room._creationTime),
-      mountedAt
-    )
-  const sessionOver = concluded || stale
-  const underFire = deriveReadiness(axisKeys(pack), room.riskScores).underFire
+  const stale = isSessionStale(
+    session.transcript.length,
+    lastActivityAt(session.transcript, session._creationTime),
+    mountedAt
+  )
+  const sessionOver = stale
 
   const handleEndSession = () => {
     if (ended.current) return
     ended.current = true
-    router.push(`/simulation/${simulationId}/report`)
-    if (concluded) return
-    generateReport({ roomId: room._id }).catch((err) =>
-      console.error("report generation failed:", err)
-    )
+    // Conclude first so the session stops reading as live everywhere, then
+    // generate; navigation doesn't wait on either.
+    endSession({ id: session._id })
+      .then(() => generateDebrief({ sessionId: session._id }))
+      .catch((err) => console.error("end session failed:", err))
+    router.push(`/p/${simulationId}/s/${session._id}`)
   }
 
   const handleRetryConnect = () => {
@@ -173,7 +172,7 @@ export const RoomShell = ({ simulationId }: RoomShellProps) => {
       ? avatarError?.message ?? null
       : hasConnected
         ? avatarStatus === "ended"
-          ? `The live session ended on ${character?.name ?? "the panelist"}'s side.`
+          ? `The live session ended on ${persona.name}'s side.`
           : null
         : attemptStarted && avatarStatus === "ended"
           ? "The avatar session closed before it connected."
@@ -196,7 +195,7 @@ export const RoomShell = ({ simulationId }: RoomShellProps) => {
       className="relative grid h-full min-h-0 grid-cols-[244px_1fr_336px] grid-rows-[1fr_auto] bg-surface text-on-surface"
     >
       <div aria-hidden="true" className="grain-overlay absolute inset-0 z-50 opacity-5" />
-      {!sessionOver && <UserSpeechBridge roomId={room._id} enabled={micLive} />}
+      {!sessionOver && <UserSpeechBridge sessionId={session._id} enabled={micLive} />}
 
       <aside className="col-start-1 row-span-2 row-start-1 flex flex-col gap-[18px] border-r border-line bg-surface-raised px-4 py-5">
         <UserTile userName={pack.userTitle} micState={micState} onToggleMic={handleToggleMic} />
@@ -211,25 +210,18 @@ export const RoomShell = ({ simulationId }: RoomShellProps) => {
               Session ended
             </p>
             <p className="max-w-[38ch] text-center text-[13.5px] text-on-surface-2">
-              {concluded
-                ? "This run has concluded. Your report is on the verdict page."
-                : "This session sat idle too long and has ended. Your verdict comes from what's on the record."}
-            </p>
-          </div>
-        ) : !character?.avatarId ? (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <p className="font-mono text-[11px] uppercase tracking-[.14em] text-on-surface-2">
-              No avatar configured
+              This session sat idle too long and has ended. Your debrief comes
+              from what&apos;s on the record.
             </p>
           </div>
         ) : avatarFailure ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
             <p className="font-mono text-[11px] uppercase tracking-[.14em] text-red-fg">
-              {character?.name ?? "The panelist"} isn&apos;t responding
+              {persona.name} isn&apos;t responding
             </p>
             <p className="max-w-[42ch] text-center text-[13.5px] text-on-surface-2">
               {avatarFailure} Your session and everything said so far are
-              safe — retry the connection, or end now and get your verdict
+              safe. Retry the connection, or end now and get your debrief
               from what&apos;s on the record.
             </p>
             <div className="flex items-center gap-3">
@@ -245,15 +237,15 @@ export const RoomShell = ({ simulationId }: RoomShellProps) => {
                 onClick={handleEndSession}
                 className="focus-ring border border-red bg-red px-4 py-[10px] font-mono text-[11px] uppercase tracking-[.08em] text-white transition-colors hover:bg-red-deep"
               >
-                End session · get the verdict <span aria-hidden="true">→</span>
+                End session · get the debrief <span aria-hidden="true">→</span>
               </button>
             </div>
           </div>
         ) : (
           <AvatarProvider
             key={connectAttempt}
-            avatarId={character.avatarId}
-            connectUrl={`/api/avatar/connect?fresh=${mountNonce}-${connectAttempt}&simulationId=${simulationId}`}
+            avatarId={persona.avatarId}
+            connectUrl={`/api/avatar/connect?fresh=${mountNonce}-${connectAttempt}&sessionId=${session._id}`}
             audio
             video={false}
             onError={setAvatarError}
@@ -262,16 +254,16 @@ export const RoomShell = ({ simulationId }: RoomShellProps) => {
                 <div className="absolute inset-0 bg-[radial-gradient(62%_46%_at_50%_20%,rgba(255,255,255,.4),transparent_62%)]" />
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-2.5">
                   <p className="font-mono text-[11px] uppercase tracking-[.14em] text-[#544f45] motion-safe:animate-pulse">
-                    Connecting {character.name}…
+                    Connecting {persona.name}…
                   </p>
                   <p className="font-mono text-[10px] uppercase tracking-[.1em] text-[#544f45]/70">
-                    Establishing the live session — up to ~30 seconds
+                    Establishing the live session (up to ~30 seconds)
                   </p>
                 </div>
               </div>
             }
           >
-            <TranscriptBridge roomId={room._id} character={character} />
+            <TranscriptBridge sessionId={session._id} character={persona} />
             <MicBridge onStateChange={setIsMicEnabled} toggleRef={toggleMicRef} />
             <SessionStatusBridge
               onSpeakingChange={setIsAvatarSpeaking}
@@ -306,13 +298,13 @@ export const RoomShell = ({ simulationId }: RoomShellProps) => {
           {!sessionOver && <SessionClock />}
         </div>
 
-        {character && !avatarFailure && (
+        {!avatarFailure && (
           <div className="absolute bottom-[22px] left-6 z-[5]">
             <p className="font-display text-[30px] font-bold tracking-[-.01em] text-white [text-shadow:0_2px_8px_rgba(0,0,0,.4)]">
-              {character.name}
+              {persona.name}
             </p>
             <p className="mt-[5px] font-mono text-[11px] uppercase tracking-[.1em] text-white/80 [text-shadow:0_1px_4px_rgba(0,0,0,.4)]">
-              {character.role}
+              {persona.role}
             </p>
             {!sessionOver && (
               <div className="mt-[11px] flex items-center gap-2">
@@ -358,9 +350,9 @@ export const RoomShell = ({ simulationId }: RoomShellProps) => {
         >
           <Pause className="h-[18px] w-[18px]" />
         </button>
-        {underFire && (
+        {session.currentTopic && (
           <span className="font-mono text-[11px] uppercase tracking-[.1em] text-on-surface-2">
-            {axisLabel(pack, underFire)} under discussion
+            {session.currentTopic} under discussion
           </span>
         )}
         <button
@@ -368,21 +360,20 @@ export const RoomShell = ({ simulationId }: RoomShellProps) => {
           onClick={handleEndSession}
           className="focus-ring ml-auto flex items-center gap-[9px] border border-red bg-red px-5 py-[11px] font-mono text-[11px] uppercase tracking-[.08em] text-white transition-colors hover:bg-red-deep"
         >
-          {concluded ? "View report" : stale ? "Get the verdict" : "End session"}{" "}
-          <span aria-hidden="true">→</span>
+          {stale ? "Get the debrief" : "End session"} <span aria-hidden="true">→</span>
         </button>
       </div>
 
       <aside className="col-start-3 row-span-2 row-start-1 flex min-h-0 flex-col border-l border-line bg-surface-raised">
         <div className="min-h-0 flex-[1.25] border-b border-line">
           <TranscriptPanel
-            transcript={room.transcript}
-            startedAt={room._creationTime}
-            delayUserMs={concluded ? undefined : USER_TRANSCRIPT_DELAY_MS}
+            transcript={session.transcript}
+            startedAt={session._creationTime}
+            delayUserMs={sessionOver ? undefined : USER_TRANSCRIPT_DELAY_MS}
           />
         </div>
         <div className="min-h-0 flex-1">
-          <LiveNotes notes={room.liveNotes} startedAt={room._creationTime} />
+          <LiveNotes notes={session.liveNotes} startedAt={session._creationTime} />
         </div>
       </aside>
     </div>

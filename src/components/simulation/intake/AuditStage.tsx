@@ -6,10 +6,8 @@ import { useQuery, useAction } from "convex/react"
 import { api } from "@convex/_generated/api"
 import { Id } from "@convex/_generated/dataModel"
 import type { Claim, Gap } from "@/lib/audit"
-import { deriveAuditRiskScores } from "@/lib/preRunScores"
-import { deriveReadiness, READY_LINE } from "@/lib/readiness"
-import { axisKeys, axisLabel, getPack, scopeOf } from "@/domains/registry"
-import { scopeText, type DomainPack } from "@/domains/types"
+import { getPack } from "@/domains/registry"
+import { scopeText } from "@/domains/types"
 import { cn } from "@/lib/utils"
 import { FLOW_BTN, StageKicker } from "@/components/simulation/flow/FlowShell"
 import { WaitingScreen } from "@/components/simulation/flow/WaitingScreen"
@@ -33,7 +31,7 @@ const ClaimCard = ({ claim }: { claim: Claim }) => (
   </li>
 )
 
-const GapCard = ({ gap, pack }: { gap: Gap; pack: DomainPack }) => (
+const GapCard = ({ gap }: { gap: Gap }) => (
   <li
     className={cn(
       "border border-line-2 bg-surface-raised p-4",
@@ -56,7 +54,6 @@ const GapCard = ({ gap, pack }: { gap: Gap; pack: DomainPack }) => (
     <p className="mt-2 text-[12.5px] leading-[1.5] text-on-surface-2">{gap.detail}</p>
     <p className="mt-2 font-mono text-[9px] uppercase tracking-[.08em] text-on-surface-3">
       {KIND_LABELS[gap.kind]}
-      {gap.axis && ` · ${axisLabel(pack, gap.axis)}`}
     </p>
   </li>
 )
@@ -66,38 +63,37 @@ type AuditStageProps = {
 }
 
 export const AuditStage = ({ simulationId }: AuditStageProps) => {
-  const typedId = simulationId as Id<"simulations">
-  const simulation = useQuery(api.simulations.get, { id: typedId })
-  const audit = useQuery(api.audits.getBySimulation, { simulationId: typedId })
-  const generateAudit = useAction(api.audits.generate)
+  const typedId = simulationId as Id<"practices">
+  const practice = useQuery(api.practices.get, { id: typedId })
+  const runAudit = useAction(api.practices.runAudit)
   const [startFailed, setStartFailed] = useState(false)
   const autoStartedRef = useRef(false)
 
   const handleRunAudit = (force?: boolean) => {
     setStartFailed(false)
-    generateAudit({ simulationId: typedId, force }).catch(() => setStartFailed(true))
+    runAudit({ id: typedId, force }).catch(() => setStartFailed(true))
   }
 
   // Auto-start on first entry: the user just asked for the read, so the
   // audit shouldn't sit behind a button. The ref stops re-render double-fires;
   // the server's idempotent start collapses refreshes and concurrent triggers.
   useEffect(() => {
-    if (audit !== null || autoStartedRef.current) return
+    if (!practice || practice.audit || autoStartedRef.current) return
     autoStartedRef.current = true
-    generateAudit({ simulationId: typedId }).catch(() => setStartFailed(true))
-  }, [audit, generateAudit, typedId])
+    runAudit({ id: typedId }).catch(() => setStartFailed(true))
+  }, [practice, runAudit, typedId])
 
-  if (simulation === undefined || audit === undefined) return null
-  if (simulation === null) return <IdeaNotFound />
-  const pack = getPack(simulation.packId)
+  if (practice === undefined) return null
+  if (practice === null) return <IdeaNotFound />
+  const pack = getPack(practice.packId)
   const copy = pack.copy.audit
-  if (!simulation.context) {
+  if (!practice.context) {
     return (
       <p className="text-[13.5px] text-on-surface-2">
         Your brief hasn&apos;t been read yet.{" "}
         <Link
           href={`/simulation/${simulationId}/analyze`}
-          className="focus-ring underline hover:text-red-fg"
+          className="focus-ring underline hover:text-accent-blue"
         >
           Back to the read
         </Link>
@@ -106,7 +102,8 @@ export const AuditStage = ({ simulationId }: AuditStageProps) => {
     )
   }
 
-  if (audit === null || audit.status === "failed" || audit.status === "running") {
+  const audit = practice.audit
+  if (!audit || audit.status === "failed" || audit.status === "running") {
     const failed = audit?.status === "failed" || startFailed
     return (
       <div>
@@ -130,7 +127,7 @@ export const AuditStage = ({ simulationId }: AuditStageProps) => {
         ) : (
           <WaitingScreen
             kicker={pack.copy.auditWait.kicker}
-            heading={pack.copy.auditWait.heading(scopeText(scopeOf(simulation), pack.subjectField))}
+            heading={pack.copy.auditWait.heading(scopeText(practice.scope, pack.subjectField))}
             lead={pack.copy.auditWait.lead}
             rows={pack.copy.auditWait.rows}
             work={pack.copy.auditWait.work}
@@ -142,69 +139,15 @@ export const AuditStage = ({ simulationId }: AuditStageProps) => {
     )
   }
 
-  const axes = axisKeys(pack)
-  const readiness = deriveReadiness(axes, deriveAuditRiskScores(audit, axes))
-
   return (
     <div>
       <StageKicker>{copy.kicker}</StageKicker>
-      <div className="flex items-end justify-between gap-6 max-md:flex-col max-md:items-start">
-        <div>
-          <h1 className="max-w-[16ch] font-display text-[clamp(28px,3.6vw,44px)] font-bold leading-[1.06] tracking-[-.02em]">
-            {copy.readyHeading}
-          </h1>
-          <p className="mt-3.5 max-w-[52ch] text-[15.5px] leading-[1.55] text-on-surface-2">
-            {copy.readyLead}
-          </p>
-        </div>
-        <div className="flex-none text-right">
-          <p className="font-mono text-[10px] uppercase tracking-[.14em] text-on-surface-3">
-            Pre-run readiness
-          </p>
-          <p className="mt-1.5 font-display text-[52px] font-extrabold leading-none tracking-[-.03em] tabular-nums">
-            {readiness.overall ?? "—"}
-            <span className="text-[17px] text-on-surface-3">/100</span>
-          </p>
-          <p className="mt-1 font-mono text-[10px] uppercase tracking-[.1em] text-red-fg">
-            {readiness.overall === null
-              ? "Pending"
-              : readiness.overall >= READY_LINE
-                ? `Clear of the ${pack.targetLine.label.toLowerCase()} line`
-                : `${READY_LINE - readiness.overall} below the ready line`}
-          </p>
-        </div>
-      </div>
-
-      <ul className="my-7 grid gap-3.5 max-md:grid-cols-2 md:grid-cols-4" aria-label="Readiness by axis">
-        {axes.map((axis) => {
-          const value = readiness.perAxis[axis]
-          const weakest = axis === readiness.underFire
-          return (
-            <li key={axis} className="border border-line-2 bg-surface-raised p-3.5">
-              <p className="flex justify-between font-mono text-[10px] uppercase tracking-[.1em] text-on-surface-2">
-                {axisLabel(pack, axis)}
-                {weakest && <span className="text-red-fg">weakest</span>}
-              </p>
-              <p
-                className={cn(
-                  "my-2 font-display text-[28px] font-extrabold leading-none tracking-[-.02em] tabular-nums",
-                  weakest && "text-red-fg"
-                )}
-              >
-                {value ?? "—"}
-              </p>
-              <div className="relative h-1 overflow-hidden bg-line">
-                {value !== null && (
-                  <span
-                    className={cn("absolute inset-y-0 left-0", weakest ? "bg-red" : "bg-on-surface")}
-                    style={{ width: `${value}%` }}
-                  />
-                )}
-              </div>
-            </li>
-          )
-        })}
-      </ul>
+      <h1 className="max-w-[16ch] font-display text-[clamp(28px,3.6vw,44px)] font-bold leading-[1.06] tracking-[-.02em]">
+        {copy.readyHeading}
+      </h1>
+      <p className="mb-7 mt-3.5 max-w-[52ch] text-[15.5px] leading-[1.55] text-on-surface-2">
+        {copy.readyLead}
+      </p>
 
       <section aria-label="Claims extracted" className="mb-8">
         <h2 className="mb-3 flex justify-between font-mono text-[10.5px] uppercase tracking-[.16em] text-on-surface-2">
@@ -244,7 +187,7 @@ export const AuditStage = ({ simulationId }: AuditStageProps) => {
                   (a.severity === "blocker" ? 0 : 1) - (b.severity === "blocker" ? 0 : 1)
               )
               .map((gap, i) => (
-                <GapCard key={i} gap={gap} pack={pack} />
+                <GapCard key={i} gap={gap} />
               ))}
           </ul>
         )}
@@ -257,7 +200,7 @@ export const AuditStage = ({ simulationId }: AuditStageProps) => {
         <button
           type="button"
           onClick={() => handleRunAudit(true)}
-          className="focus-ring font-mono text-[11px] uppercase tracking-[.06em] text-on-surface-2 hover:text-red-fg"
+          className="focus-ring font-mono text-[11px] uppercase tracking-[.06em] text-on-surface-2 hover:text-accent-blue"
         >
           Re-run the audit
         </button>

@@ -6,15 +6,14 @@ import {
 } from "../../lib/briefOptions.ts"
 import { PANEL_PERSONAS } from "./personas.ts"
 import type { DomainPack } from "../types.ts"
-import { FOUNDER_AXES } from "./axes.ts"
 import { buildRoomBriefing, turnTaking } from "./briefing.ts"
-import { analyzeSystem, analyzeUser, audit, extractBrief, orchestrate, report } from "./prompts.ts"
+import { analyzeSystem, analyzeUser, audit, debrief, extractBrief, orchestrate } from "./prompts.ts"
 
 export const founderPack: DomainPack = {
   id: "founder",
   label: "Pitch a startup",
   description:
-    "Face an investor panel before the real one. Your idea gets read, audited, and interrogated live, then scored.",
+    "Face an investor panel before the real one. Your idea gets read, audited, and interrogated live, then debriefed.",
   subjectField: "ideaName",
   subtitleFields: ["stage", "businessModel"],
   userLabel: "FOUNDER",
@@ -67,7 +66,6 @@ export const founderPack: DomainPack = {
     { key: "competitors", label: "Competitors" },
     { key: "openQuestions", label: "Open questions" },
   ],
-  axes: FOUNDER_AXES,
   verdicts: {
     options: [
       { value: "advance", label: "Advance", tone: "good" },
@@ -76,7 +74,6 @@ export const founderPack: DomainPack = {
     ],
     fallback: "iterate",
   },
-  targetLine: { value: 90, label: "Investor-ready" },
   copy: {
     readWait: {
       kicker: "Reading your brief",
@@ -99,7 +96,7 @@ export const founderPack: DomainPack = {
       ],
       ticker: [
         "We only work with what you actually gave us.",
-        "Nothing gets invented — if we didn’t catch it, we ask.",
+        "Nothing gets invented. If we didn’t catch it, we ask.",
         "A gap is a finding, not a failure.",
         "The panel reads this before you walk in.",
       ],
@@ -115,14 +112,14 @@ export const founderPack: DomainPack = {
         { label: "Evidence", text: "Checking what’s actually backed…" },
         { label: "Omissions", text: "Finding what a diligencer expects and can’t see…" },
         { label: "Severity", text: "Sorting blockers from gaps…" },
-        { label: "Axes", text: "Weighing market, customer, technical, go-to-market…" },
+        { label: "Coverage", text: "Weighing market, customer, technical, go-to-market…" },
       ],
       work: [
         "Reading your materials",
         "Extracting stated claims",
         "Verifying each against a source",
         "Assembling the gap map",
-        "Scoring the four axes",
+        "Mapping the pressure points",
       ],
       ticker: [
         "Every claim has to trace to a source.",
@@ -155,5 +152,5 @@ export const founderPack: DomainPack = {
   personas: PANEL_PERSONAS,
   turnTaking,
   briefing: buildRoomBriefing,
-  prompts: { analyzeSystem, analyzeUser, extractBrief, audit, orchestrate, report },
+  prompts: { analyzeSystem, analyzeUser, extractBrief, audit, orchestrate, debrief },
 }

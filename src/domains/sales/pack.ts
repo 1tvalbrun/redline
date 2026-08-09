@@ -1,15 +1,14 @@
 import { BUYER_PERSONAS } from "./personas.ts"
 import type { DomainPack } from "../types.ts"
-import { SALES_AXES } from "./axes.ts"
 import { OBJECTIONS } from "./objections.ts"
 import { buildRoomBriefing, turnTaking } from "./briefing.ts"
-import { analyzeSystem, analyzeUser, audit, orchestrate, report } from "./prompts.ts"
+import { analyzeSystem, analyzeUser, audit, debrief, orchestrate } from "./prompts.ts"
 
 export const salesPack: DomainPack = {
   id: "sales",
   label: "Pitch a sale",
   description:
-    "Face the buyer before the real one. Your offer gets read, audited, and pushed on live by a skeptical operator, then scored on whether the deal moved.",
+    "Face the buyer before the real one. Your offer gets read, audited, and pushed on live by a skeptical operator, then debriefed on whether the deal moved.",
   subjectField: "offering",
   subtitleFields: ["prospect", "ask"],
   userLabel: "SELLER",
@@ -70,7 +69,6 @@ export const salesPack: DomainPack = {
     { key: "likelyObjections", label: "Likely objections" },
     { key: "openQuestions", label: "Open questions" },
   ],
-  axes: SALES_AXES,
   verdicts: {
     options: [
       { value: "buy", label: "Would buy", tone: "good" },
@@ -79,7 +77,6 @@ export const salesPack: DomainPack = {
     ],
     fallback: "second-meeting",
   },
-  targetLine: { value: 90, label: "Deal-ready" },
   copy: {
     intake: {
       kicker: "New pitch run",
@@ -109,7 +106,7 @@ export const salesPack: DomainPack = {
       ],
       ticker: [
         "We only work with what you actually gave us.",
-        "Nothing gets invented — if we didn't catch it, we ask.",
+        "Nothing gets invented. If we didn't catch it, we ask.",
         "A gap is a finding, not a failure.",
         "The buyer reads this before you walk in.",
       ],
@@ -125,14 +122,14 @@ export const salesPack: DomainPack = {
         { label: "Evidence", text: "Checking what's actually backed…" },
         { label: "Omissions", text: "Finding what a buyer expects and can't see…" },
         { label: "Severity", text: "Sorting deal-stallers from soft spots…" },
-        { label: "Axes", text: "Weighing value, fit, objections, the close…" },
+        { label: "Coverage", text: "Weighing value, fit, objections, the close…" },
       ],
       work: [
         "Reading your materials",
         "Extracting stated claims",
         "Verifying each against a source",
         "Assembling the gap map",
-        "Scoring the four axes",
+        "Mapping the pressure points",
       ],
       ticker: [
         "Every claim has to trace to a source.",
@@ -165,5 +162,5 @@ export const salesPack: DomainPack = {
   personas: BUYER_PERSONAS,
   turnTaking,
   briefing: buildRoomBriefing,
-  prompts: { analyzeSystem, analyzeUser, audit, orchestrate, report },
+  prompts: { analyzeSystem, analyzeUser, audit, orchestrate, debrief },
 }

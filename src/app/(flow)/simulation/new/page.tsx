@@ -6,7 +6,7 @@ import { useQuery } from "convex/react"
 import { api } from "@convex/_generated/api"
 import { Id } from "@convex/_generated/dataModel"
 import { cn } from "@/lib/utils"
-import { getPack, isPackId, scopeOf } from "@/domains/registry"
+import { getPack, isPackId } from "@/domains/registry"
 import { FlowShell } from "@/components/simulation/flow/FlowShell"
 import { BriefForm } from "@/components/simulation/intake/BriefForm"
 import { ScopeForm } from "@/components/simulation/intake/ScopeForm"
@@ -24,8 +24,8 @@ const NewRunPage = ({
   const { lane, from } = use(searchParams)
   const user = useQuery(api.users.getCurrent)
   const source = useQuery(
-    api.simulations.get,
-    from ? { id: from as Id<"simulations"> } : "skip"
+    api.practices.get,
+    from ? { id: from as Id<"practices"> } : "skip"
   )
 
   if (user === undefined) return null
@@ -36,7 +36,7 @@ const NewRunPage = ({
   const requested = lane && isPackId(lane) ? lane : undefined
   const pack = getPack(source?.packId ?? requested ?? user?.defaultLane)
   const lanes = (user?.lanes ?? []).filter(isPackId)
-  const initialScope = source ? scopeOf(source) : undefined
+  const initialScope = source ? source.scope : undefined
 
   return (
     <FlowShell stage="brief">

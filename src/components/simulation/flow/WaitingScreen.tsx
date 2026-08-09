@@ -95,7 +95,7 @@ export const WaitingScreen = ({ kicker, heading, lead, rows, work, ticker, stepM
   return (
     <div>
       <p role="status" className="sr-only">
-        {kicker} — examining {activeLabel}
+        {kicker}: examining {activeLabel}
       </p>
 
       <p className="mb-4 flex items-center gap-2 font-mono text-[11px] uppercase tracking-[.09em] text-on-surface-3">

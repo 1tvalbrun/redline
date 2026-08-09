@@ -1,6 +1,6 @@
 import test from "node:test"
 import assert from "node:assert/strict"
-import { analyzeSystem, analyzeUser, audit, orchestrate, report } from "./prompts.ts"
+import { analyzeSystem, analyzeUser, audit, debrief, orchestrate } from "./prompts.ts"
 import type { Scope } from "../types.ts"
 
 // Pin tests for the sales prompts, written with the pack. They hold the
@@ -27,14 +27,14 @@ test("analyze extracts the seven context fields from the scope", () => {
   assert.match(user, /Expected objections: Switching cost, Price/)
 })
 
-test("audit keeps the evidence split, the axis set, and the citation contract", () => {
+test("audit keeps the evidence split and the citation contract", () => {
   const prompt = audit({ scope, unreadableCount: 1, materialSections: "=== one-pager.pdf ===" })
   assert.match(prompt, /their own words, NOT evidence/)
   assert.match(prompt, /the ONLY citable evidence/)
-  assert.match(prompt, /"value" \(problem severity, quantified payoff, ROI\)/)
   assert.match(prompt, /few or zero claims is the correct answer — do not invent/)
   assert.match(prompt, /1 uploaded file\(s\) could not be read/)
-  assert.match(prompt, /\{"claims":\[\{"text","source","location","axis"\}\]/)
+  assert.match(prompt, /\{"claims":\[\{"text","source","location"\}\]/)
+  assert.doesNotMatch(prompt, /axis/)
 })
 
 test("audit omits the unreadable-files line when everything was read", () => {
@@ -42,20 +42,19 @@ test("audit omits the unreadable-files line when everything was read", () => {
   assert.doesNotMatch(prompt, /could not be read/)
 })
 
-test("orchestrate keeps the four axes, the echo of current scores, and the rules", () => {
+test("orchestrate asks for a note and a topic, never scores", () => {
   const prompt = orchestrate({
     characterName: "Cole Merritt",
     characterRole: "Director of Operations",
     characterTone: "Warm but immovable",
     scope,
-    current: { value: 55, fit: 50, objections: 45, close: 60 },
   })
   assert.match(prompt, /alongside Cole Merritt \(Director of Operations\)/)
-  assert.match(prompt, /value=55/)
-  assert.match(prompt, /close=60/)
-  assert.match(prompt, /return the CURRENT value UNCHANGED/)
-  assert.match(prompt, /Never move by more than 10 points/)
-  assert.match(prompt, /"riskScores":\{"value":int,"fit":int,"objections":int,"close":int\}/)
+  assert.match(prompt, /strong_answer: seller gave a sharp, specific answer/)
+  assert.match(prompt, /name the topic being discussed right now, in 5 words or fewer/)
+  assert.match(prompt, /"topic":"<5 words or fewer>" \| null/)
+  assert.doesNotMatch(prompt, /riskScores/)
+  assert.doesNotMatch(prompt, /0-100/)
 })
 
 test("orchestrate carries the objection catalog probes", () => {
@@ -64,14 +63,13 @@ test("orchestrate carries the objection catalog probes", () => {
     characterRole: "Director of Operations",
     characterTone: "Warm",
     scope,
-    current: { value: 50, fit: 50, objections: 50, close: 50 },
   })
   assert.match(prompt, /Switching cost: "Ripping out the current process/)
   assert.match(prompt, /Decision authority: /)
 })
 
-test("report keeps the grounding rules and the closed verdict contract", () => {
-  const prompt = report({
+test("debrief keeps the grounding rules and the new contract, without scores", () => {
+  const prompt = debrief({
     scope,
     characterName: "Cole Merritt",
     characterRole: "Director of Operations",
@@ -81,17 +79,26 @@ test("report keeps the grounding rules and the closed verdict contract", () => {
     continuity: null,
   })
   assert.match(prompt, /"decision": "buy" \| "second-meeting" \| "walk"/)
-  assert.match(prompt, /verbatim words in "quote"/)
-  assert.match(prompt, /an empty list is the correct, honest output/)
-  assert.match(prompt, /belong ONLY in "nextSevenDays", never in "heldUp"/)
-  assert.match(prompt, /"send me some info" is not a next step/)
-  assert.match(prompt, /\{"day": 7, "task"/)
+  assert.match(prompt, /"title": /)
+  assert.match(prompt, /"spokenVerdict": /)
+  assert.match(prompt, /"whatHappened": /)
+  assert.match(prompt, /"heldUp": \[/)
+  assert.match(prompt, /"didntHold": \[/)
   assert.match(prompt, /"continuity": \{/)
+  assert.match(prompt, /"priority": "high" \| "medium" \| "low"/)
+  assert.match(prompt, /copied verbatim/)
+  assert.match(prompt, /an empty list is the correct, honest output/)
+  assert.match(prompt, /"send me some info" is not a next step/)
   assert.match(prompt, /never invent a commitment/)
+  assert.doesNotMatch(prompt, /overallScore/)
+  assert.doesNotMatch(prompt, /riskScores/)
+  assert.doesNotMatch(prompt, /panelVerdict/)
+  assert.doesNotMatch(prompt, /nextSevenDays/)
+  assert.doesNotMatch(prompt, /topRisks/)
 })
 
-test("report compounds the engagement memory and forbids repeating tracked commitments", () => {
-  const prompt = report({
+test("debrief compounds the engagement memory and forbids repeating tracked commitments", () => {
+  const prompt = debrief({
     scope,
     characterName: "Cole Merritt",
     characterRole: "Director of Operations",

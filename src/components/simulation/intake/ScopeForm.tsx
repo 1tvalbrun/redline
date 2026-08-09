@@ -40,8 +40,8 @@ export const ScopeForm = ({
   initialScope?: Scope
 }) => {
   const router = useRouter()
-  const createSimulation = useMutation(api.simulations.create)
-  const analyzeSimulation = useAction(api.simulations.analyze)
+  const createPractice = useMutation(api.practices.create)
+  const analyzePractice = useAction(api.practices.analyze)
   const { uploads, addFiles, removeUpload, readyMaterials, isUploading } = useMaterialUploads()
   const materialsInputRef = useRef<HTMLInputElement>(null)
 
@@ -82,15 +82,15 @@ export const ScopeForm = ({
     setIsSubmitting(true)
     setSubmitFailed(false)
     try {
-      const id = await createSimulation({
+      const id = await createPractice({
         packId: pack.id,
         scope,
         materials: readyMaterials.length > 0 ? readyMaterials : undefined,
       })
       router.push(`/simulation/${id}/analyze`)
       // Fire-and-forget past navigation: on failure analyze reverts the
-      // simulation to draft, and the Read stage's watchdog offers retry.
-      analyzeSimulation({ id }).catch(() => {})
+      // practice to draft, and the Read stage's watchdog offers retry.
+      analyzePractice({ id }).catch(() => {})
     } catch {
       setSubmitFailed(true)
       setIsSubmitting(false)
@@ -182,7 +182,7 @@ export const ScopeForm = ({
           </h2>
           <p className="mt-1.5 text-[12.5px] leading-[1.5] text-on-surface-2">
             The request list for this session&apos;s scope. Gather what you can and add
-            it below — anything missing becomes a finding in the pre-read.
+            it below. Anything missing becomes a finding in the pre-read.
           </p>
           {evidenceGroups.map((group) => (
             <div key={group.title} className="mt-3.5 border-t border-line pt-3">

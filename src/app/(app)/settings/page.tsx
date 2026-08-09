@@ -120,8 +120,9 @@ const SettingsPage = () => {
 
       <Panel title="Danger zone">
         <p className="text-[13.5px] leading-[1.6] text-on-surface-2">
-          Deleting your account permanently removes your ideas, uploads, session transcripts,
-          and reports. Your sign-in survives. Coming back starts you over at onboarding.
+          Deleting your account permanently removes your practices, uploads, session
+          transcripts, and debriefs. Your sign-in survives. Coming back starts you over at
+          onboarding.
         </p>
         {confirming ? (
           <div className="mt-4 flex flex-wrap items-center gap-3">

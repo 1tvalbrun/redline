@@ -29,7 +29,7 @@ const splineMono = Spline_Sans_Mono({
 export const metadata: Metadata = {
   title: "Redline · Practice with a live AI panel",
   description:
-    "Practice your pitch, sale, or audit interview live with an AI avatar — leave with feedback and action items.",
+    "Practice your pitch, sale, or audit interview live with an AI avatar, and leave with feedback and action items.",
 }
 
 const RootLayout = ({ children }: { children: React.ReactNode }) => {

@@ -1,271 +1,283 @@
 "use client"
 
 import Link from "next/link"
-import { useQuery } from "convex/react"
+import { useRouter } from "next/navigation"
+import { ChevronRight, Plus, Video } from "lucide-react"
+import { useMutation, useQuery } from "convex/react"
 import { api } from "@convex/_generated/api"
-import { deriveReadiness, READY_LINE, type Readiness } from "@/lib/readiness"
-import { axisKeys, axisLabel, getPack } from "@/domains/registry"
-import { formatAgo, formatDay } from "@/lib/utils"
-import { useNow } from "@/lib/useNow"
-import { ReadinessGauge } from "@/components/shared/ReadinessGauge"
-import { IdeaList, type IdeaStats } from "@/components/workspace/IdeaList"
-import { VerdictBadge } from "@/components/workspace/VerdictBadge"
-import { WORKSPACE_CTA } from "@/components/workspace/cta"
-
-const Shimmer = ({ className }: { className?: string }) => (
-  <div className={`animate-pulse bg-surface-2 ${className ?? ""}`} />
-)
-
-const Module = ({
-  title,
-  action,
-  children,
-}: {
-  title: string
-  action?: { label: string; href: string }
-  children: React.ReactNode
-}) => (
-  <section className="mb-[22px] border border-line-2 bg-surface-raised">
-    <div className="flex items-center justify-between border-b border-line px-4 py-3.5">
-      <h2 className="font-mono text-[10.5px] uppercase tracking-[.16em] text-on-surface-2">{title}</h2>
-      {action && (
-        <Link
-          href={action.href}
-          className="focus-ring font-mono text-[10px] uppercase tracking-[.06em] text-on-surface-3 hover:text-red-fg"
-        >
-          {action.label}
-        </Link>
-      )}
-    </div>
-    <div className="p-4">{children}</div>
-  </section>
-)
-
-type WeakestSignal = {
-  idea: IdeaStats
-  axis: string
-  value: Readiness
-}
-
-// The "Your move" hero only exists when there is a gap to close — an axis
-// at or above the ready line has nothing "holding the whole score down",
-// and the arithmetic below the gauge would go negative.
-const findWeakestSignal = (ideas: IdeaStats[]): WeakestSignal | null => {
-  let weakest: WeakestSignal | null = null
-  for (const idea of ideas) {
-    const readiness = deriveReadiness(
-      axisKeys(getPack(idea.packId)),
-      idea.latestRiskScores ?? undefined
-    )
-    if (readiness.underFire === null) continue
-    const value = readiness.perAxis[readiness.underFire]
-    if (value === null || value >= READY_LINE) continue
-    if (weakest === null || value < weakest.value) {
-      weakest = { idea, axis: readiness.underFire, value }
-    }
-  }
-  return weakest
-}
+import type { Id } from "@convex/_generated/dataModel"
+import { cn } from "@/lib/utils"
+import { getPack, isPackId } from "@/domains/registry"
+import { BTN_PRIMARY } from "@/components/shared/buttons"
+import { personaInitials } from "@/components/shared/PersonaAvatar"
+import { LaneBadge } from "@/components/shared/LaneBadge"
+import { PersonaAvatar } from "@/components/shared/PersonaAvatar"
+import type { PracticeRow } from "@/components/layout/AppRail"
 
 const greeting = (hour: number) =>
-  hour < 12 ? "Good morning." : hour < 18 ? "Good afternoon." : "Good evening."
+  hour < 5 ? "Good night" : hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening"
 
-const OverviewPage = () => {
-  const ideas = useQuery(api.ideas.listWithStats)
-  const sessions = useQuery(api.rooms.list)
-  const nowMs = useNow()
-  const now = new Date(nowMs)
+const personaFor = (practice: PracticeRow) =>
+  practice.personaId
+    ? getPack(practice.packId).personas.find((persona) => persona.id === practice.personaId) ?? null
+    : null
 
-  if (ideas === undefined) {
-    return (
-      <div className="space-y-6">
-        <Shimmer className="h-10 w-72" />
-        <Shimmer className="h-40 w-full" />
-        <Shimmer className="h-64 w-full" />
-      </div>
+const relativeDay = (at: number | null): string => {
+  if (at === null) return ""
+  const days = Math.floor((Date.now() - at) / 86_400_000)
+  if (days <= 0) return "Today"
+  if (days === 1) return "Yesterday"
+  return new Date(at).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+}
+
+const ResumeHero = ({ practice }: { practice: PracticeRow }) => {
+  const router = useRouter()
+  const continueSession = useMutation(api.practices.continueSession)
+  const persona = personaFor(practice)
+
+  const handleContinue = async () => {
+    const { sessionId } = await continueSession({ id: practice.practiceId })
+    router.push(
+      sessionId
+        ? `/simulation/${practice.practiceId}/room`
+        : `/simulation/${practice.practiceId}/panel`
     )
   }
 
-  if (ideas.length === 0) {
-    return (
-      <div className="flex min-h-[62vh] flex-col items-center justify-center text-center">
-        <ReadinessGauge value={null} className="mb-3.5 h-[150px] w-[220px]" />
-        <p className="mb-3.5 font-mono text-[10.5px] uppercase tracking-[.2em] text-on-surface-3">
-          No ideas tested yet
-        </p>
-        <h1 className="font-display text-[clamp(26px,3.2vw,40px)] font-bold tracking-[-.01em]">
-          Let&apos;s find the crack before the room does.
-        </h1>
-        <p className="mx-auto mb-7 mt-3.5 max-w-[42ch] text-[15.5px] text-on-surface-2">
-          Add your first idea and brief the panel in ninety seconds. Redline reads
-          what you give it and puts it under real pressure.
-        </p>
-        <Link href="/simulation/new" className={WORKSPACE_CTA}>
-          Add your first idea <span aria-hidden="true">→</span>
-        </Link>
-      </div>
-    )
-  }
+  const waitingLine =
+    practice.openItems > 0 && persona
+      ? `${persona.name.split(" ")[0]} is waiting on ${practice.openItems === 1 ? "one item" : `${practice.openItems} items`} you said you'd bring.`
+      : practice.hasLive
+        ? "A session is still live. Step back in."
+        : "Pick up where you left off."
 
-  const weakest = findWeakestSignal(ideas)
-  const closest = ideas
-    .map((idea) => ({
-      idea,
-      overall: deriveReadiness(axisKeys(getPack(idea.packId)), idea.latestRiskScores ?? undefined)
-        .overall,
-    }))
-    .filter((entry): entry is { idea: IdeaStats; overall: Readiness } => entry.overall !== null)
-    .sort((a, b) => b.overall - a.overall)[0]
   return (
-    <div>
-      <div className="mb-5 flex items-end justify-between">
-        <h1 className="font-display text-[clamp(26px,3vw,38px)] font-bold">
-          {greeting(now.getHours())}
-        </h1>
-        <p className="text-right font-mono text-[11px] uppercase leading-[1.7] tracking-[.12em] text-on-surface-3">
-          {now.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
-        </p>
-      </div>
-
-      {weakest && (
-        <section className="mb-[26px] grid border border-on-surface bg-surface-raised md:grid-cols-[1fr_300px]">
-          <div className="p-7">
-            <p className="mb-3.5 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[.2em] text-red-fg">
-              <span aria-hidden="true" className="h-2 w-2 animate-pulse-red rounded-full bg-red" />
-              Your move
-            </p>
-            <h2 className="max-w-[26ch] font-display text-[clamp(19px,2vw,26px)] font-bold leading-[1.14] tracking-[-.01em]">
-              {weakest.idea.name}&apos;s{" "}
-              <span className="border-b-2 border-red">
-                {axisLabel(getPack(weakest.idea.packId), weakest.axis).toLowerCase()} readiness
-              </span>{" "}
-              is its weakest axis, and it&apos;s holding the whole score down.
-            </h2>
-            <p className="mt-3 max-w-[44ch] text-sm leading-[1.55] text-on-surface-2">
-              The last run scored it {weakest.value} of 100. Close the gap and re-run.
-              That&apos;s the fastest path toward the ready line.
-            </p>
-            <div className="mt-5 flex items-center gap-3">
-              <Link href={`/ideas/${weakest.idea.ideaId}`} className={WORKSPACE_CTA}>
-                Open {weakest.idea.name} <span aria-hidden="true">→</span>
-              </Link>
-              <Link
-                href="/simulation/new"
-                className="focus-ring font-mono text-[11px] uppercase tracking-[.06em] text-on-surface-2 hover:text-red-fg"
-              >
-                Or start a fresh test
-              </Link>
-            </div>
+    <section className="mb-12">
+      <h2 className="mb-3 px-0.5 text-[11px] font-semibold uppercase tracking-[.09em] text-on-surface-3">
+        Pick up where you left off
+      </h2>
+      <div className="flex items-center gap-[18px] rounded-2xl border border-line bg-surface-raised px-6 py-5 shadow-card max-md:flex-wrap">
+        {persona && (
+          <PersonaAvatar name={persona.name} size="lg" available />
+        )}
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <span className="text-[16px] font-semibold tracking-[-.01em]">{practice.name}</span>
+            <LaneBadge packId={practice.packId} />
           </div>
-          <div
-            data-surface="dark"
-            className="flex flex-col items-center justify-center bg-surface p-6 text-on-surface"
-          >
-            <p className="font-mono text-[10px] uppercase tracking-[.16em] text-on-surface-2">
-              {axisLabel(getPack(weakest.idea.packId), weakest.axis)} axis
+          <p className="mt-1 font-serif text-[15.5px] leading-normal text-on-surface-2">
+            {waitingLine}
+          </p>
+          {practice.lastQuote && (
+            <p className="mt-1 truncate text-xs text-on-surface-3">
+              {relativeDay(practice.lastSessionAt) && `Last session ${relativeDay(practice.lastSessionAt).toLowerCase()} · `}
+              &ldquo;{practice.lastQuote}&rdquo;
             </p>
-            <p className="my-1.5 font-display text-6xl font-extrabold leading-none tracking-[-.03em] text-red-fg tabular-nums">
-              {weakest.value}
-            </p>
-            <div className="relative h-1 w-full bg-white/15">
-              <span
-                className="absolute inset-y-0 left-0 bg-red"
-                style={{ width: `${weakest.value}%` }}
-              />
-              <span
-                aria-hidden="true"
-                className="absolute -inset-y-[2px] w-px bg-white"
-                style={{ left: `${READY_LINE}%` }}
-              />
-            </div>
-            <p className="mt-2 self-start font-mono text-[9.5px] uppercase tracking-[.1em] text-on-surface-2">
-              {READY_LINE - weakest.value} below the ready line
-            </p>
-          </div>
-        </section>
-      )}
-
-      <div className="grid items-start gap-[26px] lg:grid-cols-[1fr_360px]">
-        <div>
-          <section aria-label="Your ideas">
-            <div className="flex items-baseline justify-between">
-              <h2 className="font-mono text-[11px] uppercase tracking-[.16em] text-on-surface-2">
-                <b className="font-semibold text-on-surface">Your ideas</b> · {ideas.length} in progress
-              </h2>
-              <Link
-                href="/ideas"
-                className="focus-ring font-mono text-[11px] uppercase tracking-[.06em] text-on-surface-2 hover:text-red-fg"
-              >
-                View all →
-              </Link>
-            </div>
-            <IdeaList ideas={ideas} />
-          </section>
-        </div>
-
-        <div>
-          {closest && (
-            <Module
-              title="Closest to ready"
-              action={{ label: "Open →", href: `/ideas/${closest.idea.ideaId}` }}
-            >
-              <div className="flex flex-col items-center text-center">
-                <ReadinessGauge
-                  value={closest.overall}
-                  targetLabel={getPack(closest.idea.packId).targetLine.label}
-                  className="h-[120px] w-[180px]"
-                />
-                <p className="mt-0.5 font-display text-[17px] font-bold">{closest.idea.name}</p>
-                <p className="mt-1.5 text-[12.5px] text-on-surface-2">
-                  {closest.overall >= READY_LINE ? (
-                    <b className="font-semibold text-ok">Over the line.</b>
-                  ) : (
-                    <>
-                      <b className="font-semibold text-ok">
-                        {READY_LINE - closest.overall} to go.
-                      </b>{" "}
-                      Close the weakest axis and it crosses the line.
-                    </>
-                  )}
-                </p>
-              </div>
-            </Module>
           )}
-
-          <Module title="Recent sessions" action={{ label: "All →", href: "/sessions" }}>
-            {sessions === undefined ? (
-              <Shimmer className="h-24 w-full" />
-            ) : sessions.length === 0 ? (
-              <p className="text-[12.5px] text-on-surface-2">No sessions yet.</p>
-            ) : (
-              <ul>
-                {sessions.slice(0, 3).map((session) => (
-                  <li key={session.roomId} className="border-t border-line py-[11px] first:border-t-0 first:pt-0">
-                    <Link
-                      href={`/sessions/${session.roomId}`}
-                      className="focus-ring flex items-center gap-3"
-                    >
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[13px] font-semibold">
-                          {session.subject}
-                          {session.panelist && ` · ${session.panelist}`}
-                        </span>
-                        <span className="font-mono text-[10px] uppercase tracking-[.04em] text-on-surface-3">
-                          {formatDay(session.at)} · {session.turns} turns ·{" "}
-                          {formatAgo(session.at, nowMs)}
-                        </span>
-                      </span>
-                      {session.decision && <VerdictBadge decision={session.decision} />}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Module>
         </div>
+        <button type="button" onClick={handleContinue} className={BTN_PRIMARY}>
+          <Video className="size-[15px]" />
+          {persona ? `Continue with ${persona.name.split(" ")[0]}` : "Continue"}
+        </button>
       </div>
+    </section>
+  )
+}
+
+const PracticeCard = ({ practice }: { practice: PracticeRow }) => {
+  const persona = personaFor(practice)
+  const statusLine =
+    practice.lastQuote ??
+    (practice.status === "ready"
+      ? "Brief confirmed, no sessions yet."
+      : "Brief in progress. Finish setting up.")
+  return (
+    <Link
+      href={`/p/${practice.practiceId}`}
+      className="group flex min-h-[150px] flex-col rounded-xl border border-line bg-surface-raised p-[17px] shadow-card transition hover:-translate-y-px hover:bg-surface-2"
+    >
+      <div className="mb-2.5 flex items-center gap-2">
+        <span className="min-w-0 flex-1 truncate text-[14.5px] font-semibold tracking-[-.005em]">
+          {practice.name}
+        </span>
+        <LaneBadge packId={practice.packId} />
+      </div>
+      {persona && (
+        <div className="mb-2.5 flex items-center gap-2">
+          <PersonaAvatar name={persona.name} size="sm" />
+          <span className="text-[12.5px] text-on-surface-3">
+            with {persona.name}, {persona.shortRole.toLowerCase()}
+          </span>
+        </div>
+      )}
+      <p
+        className={
+          practice.lastQuote
+            ? "flex-1 font-serif text-[13px] italic leading-normal text-on-surface-2"
+            : "flex-1 text-[13px] leading-normal text-on-surface-2"
+        }
+      >
+        {practice.lastQuote ? `“${statusLine}”` : statusLine}
+      </p>
+      <div className="mt-3 flex items-center gap-2 border-t border-line pt-[11px]">
+        <span className="flex-1 text-xs text-on-surface-3">
+          {practice.sessionCount === 0
+            ? "No sessions yet"
+            : `${practice.sessionCount} session${practice.sessionCount === 1 ? "" : "s"} · ${relativeDay(practice.lastSessionAt)}`}
+        </span>
+        {practice.openItems > 0 && (
+          <span className="rounded-full bg-accent-bg px-2.5 py-0.5 text-[11px] font-medium text-accent-blue">
+            {practice.openItems} open
+          </span>
+        )}
+        <ChevronRight className="size-3.5 text-ink-4 transition group-hover:translate-x-0.5 group-hover:text-accent-blue" />
+      </div>
+    </Link>
+  )
+}
+
+// First run: no practices yet — the room chooser from the welcome mock,
+// rendered as Home so the (empty) sidebar stays in view.
+const FirstRun = ({ lanes }: { lanes: string[] }) => (
+  <>
+    <div className="mb-9 grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] justify-center gap-4">
+      {lanes.map((laneId) => {
+        const pack = getPack(laneId)
+        return (
+          <Link
+            key={laneId}
+            href={`/simulation/new?lane=${laneId}`}
+            className="group relative flex flex-col overflow-hidden rounded-2xl border border-line bg-surface-raised px-[22px] pb-[18px] pt-[22px] shadow-card transition hover:-translate-y-0.5 hover:bg-surface-2"
+          >
+            <span className="mb-3.5 flex h-10">
+              {pack.personas.slice(0, 3).map((persona, i) => (
+                <span
+                  key={persona.id}
+                  className={cn(
+                    "grid h-10 w-10 flex-none place-items-center rounded-full border-2 border-surface-raised bg-surface-2 text-[13px] font-semibold text-on-surface-2",
+                    i > 0 && "-ml-2.5"
+                  )}
+                >
+                  {personaInitials(persona.name)}
+                </span>
+              ))}
+            </span>
+            <span className="mb-1 text-[10.5px] font-semibold uppercase tracking-[.08em] text-on-surface-3">
+              {pack.label}
+            </span>
+            <span className="flex-1 text-[13.5px] leading-normal text-on-surface-2">
+              {pack.description}
+            </span>
+            <span className="mt-4 flex items-center gap-[7px] border-t border-line pt-3.5 text-[13px] font-medium">
+              Start a {pack.label.toLowerCase()} practice
+              <ChevronRight className="size-3.5 text-ink-4 transition group-hover:translate-x-0.5 group-hover:text-accent-blue" />
+            </span>
+          </Link>
+        )
+      })}
+    </div>
+    <div
+      aria-label="How it works"
+      className="mb-6 flex flex-wrap items-center justify-center gap-x-2.5 gap-y-2 text-[13px] text-on-surface-3"
+    >
+      {["Talk your pitch in. A minute is plenty", "Practice live, face to face", "Leave with exactly what to fix"].map(
+        (step, i) => (
+          <span key={step} className="flex items-center gap-2">
+            {i > 0 && <ChevronRight className="size-3.5 text-ink-4" />}
+            <span className="grid h-5 w-5 place-items-center rounded-full border border-line-2 bg-surface-raised font-mono text-[10.5px]">
+              {i + 1}
+            </span>
+            {step}
+          </span>
+        )
+      )}
+    </div>
+    <p className="mx-auto max-w-[520px] text-center text-[11.5px] leading-relaxed text-ink-4">
+      Sessions are live voice conversations with an AI avatar. What you get is practice feedback,
+      never professional advice or a compliance determination.
+    </p>
+  </>
+)
+
+const HomePage = () => {
+  const user = useQuery(api.users.getCurrent)
+  const practices = useQuery(api.practices.list)
+
+  if (practices === undefined) return null
+
+  const resume =
+    practices.find((practice) => practice.hasLive) ??
+    practices.find((practice) => practice.openItems > 0) ??
+    (practices[0]?.sessionCount ? practices[0] : undefined)
+
+  const now = new Date()
+  const date = now
+    .toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })
+  const firstName = user?.displayName?.split(" ")[0] ?? "there"
+  const lanes = (user?.lanes ?? []).filter(isPackId)
+
+  if (practices.length === 0) {
+    return (
+      <div className="mx-auto flex min-h-full max-w-[1060px] flex-col justify-center px-12 py-14 max-md:px-5">
+        <p className="mb-2 font-mono text-[11px] uppercase tracking-[.04em] text-on-surface-3">
+          {date}
+        </p>
+        <h1 className="mb-2.5 text-[27px] font-semibold tracking-[-.02em]">
+          Welcome, {firstName}
+        </h1>
+        <p className="mb-11 max-w-[520px] text-[15px] leading-relaxed text-on-surface-2">
+          This is your practice room: <b className="font-medium text-on-surface">the interview
+          before the interview</b>. Run it as many times as it takes, fix what gets pointed out,
+          and walk into the real thing already ready.
+        </p>
+        <h2 className="mb-3.5 text-[11px] font-semibold uppercase tracking-[.09em] text-on-surface-3">
+          Choose who to practice with
+        </h2>
+        <FirstRun lanes={lanes.length > 0 ? lanes : ["founder"]} />
+      </div>
+    )
+  }
+
+  return (
+    <div className="mx-auto max-w-[1200px] px-12 pb-20 pt-[52px] max-md:px-5 max-md:pt-8">
+      <p className="mb-1.5 font-mono text-[11px] uppercase tracking-[.04em] text-on-surface-3">
+        {date}
+      </p>
+      <h1 className="mb-10 text-[26px] font-semibold tracking-[-.02em]">
+        {greeting(now.getHours())}, {firstName}
+      </h1>
+
+      {resume && <ResumeHero practice={resume} />}
+
+      <section>
+        <div className="mb-3 flex items-baseline justify-between px-0.5">
+          <h2 className="text-[11px] font-semibold uppercase tracking-[.09em] text-on-surface-3">
+            Your practices
+          </h2>
+          {practices.length > 0 && (
+            <p className="text-xs text-on-surface-3">
+              {practices.length} across {new Set(practices.map((p) => p.packId)).size}{" "}
+              {new Set(practices.map((p) => p.packId)).size === 1 ? "lane" : "lanes"}
+            </p>
+          )}
+        </div>
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-3.5">
+          {practices.map((practice) => (
+            <PracticeCard key={practice.practiceId as Id<"practices">} practice={practice} />
+          ))}
+          <Link
+            href="/simulation/new"
+            className="col-span-full flex min-h-[130px] w-[min(360px,100%)] flex-col items-center justify-center justify-self-center gap-2.5 rounded-xl border border-dashed border-line-2 text-on-surface-3 transition hover:bg-surface-2 hover:text-on-surface-2"
+          >
+            <span className="grid h-9 w-9 place-items-center rounded-full border border-dashed border-line-2">
+              <Plus className="size-[15px]" />
+            </span>
+            <span className="text-[13px] font-medium">New practice</span>
+          </Link>
+        </div>
+      </section>
     </div>
   )
 }
 
-export default OverviewPage
+export default HomePage

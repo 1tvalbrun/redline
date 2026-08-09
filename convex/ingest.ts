@@ -106,14 +106,14 @@ export const extract = internalAction({
       await setResult({ status: "failed", failureReason: failureReason(error) })
     }
 
-    // Kick the pre-run audit once the last material settles; audits.start
-    // collapses concurrent triggers to a single run.
+    // Kick the pre-session audit once the last material settles;
+    // practices.claimAudit collapses concurrent triggers to a single run.
     const settled = await ctx.runQuery(internal.materials.allSettled, {
-      simulationId: material.simulationId,
+      practiceId: material.practiceId,
     })
     if (settled) {
-      await ctx.scheduler.runAfter(0, internal.audits.run, {
-        simulationId: material.simulationId,
+      await ctx.scheduler.runAfter(0, internal.practices.runAuditInternal, {
+        id: material.practiceId,
       })
     }
   },
