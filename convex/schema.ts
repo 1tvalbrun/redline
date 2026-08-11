@@ -40,6 +40,8 @@ export const continuityValidator = v.object({
       status: actionItemStatusValidator,
       fromSessionId: v.id("sessions"),
       createdAt: v.number(),
+      // When the item left the open list (done/dropped); absent while open.
+      settledAt: v.optional(v.number()),
     })
   ),
   updatedAt: v.number(),

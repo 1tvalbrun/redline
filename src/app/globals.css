@@ -68,6 +68,13 @@
       opacity: 0;
     }
   }
+  --animate-row-in: row-in 0.3s ease-in-out;
+  @keyframes row-in {
+    from {
+      grid-template-rows: 0fr;
+      opacity: 0;
+    }
+  }
   --animate-ring: ring 2.4s cubic-bezier(0.2, 0.7, 0.2, 1) infinite;
   @keyframes ring {
     0% {

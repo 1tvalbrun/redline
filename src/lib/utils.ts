@@ -19,3 +19,6 @@ export const relativeDay = (at: number | null): string => {
   if (days === 1) return "Yesterday"
   return new Date(at).toLocaleDateString("en-US", { month: "short", day: "numeric" })
 }
+
+export const prefersReducedMotion = () =>
+  typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches
