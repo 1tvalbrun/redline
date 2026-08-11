@@ -36,9 +36,11 @@ const RoomPage = ({ params }: { params: Promise<{ id: string }> }) => {
       dark
       centerSlot={meta}
       confirmExit={{
+        label: "Leave room",
+        confirmLabel: "Leave",
         title: "Leave the room?",
         description:
-          "Your session stays live and everything said so far is safe. Rejoin anytime from this practice.",
+          "Your session stays live and you can rejoin from this practice. If you're finished, use End session instead. That's what gets you your debrief.",
       }}
     >
       <RoomShell simulationId={id} />

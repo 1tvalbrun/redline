@@ -98,6 +98,8 @@ export default defineSchema({
     packId: v.string(),
     // Chosen at the meet step; sessions snapshot the full persona.
     personaId: v.optional(v.string()),
+    // Pinned practices sort to the top of their lane.
+    pinned: v.optional(v.boolean()),
     status: v.union(v.literal("draft"), v.literal("shaping"), v.literal("ready")),
     // What the user brought in, keyed by the pack's scopeFields. Keys and
     // sizes are validated in practices.create against the pack.

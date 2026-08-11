@@ -126,19 +126,30 @@ export const parseDebrief = (raw: unknown, options: ParseDebriefOptions): Debrie
 
   const continuityRaw = field(raw, "continuity")
   const actionItemsRaw = field(continuityRaw, "actionItems")
-  const actionItems = (Array.isArray(actionItemsRaw) ? actionItemsRaw : [])
-    .slice(0, MAX_ACTION_ITEMS)
-    .flatMap((entry) => {
-      const text = asString(field(entry, "text"))
-      if (!text || text.trim().length === 0) return []
-      const priority = asString(field(entry, "priority")) ?? ""
-      return [
-        {
-          text: clamp(text, ACTION_ITEM_CHARS),
-          priority: (PRIORITIES.has(priority) ? priority : "medium") as DebriefPriority,
-        },
-      ]
-    })
+  const candidates = Array.isArray(actionItemsRaw) ? actionItemsRaw : []
+  const considered = candidates.slice(0, MAX_ACTION_ITEMS)
+  const actionItems = considered.flatMap((entry) => {
+    const text = asString(field(entry, "text"))
+    if (!text || text.trim().length === 0) return []
+    const priority = asString(field(entry, "priority")) ?? ""
+    return [
+      {
+        text: clamp(text, ACTION_ITEM_CHARS),
+        priority: (PRIORITIES.has(priority) ? priority : "medium") as DebriefPriority,
+      },
+    ]
+  })
+  // Observability, same discipline as groundHeldUp's drop warning: the raw
+  // model output isn't stored, so this log is the only evidence of whether
+  // the model emits items the parser can't read (e.g. bare strings).
+  // Compared against the considered slice so cap overflow never reads as
+  // unparseable.
+  if (considered.length > actionItems.length) {
+    console.warn(
+      `[parseDebrief] dropped ${considered.length - actionItems.length} unparseable action item(s):`,
+      JSON.stringify(considered).slice(0, 500)
+    )
+  }
 
   return {
     title: clamp(asString(field(raw, "title")) || "Session debrief", TITLE_CHARS),

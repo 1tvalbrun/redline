@@ -1,4 +1,4 @@
-# Redline — Project Context
+# Prestage — Project Context
 
 ## What This Is
 An AI panel stress test. A founder pitches an idea and is interrogated live

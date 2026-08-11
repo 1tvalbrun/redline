@@ -6,7 +6,7 @@ import { LEGAL_ENTITY, TERMS_VERSION } from "@/lib/legal"
 export const LegalShell = ({ title, children }: { title: string; children: ReactNode }) => (
   <main className="mx-auto w-full max-w-[680px] px-5 py-12">
     <Link href="/" className="focus-ring font-display text-[22px] font-bold tracking-[-.02em]">
-      Redline
+      Prestage
     </Link>
     <h1 className="mt-8 font-display text-[32px] font-bold leading-[1.1] tracking-[-.02em]">
       {title}

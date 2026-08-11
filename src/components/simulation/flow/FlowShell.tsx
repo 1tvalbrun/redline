@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { LogOut } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { LogoMark } from "@/components/shared/LogoMark"
 import {
@@ -53,8 +54,9 @@ type FlowShellProps = {
   fullBleed?: boolean
   // The room renders the whole shell on the dark surface.
   dark?: boolean
-  // When leaving would interrupt something live, Save & exit confirms first.
-  confirmExit?: { title: string; description: string }
+  // When leaving would interrupt something live, the exit action confirms
+  // first; label defaults to the wizard's "Save & exit".
+  confirmExit?: { title: string; description: string; label?: string; confirmLabel?: string }
   // Replaces the step rail — the room shows session meta instead of steps.
   centerSlot?: React.ReactNode
   children: React.ReactNode
@@ -88,7 +90,7 @@ export const FlowShell = ({
       <header className="flex flex-none items-center gap-[26px] border-b border-line bg-surface-rail px-6 py-3.5">
         <Link href="/" className="focus-ring flex items-center gap-2">
           <LogoMark size="sm" />
-          <span className="text-sm font-semibold">Redline</span>
+          <span className="text-sm font-semibold">Prestage</span>
         </Link>
 
         {centerSlot ? (
@@ -141,7 +143,12 @@ export const FlowShell = ({
 
         {confirmExit ? (
           <AlertDialog>
-            <AlertDialogTrigger className={exitClass}>Save &amp; exit</AlertDialogTrigger>
+            {/* A stateful exit earns a real button — plain text is too easy
+                to miss as the only door out of the room. */}
+            <AlertDialogTrigger className="focus-ring inline-flex items-center gap-2 rounded-[10px] border border-line-2 bg-surface-raised px-3.5 py-2 text-[13px] font-medium text-on-surface-2 shadow-btn transition-colors hover:bg-surface-2 hover:text-on-surface">
+              <LogOut className="size-[14px]" />
+              {confirmExit.label ?? "Save & exit"}
+            </AlertDialogTrigger>
             <AlertDialogContent size="sm" data-surface={dark ? "dark" : undefined}>
               <AlertDialogHeader>
                 <AlertDialogTitle>{confirmExit.title}</AlertDialogTitle>
@@ -150,7 +157,7 @@ export const FlowShell = ({
               <AlertDialogFooter>
                 <AlertDialogCancel>Stay</AlertDialogCancel>
                 <AlertDialogAction onClick={() => router.push("/")}>
-                  Save &amp; exit
+                  {confirmExit.confirmLabel ?? confirmExit.label ?? "Save & exit"}
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>

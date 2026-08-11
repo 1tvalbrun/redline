@@ -15,7 +15,7 @@ const Splash = () => (
   <div className="flex min-h-screen items-center justify-center bg-surface">
     <p className="flex items-center gap-3 text-[28px] font-semibold tracking-[-.02em] text-on-surface">
       <LogoMark size="lg" />
-      Redline
+      Prestage
     </p>
   </div>
 )

@@ -34,7 +34,7 @@ const WelcomePage = () => {
   return (
     <main className="flex min-h-screen items-center justify-center bg-surface px-5 py-10">
       <form onSubmit={handleSubmit} className="w-full max-w-[480px]">
-        <p className="text-[26px] font-semibold tracking-[-.02em]">Redline</p>
+        <p className="text-[26px] font-semibold tracking-[-.02em]">Prestage</p>
         <p className="mt-1 font-mono text-[11px] uppercase tracking-[.09em] text-on-surface-3">
           Invited testing · one thing before you start
         </p>
@@ -108,7 +108,7 @@ const WelcomePage = () => {
           disabled={!accepted || submitting}
           className="focus-ring mt-6 w-full rounded-[10px] bg-accent-blue px-4 py-3 text-[13.5px] font-medium text-primary-foreground shadow-btn transition hover:bg-accent-blue-hover active:scale-[0.99] disabled:pointer-events-none disabled:opacity-50"
         >
-          {submitting ? "Setting up…" : "Enter Redline →"}
+          {submitting ? "Setting up…" : "Enter Prestage →"}
         </button>
         {failed && (
           <p role="alert" className="mt-3 text-[13px] text-red-fg">

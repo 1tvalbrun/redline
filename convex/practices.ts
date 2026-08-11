@@ -143,6 +143,7 @@ export const list = query({
           name: practice.name,
           packId: practice.packId,
           personaId: practice.personaId ?? null,
+          pinned: practice.pinned ?? false,
           status: practice.status,
           sessionCount: sessions.length,
           hasLive: sessions.some((session) => session.status === "live"),
@@ -154,7 +155,20 @@ export const list = query({
         }
       })
     )
-    return rows.sort((a, b) => b.lastActivityAt - a.lastActivityAt)
+    // Pinned first, then recency within each group.
+    return rows.sort(
+      (a, b) => Number(b.pinned) - Number(a.pinned) || b.lastActivityAt - a.lastActivityAt
+    )
+  },
+})
+
+export const setPinned = mutation({
+  args: { id: v.id("practices"), pinned: v.boolean() },
+  handler: async (ctx, args) => {
+    const identity = await requireIdentity(ctx)
+    const practice = ownedOrNull(identity, await ctx.db.get(args.id))
+    if (!practice) throw new Error("Practice not found")
+    await ctx.db.patch(args.id, { pinned: args.pinned })
   },
 })
 

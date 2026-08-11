@@ -119,6 +119,16 @@ test("real participation leaves the model's verdict alone", () => {
   assert.equal(result.verdict, "advance")
 })
 
+test("string-shaped action items are currently dropped (documents the suspected bug)", () => {
+  const result = parseDebrief(
+    { ...FULL, continuity: { summary: "x", actionItems: ["Bring the automated test plan"] } },
+    OPTS
+  )
+  // If this assertion ever needs flipping to length 1, the parser was
+  // widened to accept bare strings — update deliberately.
+  assert.equal(result.continuity.actionItems.length, 0)
+})
+
 test("didntHold entries without ref omit it", () => {
   const result = parseDebrief(
     { ...FULL, didntHold: [{ text: "No pricing answer." }] },

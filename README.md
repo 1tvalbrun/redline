@@ -1,4 +1,4 @@
-# Redline
+# Prestage
 
 Pre-diligence for a startup idea, before a real investor runs it for you. A founder pitches out loud, an AI panel reads their deck, finds the gaps an investor will find, interrogates them live on the weakest one, and hands back a scored verdict with a fix list.
 

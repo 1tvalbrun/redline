@@ -220,6 +220,29 @@
   --shadow-card-value: 0 1px 3px rgba(0, 0, 0, 0.3);
   /* dark accent-blue is light — flip button label to dark ink */
   --primary-foreground: #0b1526;
+
+  /* Semantic aliases must be re-declared here, not just at :root: a custom
+     property resolves where it is DECLARED, so :root's
+     `--popover: var(--surface-raised)` freezes to the light value and
+     inherits as white into dark scopes. Redeclaring on the dark scope makes
+     each alias re-resolve against the dark primitives above. */
+  --background: var(--surface);
+  --foreground: var(--on-surface);
+  --card: var(--surface-raised);
+  --card-foreground: var(--on-surface);
+  --popover: var(--surface-raised);
+  --popover-foreground: var(--on-surface);
+  --primary: var(--accent-blue);
+  --secondary: var(--surface-2);
+  --secondary-foreground: var(--on-surface);
+  --muted: var(--surface-2);
+  --muted-foreground: var(--on-surface-2);
+  --accent: var(--surface-2);
+  --accent-foreground: var(--on-surface);
+  --destructive: var(--red);
+  --border: var(--line);
+  --input: var(--line-2);
+  --ring: var(--accent-blue);
 }
 
 @layer base {
