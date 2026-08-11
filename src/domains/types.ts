@@ -134,11 +134,6 @@ export const deliveredItems = (continuity: Continuity | null): ActionItem[] =>
     .filter((item) => item.status === "done")
     .sort((a, b) => b.createdAt - a.createdAt)
 
-export const droppedItems = (continuity: Continuity | null): ActionItem[] =>
-  (continuity?.actionItems ?? [])
-    .filter((item) => item.status === "dropped")
-    .sort((a, b) => b.createdAt - a.createdAt)
-
 // Action items are authored verb-first ("Send two references"), so they
 // slot into spoken lines as "you said you'd send two references".
 export const spokenCommitment = (item: ActionItem): string => {

@@ -21,6 +21,10 @@ import { ownedOrNull, requireIdentity } from "./guard"
 // the verdict weighs how the session ended, not how it opened.
 const TRANSCRIPT_CHAR_BUDGET = 60_000
 const TOPIC_CHARS = 60
+// Boundary clamp on stored turns: real speech finals run well under 1k
+// chars, so only a hostile client ever hits this — it bounds document
+// growth, it doesn't shape normal sessions.
+const TRANSCRIPT_ENTRY_CHARS = 4000
 
 // Persona text comes from the pack and the Runway avatar id from the
 // registry, so neither can be injected. Only the session-relevant slice of
@@ -66,11 +70,12 @@ export const create = mutation({
     if (!practice) throw new Error("Practice not found")
     // A still-live session is the one to return to — rejoin it rather than
     // minting a parallel one (and a second billable avatar session).
-    const sessions = await ctx.db
+    const live = await ctx.db
       .query("sessions")
-      .withIndex("by_practice", (q) => q.eq("practiceId", args.practiceId))
-      .collect()
-    const live = sessions.find((session) => session.status === "live")
+      .withIndex("by_practice_status", (q) =>
+        q.eq("practiceId", args.practiceId).eq("status", "live")
+      )
+      .first()
     if (live) return live._id
     const sessionId = await insertSessionForPersona(
       ctx,
@@ -128,11 +133,12 @@ export const getLive = query({
     const identity = await requireIdentity(ctx)
     const practice = ownedOrNull(identity, await ctx.db.get(args.practiceId))
     if (!practice) return null
-    const sessions = await ctx.db
+    return await ctx.db
       .query("sessions")
-      .withIndex("by_practice", (q) => q.eq("practiceId", args.practiceId))
-      .collect()
-    return sessions.find((session) => session.status === "live") ?? null
+      .withIndex("by_practice_status", (q) =>
+        q.eq("practiceId", args.practiceId).eq("status", "live")
+      )
+      .first()
   },
 })
 
@@ -169,7 +175,8 @@ export const addTranscriptEntry = mutation({
     )
     if (echoes) return { written: false }
 
-    await ctx.db.patch(args.id, { transcript: [...session.transcript, args.entry] })
+    const entry = { ...args.entry, text: args.entry.text.slice(0, TRANSCRIPT_ENTRY_CHARS) }
+    await ctx.db.patch(args.id, { transcript: [...session.transcript, entry] })
     return { written: true }
   },
 })

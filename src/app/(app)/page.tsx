@@ -6,7 +6,7 @@ import { ChevronRight, Plus, Video } from "lucide-react"
 import { useMutation, useQuery } from "convex/react"
 import { api } from "@convex/_generated/api"
 import type { Id } from "@convex/_generated/dataModel"
-import { cn } from "@/lib/utils"
+import { cn, relativeDay } from "@/lib/utils"
 import { getPack, isPackId } from "@/domains/registry"
 import { BTN_PRIMARY } from "@/components/shared/buttons"
 import { personaInitials } from "@/components/shared/PersonaAvatar"
@@ -22,14 +22,6 @@ const personaFor = (practice: PracticeRow) =>
   practice.personaId
     ? getPack(practice.packId).personas.find((persona) => persona.id === practice.personaId) ?? null
     : null
-
-const relativeDay = (at: number | null): string => {
-  if (at === null) return ""
-  const days = Math.floor((Date.now() - at) / 86_400_000)
-  if (days <= 0) return "Today"
-  if (days === 1) return "Yesterday"
-  return new Date(at).toLocaleDateString("en-US", { month: "short", day: "numeric" })
-}
 
 const ResumeHero = ({ practice }: { practice: PracticeRow }) => {
   const router = useRouter()

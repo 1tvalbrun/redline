@@ -32,7 +32,7 @@ const Capture = ({
     onDone(transcript, Math.round(elapsedMs / 1000))
   }
 
-  const { status, stop } = usePitchTranscription(handleFinished, () => {})
+  const { status, stop } = usePitchTranscription(handleFinished)
 
   useEffect(() => {
     if (status === "denied" || status === "error") onError(status)

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import { LogOut } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { LogoMark } from "@/components/shared/LogoMark"
+import { BTN_SECONDARY } from "@/components/shared/buttons"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,10 +37,6 @@ const DISPLAY_STEPS: { label: string; keys: FlowStage[] }[] = [
   { label: "Panel", keys: ["panel"] },
   { label: "Room", keys: ["room"] },
 ]
-
-// Retired alias — stage CTAs migrate to BTN_PRIMARY as their stages are
-// rebuilt (Stages 3–5).
-export { BTN_PRIMARY as FLOW_BTN } from "@/components/shared/buttons"
 
 export const StageKicker = ({ children }: { children: React.ReactNode }) => (
   <p className="mb-4 flex items-center gap-2 font-mono text-[11px] uppercase tracking-[.09em] text-on-surface-3">
@@ -96,7 +93,7 @@ export const FlowShell = ({
         {centerSlot ? (
           <div className="flex flex-1 justify-center">{centerSlot}</div>
         ) : (
-        <nav aria-label="Run progress" className="flex flex-1 justify-center">
+        <nav aria-label="Practice progress" className="flex flex-1 justify-center">
           <ol className="flex items-center">
             {DISPLAY_STEPS.map((displayStep, i) => {
               const state = i < currentIndex ? "done" : i === currentIndex ? "active" : "upcoming"
@@ -145,7 +142,7 @@ export const FlowShell = ({
           <AlertDialog>
             {/* A stateful exit earns a real button — plain text is too easy
                 to miss as the only door out of the room. */}
-            <AlertDialogTrigger className="focus-ring inline-flex items-center gap-2 rounded-[10px] border border-line-2 bg-surface-raised px-3.5 py-2 text-[13px] font-medium text-on-surface-2 shadow-btn transition-colors hover:bg-surface-2 hover:text-on-surface">
+            <AlertDialogTrigger className={cn(BTN_SECONDARY, "px-3.5 py-2 text-[13px] hover:text-on-surface")}>
               <LogOut className="size-[14px]" />
               {confirmExit.label ?? "Save & exit"}
             </AlertDialogTrigger>

@@ -12,34 +12,26 @@ export type TranscriptionStatus =
 
 type PitchTranscription = {
   status: TranscriptionStatus
-  finals: string[]
-  heardSpeech: boolean
   stop: () => void
 }
 
 // Intake pitch capture on the shared founder-transcription core. Interim
 // turns are tracked by the core (turn idempotency; leftovers join the
-// transcript on stop) but only finals are exposed: confirmed text only, the
-// same rule the room's transcript follows (UserSpeechBridge also discards
-// interims). Runs once per mount; onFinished fires exactly once with the
-// assembled transcript. onAudioLevel reports per-chunk mic RMS (0..1) —
-// callers must not set React state per call.
+// transcript on stop) but only finals are collected: confirmed text only,
+// the same rule the room's transcript follows (UserSpeechBridge also
+// discards interims). Runs once per mount; onFinished fires exactly once
+// with the assembled transcript.
 export const usePitchTranscription = (
-  onFinished: (transcript: string) => void,
-  onAudioLevel: (rms: number) => void
+  onFinished: (transcript: string) => void
 ): PitchTranscription => {
   const [status, setStatus] = useState<TranscriptionStatus>("connecting")
-  const [finals, setFinals] = useState<string[]>([])
-  const [heardSpeech, setHeardSpeech] = useState(false)
   const stopRef = useRef<() => void>(() => {})
 
-  // Latest-refs so the mount-once lifecycle below survives parent re-renders.
+  // Latest-ref so the mount-once lifecycle below survives parent re-renders.
   const onFinishedRef = useRef(onFinished)
-  const onAudioLevelRef = useRef(onAudioLevel)
   useEffect(() => {
     onFinishedRef.current = onFinished
-    onAudioLevelRef.current = onAudioLevel
-  }, [onFinished, onAudioLevel])
+  }, [onFinished])
 
   useEffect(() => {
     let stopRequested = false
@@ -52,12 +44,8 @@ export const usePitchTranscription = (
     const stream = startFounderTranscription({
       onFinalTurn: (text) => {
         collected.push(text)
-        setFinals([...collected])
-        setHeardSpeech(true)
       },
-      onInterim: (text) => {
-        if (text.length > 0) setHeardSpeech(true)
-      },
+      onInterim: () => {},
       onStatus: (streamStatus) => {
         if (streamStatus === "streaming") setStatus("listening")
         if (streamStatus === "denied") setStatus("denied")
@@ -66,7 +54,6 @@ export const usePitchTranscription = (
         // heard rather than sitting in a dead "listening" state.
         if (streamStatus === "ended" && !stopRequested) finishOnce()
       },
-      onAudioLevel: (rms) => onAudioLevelRef.current(rms),
     })
 
     stopRef.current = () => {
@@ -84,5 +71,5 @@ export const usePitchTranscription = (
 
   const stop = useCallback(() => stopRef.current(), [])
 
-  return { status, finals, heardSpeech, stop }
+  return { status, stop }
 }

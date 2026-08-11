@@ -10,7 +10,8 @@ import type { Claim, Gap } from "@/lib/audit"
 import { getPack } from "@/domains/registry"
 import { scopeText } from "@/domains/types"
 import { cn } from "@/lib/utils"
-import { FLOW_BTN, StageKicker } from "@/components/simulation/flow/FlowShell"
+import { StageKicker } from "@/components/simulation/flow/FlowShell"
+import { BTN_PRIMARY, BTN_SECONDARY } from "@/components/shared/buttons"
 import { WaitingScreen } from "@/components/simulation/flow/WaitingScreen"
 import { IdeaNotFound } from "@/components/simulation/flow/IdeaNotFound"
 
@@ -121,7 +122,7 @@ export const AuditStage = ({ simulationId }: AuditStageProps) => {
                 : "Couldn't start the audit. Check your connection and try again."}
             </p>
             <div className="mt-6">
-              <button type="button" onClick={handleRunAudit} className={FLOW_BTN}>
+              <button type="button" onClick={handleRunAudit} className={BTN_PRIMARY}>
                 Retry the audit <span aria-hidden="true">→</span>
               </button>
             </div>
@@ -212,12 +213,12 @@ export const AuditStage = ({ simulationId }: AuditStageProps) => {
       </section>
 
       <div className="mt-8 flex flex-wrap items-center gap-3.5">
-        <Link href={`/simulation/${simulationId}/panel`} className={FLOW_BTN}>
+        <Link href={`/simulation/${simulationId}/panel`} className={BTN_PRIMARY}>
           {copy.cta} <span aria-hidden="true">→</span>
         </Link>
         <Link
           href={`/simulation/new?from=${simulationId}`}
-          className="focus-ring inline-flex items-center gap-2 rounded-[10px] border border-line-2 bg-surface-raised px-[17px] py-2.5 text-[13.5px] text-on-surface-2 shadow-btn transition hover:bg-surface-2"
+          className={BTN_SECONDARY}
         >
           <RefreshCw className="size-[13px]" />
           Add materials &amp; re-run

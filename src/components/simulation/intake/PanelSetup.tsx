@@ -11,8 +11,8 @@ import { Id } from "@convex/_generated/dataModel"
 import { cn } from "@/lib/utils"
 import { getPack } from "@/domains/registry"
 import { firstNameOf, scopeList, scopeText, type DomainPack, type Persona, type Scope } from "@/domains/types"
-import { BTN_PRIMARY } from "@/components/shared/buttons"
-import { FLOW_BTN, StageKicker } from "@/components/simulation/flow/FlowShell"
+import { BTN_PRIMARY, BTN_SECONDARY } from "@/components/shared/buttons"
+import { StageKicker } from "@/components/simulation/flow/FlowShell"
 import { IdeaNotFound } from "@/components/simulation/flow/IdeaNotFound"
 
 // An honest recommendation: the persona whose declared territory (tags +
@@ -148,7 +148,7 @@ export const PanelSetup = ({ simulationId }: PanelSetupProps) => {
         </p>
         <Link
           href={`/simulation/${simulationId}/room`}
-          className={cn(FLOW_BTN, "mt-6 inline-flex")}
+          className={cn(BTN_PRIMARY, "mt-6 inline-flex")}
         >
           Rejoin the room <ArrowRight className="size-3.5" />
         </Link>
@@ -212,9 +212,7 @@ export const PanelSetup = ({ simulationId }: PanelSetupProps) => {
                     onFocus={() => setSelectedId(persona.id)}
                     disabled={startingId !== null}
                     className={cn(
-                      isSelected
-                        ? BTN_PRIMARY
-                        : "focus-ring inline-flex items-center justify-center gap-2 rounded-[10px] border border-line-2 bg-surface-raised px-4 py-2.5 text-[13.5px] font-medium text-on-surface-2 shadow-btn transition hover:bg-surface-2 disabled:pointer-events-none disabled:opacity-50",
+                      isSelected ? BTN_PRIMARY : BTN_SECONDARY,
                       "w-full"
                     )}
                   >

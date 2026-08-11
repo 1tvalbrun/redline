@@ -160,6 +160,7 @@ export default defineSchema({
     debrief: v.optional(debriefValidator),
   })
     .index("by_practice", ["practiceId"])
+    .index("by_practice_status", ["practiceId", "status"])
     .index("by_user", ["userId"]),
 
   // Extracted text from intake materials, keyed to a practice. Text is

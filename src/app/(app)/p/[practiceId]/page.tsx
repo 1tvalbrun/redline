@@ -7,20 +7,13 @@ import { Check, FileText, Video } from "lucide-react"
 import { useMutation, useQuery } from "convex/react"
 import { api } from "@convex/_generated/api"
 import type { Id } from "@convex/_generated/dataModel"
-import { cn } from "@/lib/utils"
+import { cn, relativeDay } from "@/lib/utils"
 import { getPack } from "@/domains/registry"
 import { firstNameOf } from "@/domains/types"
 import { BTN_PRIMARY } from "@/components/shared/buttons"
 import { LaneBadge } from "@/components/shared/LaneBadge"
 import { PersonaAvatar } from "@/components/shared/PersonaAvatar"
 import { VerdictBadge } from "@/components/workspace/VerdictBadge"
-
-const relativeDay = (at: number): string => {
-  const days = Math.floor((Date.now() - at) / 86_400_000)
-  if (days <= 0) return "Today"
-  if (days === 1) return "Yesterday"
-  return new Date(at).toLocaleDateString("en-US", { month: "short", day: "numeric" })
-}
 
 const PracticePage = ({ params }: { params: Promise<{ practiceId: string }> }) => {
   const { practiceId } = use(params)
@@ -259,7 +252,10 @@ const PracticePage = ({ params }: { params: Promise<{ practiceId: string }> }) =
                       gap.severity === "blocker" ? "bg-red-fg" : "bg-warn"
                     )}
                   />
-                  <p className="text-[13px] leading-normal text-on-surface-2">{gap.title}</p>
+                  <p className="text-[13px] leading-normal text-on-surface-2">
+                    <span className="sr-only">{gap.severity}: </span>
+                    {gap.title}
+                  </p>
                 </div>
               ))}
             </>

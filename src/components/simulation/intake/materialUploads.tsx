@@ -80,7 +80,6 @@ export const useMaterialUploads = () => {
 
   return {
     uploads,
-    setUploads,
     addFiles,
     removeUpload,
     readyMaterials,

@@ -4,7 +4,9 @@ import Link from "next/link"
 import { useState } from "react"
 import { useMutation, useQuery } from "convex/react"
 import { api } from "@convex/_generated/api"
+import { cn } from "@/lib/utils"
 import { ALL_PACKS } from "@/domains/registry"
+import { BTN_SECONDARY } from "@/components/shared/buttons"
 import { Panel } from "@/components/shared/Panel"
 
 // Deletion needs no navigation here: removing the users row flips the
@@ -45,19 +47,17 @@ const SettingsPage = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-[760px] space-y-6 px-12 pb-24 pt-11 max-md:px-5 max-md:pt-8">
       <div>
-        <p className="font-mono text-[10px] uppercase tracking-[.14em] text-on-surface-2">
+        <p className="font-mono text-[11px] uppercase tracking-[.06em] text-on-surface-3">
           Settings
         </p>
-        <h1 className="mt-1 font-display text-[32px] font-bold tracking-[-.02em]">
-          Your account
-        </h1>
+        <h1 className="mt-1 text-[26px] font-semibold tracking-[-.02em]">Your account</h1>
       </div>
 
       <Panel title="Practice lanes">
         <p className="text-[13.5px] leading-[1.6] text-on-surface-2">
-          Every lane you enable shows up when you start a new run. Enabling a
+          Every lane you enable shows up when you start a new practice. Enabling a
           lane never touches your existing history.
         </p>
         <ul className="mt-4 space-y-2.5">
@@ -66,10 +66,10 @@ const SettingsPage = () => {
             return (
               <li
                 key={pack.id}
-                className="flex items-center justify-between gap-4 border border-line-2 p-3.5"
+                className="flex items-center justify-between gap-4 rounded-xl border border-line p-3.5"
               >
                 <span>
-                  <span className="block font-display text-[15px] font-bold tracking-[-.01em]">
+                  <span className="block text-[14px] font-semibold tracking-[-.01em]">
                     {pack.label}
                   </span>
                   <span className="mt-0.5 block text-[12.5px] leading-[1.5] text-on-surface-2">
@@ -77,16 +77,14 @@ const SettingsPage = () => {
                   </span>
                 </span>
                 {enabled ? (
-                  <span className="flex-none font-mono text-[10px] uppercase tracking-[.1em] text-ok">
-                    Enabled
-                  </span>
+                  <span className="flex-none text-xs font-medium text-ok">Enabled</span>
                 ) : (
                   <button
                     type="button"
                     onClick={() => handleEnableLane(pack.id)}
                     disabled={enablingLane !== null || user === undefined}
                     aria-label={`Enable ${pack.label}`}
-                    className="focus-ring flex-none border border-line-2 px-3.5 py-2 font-mono text-[10.5px] uppercase tracking-[.08em] text-on-surface transition-colors hover:border-red hover:text-red-fg disabled:pointer-events-none disabled:opacity-60"
+                    className={cn(BTN_SECONDARY, "flex-none px-3.5 py-2 text-[13px]")}
                   >
                     {enablingLane === pack.id ? "Enabling…" : "Enable"}
                   </button>
@@ -105,11 +103,11 @@ const SettingsPage = () => {
       <Panel title="Legal">
         <p className="text-[13.5px] leading-[1.6] text-on-surface-2">
           You accepted the{" "}
-          <Link href="/terms" className="focus-ring underline hover:text-red-fg">
+          <Link href="/terms" className="focus-ring underline hover:text-accent-blue">
             Terms of Service
           </Link>{" "}
           and{" "}
-          <Link href="/privacy" className="focus-ring underline hover:text-red-fg">
+          <Link href="/privacy" className="focus-ring underline hover:text-accent-blue">
             Privacy Policy
           </Link>
           {user
@@ -130,7 +128,7 @@ const SettingsPage = () => {
               type="button"
               onClick={handleDelete}
               disabled={deleting}
-              className="focus-ring border border-red bg-red px-4 py-[10px] font-mono text-[11px] uppercase tracking-[.08em] text-white transition-colors hover:bg-red-deep disabled:pointer-events-none disabled:opacity-60"
+              className="focus-ring inline-flex cursor-pointer items-center justify-center rounded-[10px] bg-red px-[17px] py-2.5 text-[13.5px] font-medium text-white shadow-btn transition hover:bg-red-deep disabled:pointer-events-none disabled:opacity-60"
             >
               {deleting ? "Deleting everything…" : "Yes, delete everything"}
             </button>
@@ -138,7 +136,7 @@ const SettingsPage = () => {
               type="button"
               onClick={() => setConfirming(false)}
               disabled={deleting}
-              className="focus-ring font-mono text-[11px] uppercase tracking-[.06em] text-on-surface-2 hover:text-on-surface"
+              className="focus-ring rounded-lg px-2.5 py-1.5 text-[13px] text-on-surface-2 transition-colors hover:bg-surface-2 hover:text-on-surface"
             >
               Cancel
             </button>
@@ -147,7 +145,7 @@ const SettingsPage = () => {
           <button
             type="button"
             onClick={() => setConfirming(true)}
-            className="focus-ring mt-4 border border-red px-4 py-[10px] font-mono text-[11px] uppercase tracking-[.08em] text-red-fg transition-colors hover:bg-red hover:text-white"
+            className={cn(BTN_SECONDARY, "mt-4 text-red-fg hover:text-red-fg")}
           >
             Delete my account and data
           </button>

@@ -172,24 +172,6 @@ export const setPinned = mutation({
   },
 })
 
-export const counts = query({
-  args: {},
-  handler: async (ctx) => {
-    const identity = await requireIdentity(ctx)
-    const [practices, sessions] = await Promise.all([
-      ctx.db
-        .query("practices")
-        .withIndex("by_user", (q) => q.eq("userId", identity.subject))
-        .collect(),
-      ctx.db
-        .query("sessions")
-        .withIndex("by_user", (q) => q.eq("userId", identity.subject))
-        .collect(),
-    ])
-    return { practices: practices.length, sessions: sessions.length }
-  },
-})
-
 // The returning-user path: one click from Home or the practice header back
 // into the room. A still-live session is rejoined rather than duplicated
 // (and double-billed); otherwise a fresh session starts with the practice's
@@ -201,11 +183,12 @@ export const continueSession = mutation({
     const identity = await requireIdentity(ctx)
     const practice = ownedOrNull(identity, await ctx.db.get(args.id))
     if (!practice) throw new Error("Practice not found")
-    const sessions = await ctx.db
+    const live = await ctx.db
       .query("sessions")
-      .withIndex("by_practice", (q) => q.eq("practiceId", args.id))
-      .collect()
-    const live = sessions.find((session) => session.status === "live")
+      .withIndex("by_practice_status", (q) =>
+        q.eq("practiceId", args.id).eq("status", "live")
+      )
+      .first()
     if (live) return { sessionId: live._id }
     if (!practice.personaId || practice.status !== "ready") return { sessionId: null }
     const sessionId = await insertSessionForPersona(

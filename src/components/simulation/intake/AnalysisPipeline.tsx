@@ -6,7 +6,7 @@ import { useQuery, useAction } from "convex/react"
 import { api } from "@convex/_generated/api"
 import { Id } from "@convex/_generated/dataModel"
 import { cn } from "@/lib/utils"
-import { FLOW_BTN } from "@/components/simulation/flow/FlowShell"
+import { BTN_PRIMARY } from "@/components/shared/buttons"
 import { getPack } from "@/domains/registry"
 import { scopeText } from "@/domains/types"
 import { WaitingScreen } from "@/components/simulation/flow/WaitingScreen"
@@ -78,7 +78,7 @@ export const AnalysisPipeline = ({ simulationId }: AnalysisPipelineProps) => {
             type="button"
             onClick={handleRetry}
             disabled={retrying}
-            className={cn(FLOW_BTN, "mt-4")}
+            className={cn(BTN_PRIMARY, "mt-4")}
           >
             {retrying ? "Retrying the read…" : "Retry the read"}
           </button>

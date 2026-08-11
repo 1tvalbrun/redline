@@ -10,8 +10,9 @@ import type { Id } from "@convex/_generated/dataModel"
 import { cn } from "@/lib/utils"
 import { verdictDirection } from "@/domains/registry"
 import { bySpokenTime } from "@/lib/transcript"
-import { BTN_PRIMARY } from "@/components/shared/buttons"
+import { BTN_PRIMARY, BTN_SECONDARY } from "@/components/shared/buttons"
 import { PersonaAvatar } from "@/components/shared/PersonaAvatar"
+import { Disclosure } from "@/components/shared/Disclosure"
 import { VerdictBadge } from "@/components/workspace/VerdictBadge"
 import { firstNameOf } from "@/domains/types"
 import { useAutoHideScrollbar } from "@/components/shared/useAutoHideScrollbar"
@@ -191,11 +192,9 @@ const SessionPage = ({
                           <span
                             className={cn(
                               "mt-0.5 rounded-full border px-2 py-px font-mono text-[10px] uppercase",
-                              item.priority === "high"
-                                ? "border-warn-line bg-warn-bg text-warn"
-                                : item.priority === "medium"
-                                  ? "border-warn-line bg-warn-bg text-warn"
-                                  : "border-line-2 bg-surface-2 text-on-surface-3",
+                              item.priority === "low"
+                                ? "border-line-2 bg-surface-2 text-on-surface-3"
+                                : "border-warn-line bg-warn-bg text-warn",
                               !kept && "opacity-40"
                             )}
                           >
@@ -219,7 +218,7 @@ const SessionPage = ({
                 <button
                   type="button"
                   onClick={handlePracticeAgain}
-                  className="focus-ring inline-flex items-center gap-2 rounded-[10px] border border-line-2 bg-surface-raised px-[17px] py-2.5 text-[13.5px] text-on-surface-2 shadow-btn transition hover:bg-surface-2"
+                  className={BTN_SECONDARY}
                 >
                   <Video className="size-[14px]" />
                   Go again
@@ -285,6 +284,8 @@ const SessionPage = ({
               )}
             </aside>
           </div>
+
+          <Disclosure className="mt-12" />
         </>
       ) : session.status === "live" ? (
         <div className="mb-10 rounded-xl border border-dashed border-line-2 px-6 py-10 text-center">
@@ -313,7 +314,7 @@ const SessionPage = ({
             <button
               type="button"
               onClick={handleRetryDebrief}
-              className="focus-ring mt-4 inline-flex items-center gap-2 rounded-[10px] border border-line-2 bg-surface-raised px-4 py-2 text-[13px] text-on-surface-2 shadow-btn transition hover:bg-surface-2"
+              className={cn(BTN_SECONDARY, "mt-4 px-4 py-2 text-[13px]")}
             >
               Taking too long? Retry
             </button>
