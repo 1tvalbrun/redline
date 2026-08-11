@@ -37,21 +37,18 @@ export type ScopeField = {
   options?: ScopeFieldOption[]
 }
 
-// One field of the Read stage's extraction (simulations.context).
+// One field of the shaping extraction (practices.context).
 export type ContextField = { key: string; label: string }
 
-// One live scoring dimension. The orchestrate prompt owns the axis's
-// meaning; the label is what the UI prints.
-export type ScoreAxis = { key: string; label: string }
-
+// Verdict tones double as the direction scale ("up from last time"):
+// bad < mid < good. See verdictDirection in registry.
 export type VerdictTone = "good" | "mid" | "bad"
 export type VerdictOption = { value: string; label: string; tone: VerdictTone }
 
 // An interviewer identity. The spoken personality lives on the Runway
-// Character; these fields feed UI labels and the scoring/report prompts.
-// attack is the panel card's "what they come for" line; bio and tags feed
-// the workspace Panel page; axes are the dimensions this persona presses
-// hardest (recommendation + verdict speaker).
+// Character; these fields feed UI labels and the debrief prompts. attack is
+// the meet card's "what they come for" line; bio and tags feed persona
+// cards.
 export type AttackSegment = { text: string; strong?: boolean }
 export type Persona = {
   id: string
@@ -64,20 +61,13 @@ export type Persona = {
   attack: AttackSegment[]
   bio: string
   tags: string[]
-  axes: string[]
+  // Their signature opening question, rendered as the card's serif quote.
+  signature: string
 }
 
-// Legacy founder-shaped scope (simulations.brief on pre-M3 rows). New rows
-// store scope; scopeOf (registry) folds this shape into a Scope.
-export type Brief = {
-  ideaName: string
-  stage: string
-  description: string
-  targetUser: string
-  businessModel: string
-  whyNow?: string
-  focusAreas: string[]
-}
+// "Dr. Sarah Okafor" → "Sarah", never "Dr." — honorifics end in a period.
+export const firstNameOf = (name: string): string =>
+  name.split(" ").find((word) => !word.endsWith(".")) ?? name
 
 // Per-session avatar briefing. personalityPreamble is prepended to the
 // persona stored on the Runway Character; startScript replaces its canned
@@ -88,13 +78,15 @@ export type RoomBriefing = {
   startScript: string
 }
 
-// Cross-session memory (ideas.continuity): what the last session concluded
-// and what the user committed to. Written at report time, surfaced in the
-// next session's briefing and opener.
+// Cross-session memory (practices.continuity): what the last session
+// concluded and what the user committed to. Written at debrief time,
+// surfaced in the next session's briefing and opener.
 export type ActionItemStatus = "open" | "done" | "dropped"
+export type ActionItemPriority = "high" | "medium" | "low"
 export type ActionItem = {
   id: string
   text: string
+  priority: ActionItemPriority
   status: ActionItemStatus
   createdAt: number
 }
@@ -142,11 +134,6 @@ export const deliveredItems = (continuity: Continuity | null): ActionItem[] =>
     .filter((item) => item.status === "done")
     .sort((a, b) => b.createdAt - a.createdAt)
 
-export const droppedItems = (continuity: Continuity | null): ActionItem[] =>
-  (continuity?.actionItems ?? [])
-    .filter((item) => item.status === "dropped")
-    .sort((a, b) => b.createdAt - a.createdAt)
-
 // Action items are authored verb-first ("Send two references"), so they
 // slot into spoken lines as "you said you'd send two references".
 export const spokenCommitment = (item: ActionItem): string => {
@@ -165,17 +152,16 @@ export type OrchestratePromptInput = {
   characterRole: string
   characterTone: string
   scope: Scope
-  current: Record<string, number>
 }
 
-export type ReportPromptInput = {
+export type DebriefPromptInput = {
   scope: Scope
   characterName: string
   characterRole: string
   characterTone: string
   notes: string
   transcript: string
-  // The engagement's memory going into this session, so the report can
+  // The engagement's memory going into this session, so the debrief can
   // compound the summary instead of replacing it and never re-emit a
   // commitment that's already tracked. Null on a first session.
   continuity: {
@@ -199,19 +185,27 @@ export type StageWaitCopy = {
   stepMs: number
 }
 
-// Copy for the generic scope-form intake. Only packs without a bespoke
-// intake component define it; the founder lane's BriefForm carries its own.
-export type IntakeCopy = {
-  kicker: string
-  heading: string
-  lead: string
-  materialsLabel: string
-  materialsButton: string
-  cta: string
-}
+// One row of the typed form's live-preview rail: which scope field it
+// mirrors, how the reader labels it, and the coaching hint shown while
+// it's empty.
+export type PreviewRow = { key: string; label: string; hint: string }
 
 export type PackCopy = {
-  intake?: IntakeCopy
+  // The wizard's voice-first opening beat.
+  tellIt: { heading: string; sub: string }
+  // Typed-form structure: fields grouped into titled sections, in order.
+  form: {
+    sections: { title: string; meta?: string; keys: string[] }[]
+    materialsTitle: string
+    materialsMeta: string
+  }
+  // The "what {persona} will read" rail beside the typed form.
+  preview: {
+    title: string
+    rows: PreviewRow[]
+    chips: { label: string; keys: string[] }
+    footer: string
+  }
   readWait: StageWaitCopy
   auditWait: StageWaitCopy
   audit: {
@@ -234,6 +228,8 @@ export type DomainPack = {
   id: string
   // Onboarding card copy (the lane chooser).
   label: string
+  // Compact lane name for chips and rail headers ("Founder", "Sales", …).
+  shortLabel: string
   description: string
   // The scope key that names the engagement: feeds the ideas row, list
   // display, and the briefing subject.
@@ -247,12 +243,9 @@ export type DomainPack = {
   userTitle: string
   scopeFields: ScopeField[]
   contextFields: ContextField[]
-  axes: ScoreAxis[]
   // Closed verdict vocabulary. fallback is stored when model output is
   // outside it.
   verdicts: { options: VerdictOption[]; fallback: string }
-  // The readiness bar the gauge draws (e.g. 90 "Investor-ready").
-  targetLine: { value: number; label: string }
   // The assessor's evidence request list for the current scope, shown at
   // intake before upload — the real-audit order is "here's what to
   // produce", then evidence, then the interview. Only packs with a
@@ -271,6 +264,9 @@ export type DomainPack = {
     extractBrief?: (input: { source: "voice" | "deck"; pitch: string }) => string
     audit: (input: AuditPromptInput) => string
     orchestrate: (input: OrchestratePromptInput) => string
-    report: (input: ReportPromptInput) => string
+    debrief: (input: DebriefPromptInput) => string
+    // Spoken pitch → this pack's scope fields, extraction-only (never
+    // invent; absent means unsaid). Every lane has voice intake.
+    extractScope: (input: { source: "voice" | "deck"; pitch: string }) => string
   }
 }

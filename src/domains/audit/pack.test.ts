@@ -6,7 +6,7 @@ import { auditPack } from "./pack.ts"
 // no chosen area means no list — the panel arrives at the moment of choice.
 
 test("evidence requests follow the chosen control area", () => {
-  const groups = auditPack.evidenceRequests?.({ controlArea: "Data Recovery (Control 11)" }) ?? []
+  const groups = auditPack.evidenceRequests?.({ controlArea: "Data recovery · 11" }) ?? []
   assert.equal(groups.length, 5)
   assert.match(groups[0].title, /Safeguard 11\.1/)
   for (const group of groups) {

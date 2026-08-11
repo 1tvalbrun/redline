@@ -1,11 +1,9 @@
 import type { Persona } from "../types.ts"
 
 // The founder lane's panel. Persona text feeds UI labels and the
-// scoring/report prompts; the server resolves personas from the pack, so
-// the client can never inject one. The Runway avatar id for each persona
-// lives in the Convex avatars registry. axes: which diligence dimensions
-// each panelist presses hardest — the buyer owns both customer pain and how
-// organizations actually buy (gtm).
+// orchestrate/debrief prompts; the server resolves personas from the pack,
+// so the client can never inject one. The Runway avatar id for each persona
+// lives in the Convex avatars registry.
 export const PANEL_PERSONAS: Persona[] = [
   {
     id: "vc-01",
@@ -22,7 +20,7 @@ export const PANEL_PERSONAS: Persona[] = [
     ],
     bio: "Reviewed 2,000+ pitches, backed 23, watched 11 fail. Comes for market size, moats, pricing power and round math.",
     tags: ["Market sizing", "Defensibility", "Pricing power"],
-    axes: ["market"],
+    signature: "Walk me through the market math, bottoms-up, not the report you bought.",
   },
   {
     id: "tc-01",
@@ -39,7 +37,7 @@ export const PANEL_PERSONAS: Persona[] = [
     ],
     bio: "Plays your real customer. Asks what it replaces, what switching costs, and what happens when it breaks at 11pm.",
     tags: ["Buying process", "Switching cost", "Procurement"],
-    axes: ["customer", "gtm"],
+    signature: "Why would I rip out something that already works for this?",
   },
   {
     id: "ta-01",
@@ -56,6 +54,6 @@ export const PANEL_PERSONAS: Persona[] = [
     ],
     bio: 'Thinks in failure modes. Flags accuracy claims with no methodology and "optimize later" in the critical path.',
     tags: ["Latency", "Reliability", "Build vs buy"],
-    axes: ["technical"],
+    signature: "You said it's accurate. Show me how you measured that.",
   },
 ]

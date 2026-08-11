@@ -64,52 +64,35 @@ export const addLane = mutation({
 })
 
 // Deletes everything the caller owns, the guarantee /privacy makes.
-// materials and audits hang off simulations; their storage blobs go too.
-// The Clerk account itself survives; signing in again starts at onboarding.
+// Materials hang off practices; their storage blobs go too. The Clerk
+// account itself survives; signing in again starts at onboarding.
 export const deleteAccount = mutation({
   args: {},
   handler: async (ctx) => {
     const identity = await requireIdentity(ctx)
     const userId = identity.subject
 
-    const simulations = await ctx.db
-      .query("simulations")
+    const practices = await ctx.db
+      .query("practices")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect()
-    for (const simulation of simulations) {
+    for (const practice of practices) {
       const materials = await ctx.db
         .query("materials")
-        .withIndex("by_simulation", (q) => q.eq("simulationId", simulation._id))
+        .withIndex("by_practice", (q) => q.eq("practiceId", practice._id))
         .collect()
       for (const material of materials) {
         await ctx.storage.delete(material.storageId)
         await ctx.db.delete(material._id)
       }
-      const audits = await ctx.db
-        .query("audits")
-        .withIndex("by_simulation", (q) => q.eq("simulationId", simulation._id))
-        .collect()
-      for (const audit of audits) await ctx.db.delete(audit._id)
-      await ctx.db.delete(simulation._id)
+      await ctx.db.delete(practice._id)
     }
 
-    const rooms = await ctx.db
-      .query("rooms")
+    const sessions = await ctx.db
+      .query("sessions")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect()
-    for (const room of rooms) await ctx.db.delete(room._id)
-
-    const reports = await ctx.db
-      .query("reports")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect()
-    for (const report of reports) await ctx.db.delete(report._id)
-
-    const ideas = await ctx.db
-      .query("ideas")
-      .withIndex("by_user_name", (q) => q.eq("userId", userId))
-      .collect()
-    for (const idea of ideas) await ctx.db.delete(idea._id)
+    for (const session of sessions) await ctx.db.delete(session._id)
 
     const user = await ctx.db
       .query("users")

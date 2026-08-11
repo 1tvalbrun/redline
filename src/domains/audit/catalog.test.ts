@@ -39,6 +39,18 @@ test("area labels resolve and the fallback is Data Recovery", () => {
   assert.equal(DEFAULT_AREA.control, 11)
 })
 
+test("catalog strings stay em dash free", () => {
+  for (const area of CONTROL_AREAS) {
+    for (const safeguard of area.safeguards) {
+      assert.ok(!safeguard.restatement.includes("—"), `${safeguard.id} restatement`)
+      assert.ok(!safeguard.probe.includes("—"), `${safeguard.id} probe`)
+      for (const item of safeguard.evidence) {
+        assert.ok(!item.includes("—"), `${safeguard.id} evidence: ${item}`)
+      }
+    }
+  }
+})
+
 test("session areas stay session-sized", () => {
   for (const area of CONTROL_AREAS) {
     assert.ok(

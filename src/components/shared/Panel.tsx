@@ -8,15 +8,15 @@ type PanelProps = {
 }
 
 export const Panel = ({ title, meta, className, children }: PanelProps) => (
-  <section className={cn("border border-line-2 bg-surface-raised p-5", className)}>
+  <section
+    className={cn("rounded-xl border border-line bg-surface-raised p-5 shadow-card", className)}
+  >
     <div className="mb-3.5 flex items-baseline justify-between">
-      <h2 className="font-mono text-[10.5px] uppercase tracking-[.16em] text-on-surface-2">
+      <h2 className="text-[11px] font-semibold uppercase tracking-[.09em] text-on-surface-3">
         {title}
       </h2>
       {meta && (
-        <span className="font-mono text-[10px] uppercase tracking-[.05em] text-on-surface-3">
-          {meta}
-        </span>
+        <span className="font-mono text-[10.5px] tracking-[.02em] text-on-surface-3">{meta}</span>
       )}
     </div>
     {children}

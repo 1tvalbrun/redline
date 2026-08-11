@@ -2,8 +2,8 @@ import {
   scopeList,
   scopeText,
   type AuditPromptInput,
+  type DebriefPromptInput,
   type OrchestratePromptInput,
-  type ReportPromptInput,
   type Scope,
 } from "../types.ts"
 import { OBJECTIONS } from "./objections.ts"
@@ -25,6 +25,25 @@ export const analyzeSystem = `You are a sales strategist. Extract structured con
 export const analyzeUser = (scope: Scope) =>
   `Offering: ${scopeText(scope, "offering")}\nWhat it does: ${scopeText(scope, "description")}\nProspect: ${scopeText(scope, "prospect")}\nThe ask: ${scopeText(scope, "ask")}\nExpected objections: ${scopeList(scope, "objections").join(", ")}`
 
+export const extractScope = ({ source, pitch }: { source: "voice" | "deck"; pitch: string }) =>
+  `You turn a seller's ${source === "voice" ? "spoken pitch transcript" : "pitch deck text"} into a structured scope. This is extraction only, from what the seller actually said.
+
+THE HONESTY RULE: extract ONLY what the seller actually said. If a field is not clearly present, return null for it. A thin or vague pitch should produce mostly nulls. Never infer, never fill in plausible content, never polish vagueness into specifics. A missing answer is valuable information, not a gap for you to close.
+
+Fields:
+- "offering": what they're selling, as a short name or phrase, only if stated.
+- "description": what it does and the problem it removes, 1-3 sentences using the seller's own substance (you may fix grammar, not add facts).
+- "prospect": who they're pitching, in the seller's own terms (a role, a person, a kind of company), only if stated.
+- "ask": exactly one of "A discovery call" | "A pilot" | "A paid pilot" | "A partnership" | "A signed contract", copied verbatim, only if the seller said what they're asking the buyer to say yes to.
+- "objections": an array drawn from "We're fine as is" | "Switching cost" | "Price" | "Track record" | "Integration" | "Staff adoption" | "Decision authority" | "Timing", each copied verbatim, only where the seller named the pushback they expect. null if they named none.
+
+Every value is a string except "objections", which is an array of strings. A chip field that does not match a listed label verbatim is null. Never use an em dash in any output value.
+
+Return JSON only, keyed exactly: {"offering","description","prospect","ask","objections"} with null for anything not said.
+
+The pitch:
+${pitch.slice(0, 12_000)}`
+
 export const audit = ({ scope, unreadableCount, materialSections }: AuditPromptInput) =>
   `You are a deal-diligence analyst auditing a seller's materials before a live pitch session.
 
@@ -35,66 +54,44 @@ The materials (the ONLY citable evidence). Location markers look like [page 3], 
 
 ${materialSections}
 
-Every claim and gap is tagged with the deal axis it bears on:
-"value" (problem severity, quantified payoff, ROI), "fit" (right buyer, right operation, right timing), "objections" (switching cost, integration, trust, references), "close" (the ask, pricing clarity, a concrete next step).
+TASK 1 — CLAIMS. List the concrete, buyer-relevant claims the materials actually make (outcomes, numbers, pricing, customers, integrations). For each: "text" (the claim, under 20 words), "source" (the exact file name), "location" (a marker that appears in that file, e.g. "page 2", "slide 1"; use "document" for files without markers). Only include claims you can point to in the materials. If the materials are thin, few or zero claims is the correct answer — do not invent.
 
-TASK 1 — CLAIMS. List the concrete, buyer-relevant claims the materials actually make (outcomes, numbers, pricing, customers, integrations). For each: "text" (the claim, under 20 words), "source" (the exact file name), "location" (a marker that appears in that file, e.g. "page 2", "slide 1"; use "document" for files without markers), "axis". Only include claims you can point to in the materials. If the materials are thin, few or zero claims is the correct answer — do not invent.
+TASK 2 — GAPS. What a skeptical buyer expects and cannot find. Each: "severity" ("blocker" = would stall a real deal; "gap" = weakens the pitch), "kind" ("absent" = expected but in no material; "unsupported" = stated in the scope or materials with no backing evidence), "title" (under 8 words), "detail" (under 25 words). 3 to 8 gaps.
 
-TASK 2 — GAPS. What a skeptical buyer expects and cannot find. Each: "severity" ("blocker" = would stall a real deal; "gap" = weakens the pitch), "kind" ("absent" = expected but in no material; "unsupported" = stated in the scope or materials with no backing evidence), "title" (under 8 words), "detail" (under 25 words), "axis". 3 to 8 gaps.
-
-Return JSON only: {"claims":[{"text","source","location","axis"}],"gaps":[{"severity","kind","title","detail","axis"}]}`
+Return JSON only: {"claims":[{"text","source","location"}],"gaps":[{"severity","kind","title","detail"}]}`
 
 export const orchestrate = ({
   characterName,
   characterRole,
   characterTone,
   scope,
-  current,
 }: OrchestratePromptInput) =>
-  `You are observing a live sales pitch and scoring it in real time alongside ${characterName} (${characterRole}).
+  `You are observing a live sales pitch alongside ${characterName} (${characterRole}), taking notes in real time.
 
 Pitch context:
 ${scopeBlock(scope)}
 
-${characterName}'s evaluation lens (guides which risks you watch hardest, but you MUST score all four):
+${characterName}'s evaluation lens (guides what you watch hardest):
 ${characterTone}
 
 Common buyer objections and how they sound when pressed:
 ${OBJECTIONS.map((objection) => `- ${objection.label}: "${objection.probe}"`).join("\n")}
 
-Risk dimensions, each scored 0-100 (0 = no concern, 100 = critical risk):
-- value: problem severity, quantified payoff, ROI story
-- fit: right buyer, right operation, right timing
-- objections: switching cost, integration, trust, references — did answers survive pushback
-- close: clarity of the ask, pricing confidence, momentum toward a concrete next step
+What you listen for: problem severity, quantified payoff and the ROI story on value; right buyer, right operation and right timing on fit; whether answers survive pushback on switching cost, integration, trust and references; clarity of the ask, pricing confidence and momentum toward a concrete next step on the close. A strong answer is sharp, specific, and evidence-backed. A weak one is vague, hand-wavy, or leans on a claim that won't hold up.
 
-Current scores:
-- value=${current.value}
-- fit=${current.fit}
-- objections=${current.objections}
-- close=${current.close}
-
-CRITICAL RULES — read carefully:
-1. Assess each of the four dimensions INDEPENDENTLY. Do NOT apply a single overall judgment to all four.
-2. For each dimension, ask: "did the most recent turn in this conversation touch THIS specific dimension?"
-   - If NO: return the CURRENT value UNCHANGED (exact same integer).
-   - If YES: adjust the score by between 1 and 8 points (in either direction) based on the answer's quality on THAT specific dimension.
-3. In most turns, only 1 or 2 dimensions will be touched. The other 2-3 should be UNCHANGED.
-4. Strong, specific, evidence-backed seller answers DECREASE the relevant dimension.
-5. Vague, dodgy, hand-wavy, or unsupported claims INCREASE the relevant dimension.
-6. Whole integers, 0-100 only. Never move by more than 10 points in a single turn.
-
-Also produce ONE short observation (8-18 words) about the most recent seller turn. Classify it:
-- strong_answer: seller gave a sharp, specific answer
+Produce ONE short observation (8-18 words) about the most recent seller turn, or null if the turn contains nothing worth noting. Classify it:
+- strong_answer: seller gave a sharp, specific answer. Only when their own words demonstrably earn it; when unsure, no note
 - weak_assumption: seller relied on a claim that won't hold up
 - objection: the buyer pushed back on something
 - follow_up: a question still hanging
 - event: a notable shift in tone or topic
 
-Respond with JSON only, exactly this shape:
-{"riskScores":{"value":int,"fit":int,"objections":int,"close":int},"note":{"type":"<one_of_the_five>","text":"<8-18 word observation>"}}`
+Also name the topic being discussed right now, in 5 words or fewer (e.g. "switching cost", "pilot pricing"). Use null if it is unclear.
 
-const engagementBlock = (continuity: ReportPromptInput["continuity"]): string =>
+Respond with JSON only, exactly this shape:
+{"note":{"type":"<one_of_the_five>","text":"<8-18 word observation>"} | null,"topic":"<5 words or fewer>" | null}`
+
+const engagementBlock = (continuity: DebriefPromptInput["continuity"]): string =>
   continuity
     ? `\nThe engagement so far (memory going into this session):
 Previous summary: ${continuity.summary || "(none)"}
@@ -102,7 +99,7 @@ Commitments already tracked — open: ${continuity.open.join("; ") || "(none)"};
 `
     : ""
 
-export const report = ({
+export const debrief = ({
   scope,
   characterName,
   characterRole,
@@ -110,8 +107,8 @@ export const report = ({
   notes,
   transcript,
   continuity,
-}: ReportPromptInput) =>
-  `You are a sales coach synthesizing a live pitch session into a deal-readiness report.
+}: DebriefPromptInput) =>
+  `You are a sales coach synthesizing a live pitch session into a debrief.
 
 The seller's scope:
 ${scopeBlock(scope)}
@@ -125,48 +122,46 @@ ${notes}
 Conversation transcript:
 ${transcript}
 
-Produce a comprehensive verdict and report. Return JSON ONLY with this exact shape:
+Produce the debrief. Return JSON ONLY with this exact shape:
 {
+  "title": "<a 2-4 word name for this session, e.g. \\"Priced on outcomes\\">",
   "verdict": {
     "decision": "buy" | "second-meeting" | "walk",
-    "summary": "one-sentence rationale",
-    "confidence": <integer 0-100>
+    "summary": "one-sentence rationale"
   },
   "spokenVerdict": "<the verdict as ${characterName} would say it aloud to the seller, in one breath — 120 to 160 characters of plain direct speech in their voice, no lists, no headings>",
-  "overallScore": <integer 0-100, higher is better>,
-  "executiveSummary": "<3-4 sentences synthesizing the session>",
-  "panelVerdict": {
-    "verdict": "<one short phrase capturing the buyer's take>",
-    "score": <integer 0-100>,
-    "reasoning": "<2-3 sentences from the buyer's perspective>"
-  },
-  "topRisks": ["<an objection or gap that broke the pitch, short>", "<...>", "<...>"],
+  "whatHappened": "<one paragraph, 60-120 words, addressed to the seller in the second person (\\"You confirmed…\\") — concrete about what this session covered, what landed, and where the deal stalled>",
   "heldUp": [
-    {"finding": "<a claim the SELLER stated that survived the buyer's pressure, restated in one short sentence with nothing added>",
-     "quote": "<the seller's exact words from the transcript stating this claim, copied verbatim>"}
+    {"quote": "<the seller's exact words from the transcript, copied verbatim>",
+     "why": "<one line on why it landed>"}
   ],
-  "nextSevenDays": [
-    {"day": 1, "task": "<concrete follow-up action>", "priority": "high"|"medium"|"low"},
-    {"day": 2, "task": "<...>", "priority": "..."},
-    {"day": 3, "task": "<...>", "priority": "..."},
-    {"day": 4, "task": "<...>", "priority": "..."},
-    {"day": 5, "task": "<...>", "priority": "..."},
-    {"day": 6, "task": "<...>", "priority": "..."},
-    {"day": 7, "task": "<...>", "priority": "..."}
+  "didntHold": [
+    {"text": "<an objection or gap that broke the pitch, or something missing or unproven, short>", "ref": null}
   ],
   "continuity": {
     "summary": "<2-4 sentences a colleague could read before the next session: where the deal stands, what was resolved, what remains contested>",
-    "actionItems": ["<a commitment the seller made or a deliverable this session showed is missing — starts with a verb, under 15 words>"]
+    "actionItems": [
+      {"text": "<a commitment the seller made or a deliverable this session showed is missing — starts with a verb, under 15 words>", "priority": "high" | "medium" | "low"}
+    ]
   }
 }
 
-Judge the close honestly: if the session ended without a specific, scheduled next step, say so in the executive summary and reflect it in the score — "send me some info" is not a next step.
+"heldUp" holds 0 to 3 items; "didntHold" holds 0 to 4. "ref" is always null in this lane.
+
+Judge the close honestly: if the session ended without a specific, scheduled next step, say so in "whatHappened" and reflect it in the verdict — "send me some info" is not a next step.
 
 "continuity" is the engagement's compounding memory, not a session note. For the summary: UPDATE the previous summary rather than writing a fresh one — carry forward the durable facts and the arc of the engagement (numbers, decisions, who's involved, what's been proven), fold in what this session changed, and drop only what is fully resolved. A detail from an earlier session that still matters belongs in the summary even if this session never mentioned it. Each action item will be read back to the seller as "last time you said you'd …". 0 to 5 items; never repeat or rephrase a commitment already tracked as open or delivered; if nothing new emerged, return an empty list — never invent a commitment.
 
-Be concrete and specific. Each risk/task should mention something tied to THIS seller's offering and prospect, not generic advice.
+CALIBRATION. The seller's trust depends on honest feedback; never inflate:
+- Judge only what the transcript shows. Every sentence of "whatHappened" must trace to actual turns; never credit intent, effort, or content that did not occur.
+- If the seller said little or nothing, "whatHappened" is one plain sentence saying exactly that, the decision is "walk", and "spokenVerdict" is ${characterName}'s honest reaction to the non-engagement. "spokenVerdict" is always a judgment of the seller's performance, never a restatement of a question ${characterName} asked.
+- Verdicts are earned: "buy" only when the transcript demonstrates it. Torn between two tiers? Choose the lower.
+- "didntHold" names what actually went wrong in THIS conversation, not a best-practices checklist. Two real findings beat four generic ones.
+- Write plainly. Never use em dashes in any output field.
+
+Be concrete and specific: every line should mention something tied to THIS seller's offering and prospect, not generic advice.
 
 Grounding rules (absolute):
-- "heldUp" may contain ONLY affirmative claims the seller actually stated that withstood the buyer's scrutiny (evidence, numbers, commitments), each with their verbatim words in "quote". An admission that something is missing, untested, or unknown is NOT a claim that held up — leave it out. If the seller made no defensible claims, return "heldUp": [] — an empty list is the correct, honest output.
-- Advice and recommendations belong ONLY in "nextSevenDays", never in "heldUp".
-- Nowhere in the report state specifics the transcript does not contain (numbers, buyer types, integrations, prices). Where the seller provided nothing, say so plainly.`
+- "heldUp" may contain ONLY affirmative claims the seller actually stated that withstood the buyer's scrutiny (evidence, numbers, commitments), each quoted verbatim in "quote". An admission that something is missing, untested, or unknown is NOT a claim that held up — leave it out. If the seller made no defensible claims, return "heldUp": [] — an empty list is the correct, honest output.
+- Advice and recommendations belong ONLY in "continuity" action items, never in "heldUp".
+- Nowhere in the debrief state specifics the transcript does not contain (numbers, buyer types, integrations, prices). Where the seller provided nothing, say so plainly.`

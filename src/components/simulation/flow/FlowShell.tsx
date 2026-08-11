@@ -2,18 +2,24 @@
 
 import { useEffect, useRef } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { LogOut } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { LogoMark } from "@/components/shared/LogoMark"
+import { BTN_SECONDARY } from "@/components/shared/buttons"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
-const STAGES = [
-  { key: "brief", label: "Brief" },
-  { key: "read", label: "Read" },
-  { key: "audit", label: "Audit" },
-  { key: "panel", label: "Panel" },
-  { key: "room", label: "Room" },
-  { key: "verdict", label: "Verdict" },
-] as const
-
-export type FlowStage = (typeof STAGES)[number]["key"]
+export type FlowStage = "brief" | "read" | "audit" | "panel" | "room"
 
 const STAGE_ROUTES: Record<FlowStage, (simulationId: string) => string> = {
   brief: () => "/simulation/new",
@@ -21,16 +27,20 @@ const STAGE_ROUTES: Record<FlowStage, (simulationId: string) => string> = {
   audit: (id) => `/simulation/${id}/audit`,
   panel: (id) => `/simulation/${id}/panel`,
   room: (id) => `/simulation/${id}/room`,
-  verdict: (id) => `/simulation/${id}/report`,
 }
 
-// Mock .btn — shared by every stage CTA.
-export const FLOW_BTN =
-  "focus-ring inline-flex cursor-pointer items-center gap-[10px] border border-on-surface bg-on-surface px-[26px] py-[15px] font-mono text-[13px] font-medium uppercase tracking-[.04em] text-surface transition-colors hover:border-red hover:bg-red hover:text-white disabled:pointer-events-none disabled:opacity-40"
+// The rail shows four beats: read and audit are one "Pre-read" moment to
+// the user even though they are two routes.
+const DISPLAY_STEPS: { label: string; keys: FlowStage[] }[] = [
+  { label: "Brief", keys: ["brief"] },
+  { label: "Pre-read", keys: ["read", "audit"] },
+  { label: "Panel", keys: ["panel"] },
+  { label: "Room", keys: ["room"] },
+]
 
 export const StageKicker = ({ children }: { children: React.ReactNode }) => (
-  <p className="mb-4 flex items-center gap-[9px] font-mono text-[10.5px] uppercase tracking-[.2em] text-red-fg">
-    <span aria-hidden="true" className="h-[7px] w-[7px] rounded-full bg-red" />
+  <p className="mb-4 flex items-center gap-2 font-mono text-[11px] uppercase tracking-[.09em] text-on-surface-3">
+    <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-accent-blue" />
     {children}
   </p>
 )
@@ -39,61 +49,75 @@ type FlowShellProps = {
   stage: FlowStage
   simulationId?: string
   fullBleed?: boolean
+  // The room renders the whole shell on the dark surface.
+  dark?: boolean
+  // When leaving would interrupt something live, the exit action confirms
+  // first; label defaults to the wizard's "Save & exit".
+  confirmExit?: { title: string; description: string; label?: string; confirmLabel?: string }
+  // Replaces the step rail — the room shows session meta instead of steps.
+  centerSlot?: React.ReactNode
   children: React.ReactNode
 }
 
-export const FlowShell = ({ stage, simulationId, fullBleed, children }: FlowShellProps) => {
+export const FlowShell = ({
+  stage,
+  simulationId,
+  fullBleed,
+  dark,
+  confirmExit,
+  centerSlot,
+  children,
+}: FlowShellProps) => {
+  const router = useRouter()
   const mainRef = useRef<HTMLElement>(null)
-  const currentIndex = STAGES.findIndex((s) => s.key === stage)
+  const currentIndex = DISPLAY_STEPS.findIndex((step) => step.keys.includes(stage))
 
   useEffect(() => {
     mainRef.current?.focus()
   }, [stage])
 
+  const exitClass =
+    "focus-ring rounded-lg px-2.5 py-1.5 text-[13px] text-on-surface-3 transition-colors hover:bg-surface-2"
+
   return (
-    <div className="flex h-dvh flex-col bg-surface">
-      <header className="flex flex-none items-center gap-[26px] border-b border-line-2 bg-surface px-7 py-3.5">
-        <Link href="/" className="focus-ring flex items-center gap-[10px]">
-          <span aria-hidden="true" className="relative h-5 w-5 flex-none overflow-hidden rounded-[5px] bg-on-surface">
-            <span className="absolute inset-x-0 top-[63%] h-[2px] bg-red" />
-          </span>
-          <span className="font-display text-[17px] font-extrabold tracking-[-.02em]">Redline</span>
+    <div
+      data-surface={dark ? "dark" : undefined}
+      className="flex h-dvh flex-col bg-surface text-on-surface"
+    >
+      <header className="flex flex-none items-center gap-[26px] border-b border-line bg-surface-rail px-6 py-3.5">
+        <Link href="/" className="focus-ring flex items-center gap-2">
+          <LogoMark size="sm" />
+          <span className="text-sm font-semibold">Prestage</span>
         </Link>
 
-        <nav aria-label="Run progress" className="flex flex-1 justify-center">
+        {centerSlot ? (
+          <div className="flex flex-1 justify-center">{centerSlot}</div>
+        ) : (
+        <nav aria-label="Practice progress" className="flex flex-1 justify-center">
           <ol className="flex items-center">
-            {STAGES.map((s, i) => {
+            {DISPLAY_STEPS.map((displayStep, i) => {
               const state = i < currentIndex ? "done" : i === currentIndex ? "active" : "upcoming"
+              const lastKey = displayStep.keys[displayStep.keys.length - 1]
               const href =
-                state === "done" && simulationId && s.key !== "brief"
-                  ? STAGE_ROUTES[s.key](simulationId)
+                state === "done" && simulationId && lastKey !== "brief"
+                  ? STAGE_ROUTES[lastKey](simulationId)
                   : null
               const step = (
-                <span className="flex items-center gap-[10px]">
-                  <span
-                    aria-hidden="true"
-                    className={cn(
-                      "font-mono text-[10px]",
-                      state === "active" ? "text-red-fg" : "text-on-surface-3"
-                    )}
-                  >
-                    {String(i + 1).padStart(2, "0")}
-                  </span>
-                  <span
-                    className={cn(
-                      "font-mono text-[11px] uppercase tracking-[.14em]",
-                      state === "active" && "text-on-surface",
-                      state === "done" && "text-on-surface-2",
-                      state === "upcoming" && "text-on-surface-3"
-                    )}
-                  >
-                    {s.label}
-                  </span>
+                <span
+                  className={cn(
+                    "flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[.04em]",
+                    state === "active" && "text-accent-blue",
+                    state === "done" && "text-on-surface-3",
+                    state === "upcoming" && "text-ink-4"
+                  )}
+                >
+                  <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-current" />
+                  {displayStep.label}
                 </span>
               )
               return (
                 <li
-                  key={s.key}
+                  key={displayStep.label}
                   aria-current={state === "active" ? "step" : undefined}
                   className="flex items-center"
                 >
@@ -104,27 +128,42 @@ export const FlowShell = ({ stage, simulationId, fullBleed, children }: FlowShel
                   ) : (
                     step
                   )}
-                  {i < STAGES.length - 1 && (
-                    <span
-                      aria-hidden="true"
-                      className={cn(
-                        "mx-3.5 h-px w-[34px]",
-                        state === "upcoming" ? "bg-line-2" : "bg-on-surface"
-                      )}
-                    />
+                  {i < DISPLAY_STEPS.length - 1 && (
+                    <span aria-hidden="true" className="mx-2.5 h-px w-[26px] bg-line-2" />
                   )}
                 </li>
               )
             })}
           </ol>
         </nav>
+        )}
 
-        <Link
-          href="/"
-          className="focus-ring font-mono text-[11px] uppercase tracking-[.1em] text-on-surface-3 transition-colors hover:text-red-fg"
-        >
-          Save &amp; exit ✕
-        </Link>
+        {confirmExit ? (
+          <AlertDialog>
+            {/* A stateful exit earns a real button — plain text is too easy
+                to miss as the only door out of the room. */}
+            <AlertDialogTrigger className={cn(BTN_SECONDARY, "px-3.5 py-2 text-[13px] hover:text-on-surface")}>
+              <LogOut className="size-[14px]" />
+              {confirmExit.label ?? "Save & exit"}
+            </AlertDialogTrigger>
+            <AlertDialogContent size="sm" data-surface={dark ? "dark" : undefined}>
+              <AlertDialogHeader>
+                <AlertDialogTitle>{confirmExit.title}</AlertDialogTitle>
+                <AlertDialogDescription>{confirmExit.description}</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Stay</AlertDialogCancel>
+                <AlertDialogAction onClick={() => router.push("/")}>
+                  {confirmExit.confirmLabel ?? confirmExit.label ?? "Save & exit"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        ) : (
+          <Link href="/" className={exitClass}>
+            Save &amp; exit
+          </Link>
+        )}
       </header>
 
       <main

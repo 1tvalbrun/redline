@@ -5,7 +5,7 @@ import { ConvexHttpClient } from "convex/browser"
 import { z } from "zod"
 import { api } from "@convex/_generated/api"
 import type { Id } from "@convex/_generated/dataModel"
-import { getPack, scopeOf } from "@/domains/registry"
+import { getPack } from "@/domains/registry"
 import type { RoomBriefing } from "@/domains/types"
 
 const RUNWAY_API = "https://api.dev.runwayml.com"
@@ -17,36 +17,35 @@ type SessionContext = {
   turnTaking: string
 }
 
-// Sessions are billable, so minting one requires an owned, live room that
-// features the requested avatar. Reads run through the caller's own Convex
-// token, so ownership scoping applies: someone else's simulation reads as
-// missing, and any failure — malformed id, unowned room, transient query
-// error — authorizes nothing (fail closed). The same reads feed the
-// session briefing.
+// Runway sessions are billable, so minting one requires an owned, live
+// session that features the requested avatar. Reads run through the
+// caller's own Convex token, so ownership scoping applies: someone else's
+// session reads as missing, and any failure — malformed id, unowned
+// session, transient query error — authorizes nothing (fail closed). The
+// same reads feed the session briefing.
 const authorizeSession = async (
   convex: ConvexHttpClient,
-  simulationId: string | null,
+  sessionId: string | null,
   avatarId: string
 ): Promise<SessionContext | null> => {
-  if (!simulationId) return null
+  if (!sessionId) return null
   try {
-    const id = simulationId as Id<"simulations">
-    const [simulation, audit, room, continuity] = await Promise.all([
-      convex.query(api.simulations.get, { id }),
-      convex.query(api.audits.getBySimulation, { simulationId: id }),
-      convex.query(api.rooms.getBySimulation, { simulationId: id }),
-      convex.query(api.ideas.continuityForSimulation, { simulationId: id }),
-    ])
-    if (!simulation || !room) return null
-    if (room.status !== "live") return null
-    if (!room.characters.some((character) => character.avatarId === avatarId)) return null
-    const pack = getPack(simulation.packId)
+    const id = sessionId as Id<"sessions">
+    const session = await convex.query(api.sessions.get, { id })
+    if (!session) return null
+    if (session.status !== "live") return null
+    if (session.persona.avatarId !== avatarId) return null
+    const practice = await convex.query(api.practices.get, { id: session.practiceId })
+    if (!practice) return null
+    const pack = getPack(practice.packId)
     return {
       briefing: pack.briefing({
-        scope: scopeOf(simulation),
-        audit: audit ? { claims: audit.claims, gaps: audit.gaps } : null,
-        continuity,
-        transcript: room.transcript,
+        scope: practice.scope,
+        audit: practice.audit
+          ? { claims: practice.audit.claims, gaps: practice.audit.gaps }
+          : null,
+        continuity: practice.continuity ?? null,
+        transcript: session.transcript,
       }),
       turnTaking: pack.turnTaking,
     }
@@ -99,7 +98,7 @@ export const POST = async (req: NextRequest) => {
   // Independent fetches, in parallel; the connect path is already long
   // (session create + READY poll).
   const [authorized, storedPersonality] = await Promise.all([
-    authorizeSession(convex, req.nextUrl.searchParams.get("simulationId"), avatarId),
+    authorizeSession(convex, req.nextUrl.searchParams.get("sessionId"), avatarId),
     fetchStoredPersonality(client, avatarId),
   ])
   if (!authorized) return NextResponse.json({ error: "Unknown avatar" }, { status: 403 })

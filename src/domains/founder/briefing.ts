@@ -1,5 +1,3 @@
-import { deriveAuditRiskScores } from "../../lib/preRunScores.ts"
-import { deriveReadiness } from "../../lib/readiness.ts"
 import { bySpokenTime } from "../../lib/transcript.ts"
 import {
   composeWithinBudget,
@@ -10,7 +8,6 @@ import {
   type BriefingInput,
   type RoomBriefing,
 } from "../types.ts"
-import { FOUNDER_AXES, FOUNDER_AXIS_KEYS } from "./axes.ts"
 
 // The GWM engine fills founder pauses with presence check-ins ("Still with
 // me?"), which reads as the avatar not listening. The session-level
@@ -30,18 +27,6 @@ demands.
 
 const DIGEST_TURNS = 6
 const DIGEST_TURN_CHARS = 160
-
-// How a person names each weak spot out loud. The axis labels are UI
-// labels; spoken, "talk about customer" reads like a form field.
-const SPOKEN_AXIS: Record<string, string> = {
-  market: "the market story",
-  customer: "who this is actually for",
-  technical: "the technical side",
-  gtm: "how you're going to sell this",
-}
-
-const axisLabel = (key: string): string =>
-  FOUNDER_AXES.find((axis) => axis.key === key)?.label ?? key
 
 // Per-session avatar briefing, assembled from what the app already knows.
 export const buildRoomBriefing = ({
@@ -64,9 +49,6 @@ export const buildRoomBriefing = ({
     }
   }
 
-  const weakest = audit
-    ? deriveReadiness(FOUNDER_AXIS_KEYS, deriveAuditRiskScores(audit, FOUNDER_AXIS_KEYS)).underFire
-    : null
   // Blockers first, same priority the audit UI gives them.
   const gapTitles = audit
     ? [...audit.gaps]
@@ -76,14 +58,11 @@ export const buildRoomBriefing = ({
     : []
   const auditContext =
     gapTitles.length > 0
-      ? ` The pre-session audit flagged: ${gapTitles.join("; ")}.${
-          weakest ? ` Press hardest on ${axisLabel(weakest).toLowerCase()}.` : ""
-        }`
+      ? ` The pre-session audit flagged: ${gapTitles.join("; ")}. Press hardest there.`
       : ""
 
   // Only claim to have read materials when the audit actually cited some —
-  // an audit over nothing citable still finds a weakest axis, and the
-  // avatar must not open by claiming familiarity with documents that
+  // the avatar must not open by claiming familiarity with documents that
   // don't exist.
   const readMaterials = (audit?.claims.length ?? 0) > 0
 
@@ -104,14 +83,11 @@ export const buildRoomBriefing = ({
       ]
     : []
 
-  const spokenAxis = weakest ? (SPOKEN_AXIS[weakest] ?? axisLabel(weakest).toLowerCase()) : null
   const startScript =
     open.length > 0
       ? `Good to see you back. Last time you said you'd ${spokenCommitment(open[0])} — tell me how that went.`
-      : spokenAxis
-        ? readMaterials
-          ? `Thanks for making the time. I went through the ${ideaName} materials, and before anything else I want to get into ${spokenAxis} — that's where your case is thinnest.`
-          : `Thanks for making the time. Before anything else I want to get into ${spokenAxis} — that's where your case is thinnest.`
+      : readMaterials
+        ? `Thanks for making the time. I went through the ${ideaName} materials before this, so let's get straight into it. Give me the one-minute version.`
         : `Alright, let's get into it. Give me the one-minute version of ${ideaName}.`
 
   return {

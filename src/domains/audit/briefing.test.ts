@@ -7,22 +7,20 @@ const scope = {
   systemName: "CourtTime production",
   description: "SaaS on AWS, one region, five engineers",
   role: "DevOps lead who owns backups",
-  controlArea: "Data Recovery (Control 11)",
+  controlArea: "Data recovery · 11",
   concerns: ["Recovery testing"],
 }
 
-const gap = (title: string, axis: Gap["axis"], severity: Gap["severity"] = "blocker"): Gap => ({
+const gap = (title: string, severity: Gap["severity"] = "blocker"): Gap => ({
   severity,
   kind: "absent",
   title,
   detail: "detail",
-  axis,
 })
 
-const claim = (axis: Claim["axis"]): Claim => ({
+const claim = (): Claim => ({
   text: "claim",
   citation: { source: "runbook.pdf", location: "page 1" },
-  axis,
 })
 
 test("a fresh session carries the in-scope safeguards, role, and concerns", () => {
@@ -34,30 +32,29 @@ test("a fresh session carries the in-scope safeguards, role, and concerns", () =
   assert.match(briefing.startScript, /tell me about CourtTime production/)
 })
 
-test("a pre-read with citable documents earns the documents clause and targets the weakest axis", () => {
+test("a pre-read with citable documents earns the documents clause and carries the gaps", () => {
   const briefing = buildRoomBriefing({
     scope,
     audit: {
-      claims: [claim("process")],
-      gaps: [gap("No recovery test report", "cadence"), gap("No restore evidence", "evidence", "gap")],
+      claims: [claim()],
+      gaps: [gap("No recovery test report"), gap("No restore evidence", "gap")],
     },
     continuity: null,
     transcript: [],
   })
   assert.match(briefing.startScript, /I went through the CourtTime production documents/)
-  assert.match(briefing.startScript, /how often these things actually happen/)
   assert.match(briefing.personalityPreamble, /No recovery test report/)
 })
 
-test("nothing citable drops the documents clause but keeps the axis", () => {
+test("nothing citable drops the documents clause", () => {
   const briefing = buildRoomBriefing({
     scope,
-    audit: { claims: [], gaps: [gap("No recovery process document", "process")] },
+    audit: { claims: [], gaps: [gap("No recovery process document")] },
     continuity: null,
     transcript: [],
   })
   assert.doesNotMatch(briefing.startScript, /went through/)
-  assert.match(briefing.startScript, /how this is supposed to work on paper/)
+  assert.match(briefing.startScript, /tell me about CourtTime production/)
 })
 
 test("open commitments drive the opener; delivered ones are received, not re-asked", () => {
@@ -67,8 +64,20 @@ test("open commitments drive the opener; delivered ones are received, not re-ask
     continuity: {
       lastSessionSummary: "Backup schedule proven; test report outstanding.",
       actionItems: [
-        { id: "r:0", text: "Produce the last recovery test report", status: "open", createdAt: 1 },
-        { id: "r:1", text: "Share the backup schedule configuration", status: "done", createdAt: 2 },
+        {
+          id: "r:0",
+          text: "Produce the last recovery test report",
+          priority: "high",
+          status: "open",
+          createdAt: 1,
+        },
+        {
+          id: "r:1",
+          text: "Share the backup schedule configuration",
+          priority: "medium",
+          status: "done",
+          createdAt: 2,
+        },
       ],
       updatedAt: 2,
     },

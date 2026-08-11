@@ -1,20 +1,38 @@
-import {
-  BUSINESS_MODEL_OPTIONS,
-  FOCUS_OPTIONS,
-  STAGE_OPTIONS,
-  TARGET_OPTIONS,
-} from "../../lib/briefOptions.ts"
+import { FOCUS_OPTIONS, STAGE_OPTIONS } from "../../lib/briefOptions.ts"
 import { PANEL_PERSONAS } from "./personas.ts"
-import type { DomainPack } from "../types.ts"
-import { FOUNDER_AXES } from "./axes.ts"
+import type { DomainPack, ScopeFieldOption } from "../types.ts"
 import { buildRoomBriefing, turnTaking } from "./briefing.ts"
-import { analyzeSystem, analyzeUser, audit, extractBrief, orchestrate, report } from "./prompts.ts"
+import { analyzeSystem, analyzeUser, audit, debrief, extractScope, orchestrate } from "./prompts.ts"
+
+// Chip vocabularies for the typed form. Labels are the stored scope values
+// and appear verbatim in the extractScope prompt; keep both in lockstep.
+const BUSINESS_MODEL_OPTIONS: ScopeFieldOption[] = [
+  { value: "saas-seat", label: "SaaS · per-seat" },
+  { value: "saas-usage", label: "SaaS · usage-based" },
+  { value: "saas-tiered", label: "SaaS · tiered" },
+  { value: "marketplace", label: "Marketplace" },
+  { value: "ads", label: "Ad-supported" },
+  { value: "transactional", label: "One-time" },
+  { value: "freemium", label: "Freemium" },
+  { value: "enterprise-license", label: "Enterprise" },
+]
+
+const TARGET_OPTIONS: ScopeFieldOption[] = [
+  { value: "smb-founders", label: "SMB founders" },
+  { value: "midmarket-leaders", label: "Mid-market product leaders" },
+  { value: "enterprise-buyers", label: "Enterprise buyers" },
+  { value: "vc-backed-saas", label: "B2B SaaS (Series B+)" },
+  { value: "developers", label: "Developers" },
+  { value: "designers-creators", label: "Designers and creators" },
+  { value: "consumers", label: "Consumer audiences" },
+]
 
 export const founderPack: DomainPack = {
   id: "founder",
   label: "Pitch a startup",
+  shortLabel: "Founder",
   description:
-    "Face an investor panel before the real one. Your idea gets read, audited, and interrogated live, then scored.",
+    "Face an investor panel before the real one. Your idea gets read, audited, and interrogated live, then debriefed.",
   subjectField: "ideaName",
   subtitleFields: ["stage", "businessModel"],
   userLabel: "FOUNDER",
@@ -22,7 +40,7 @@ export const founderPack: DomainPack = {
   scopeFields: [
     {
       key: "ideaName",
-      label: "Idea name",
+      label: "Name",
       kind: "text",
       required: true,
       maxLength: 60,
@@ -67,7 +85,6 @@ export const founderPack: DomainPack = {
     { key: "competitors", label: "Competitors" },
     { key: "openQuestions", label: "Open questions" },
   ],
-  axes: FOUNDER_AXES,
   verdicts: {
     options: [
       { value: "advance", label: "Advance", tone: "good" },
@@ -76,8 +93,37 @@ export const founderPack: DomainPack = {
     ],
     fallback: "iterate",
   },
-  targetLine: { value: 90, label: "Investor-ready" },
   copy: {
+    tellIt: {
+      heading: "What are you building?",
+      sub: "Pitch it like the panel is already across the table: the problem, the customer, the ask. It gets shaped into a brief you'll confirm.",
+    },
+    form: {
+      sections: [
+        { title: "The idea", keys: ["ideaName", "description", "whyNow"] },
+        {
+          title: "Context",
+          meta: "optional · helps your panel calibrate",
+          keys: ["stage", "businessModel", "targetUser", "focusAreas"],
+        },
+      ],
+      materialsTitle: "Materials",
+      materialsMeta: "optional · PDF PPTX XLSX DOCX",
+    },
+    preview: {
+      title: "What your panel will read",
+      rows: [
+        { key: "ideaName", label: "The idea", hint: "Not yet named" },
+        {
+          key: "description",
+          label: "What it is",
+          hint: "Say it plainly, this is their first impression",
+        },
+        { key: "whyNow", label: "Why now", hint: "The gap here becomes their first question" },
+      ],
+      chips: { label: "Context", keys: ["stage", "businessModel", "targetUser", "focusAreas"] },
+      footer: "Only what you put here makes it in; gaps become questions, not guesses.",
+    },
     readWait: {
       kicker: "Reading your brief",
       heading: () => "Going through what you gave us.",
@@ -99,7 +145,7 @@ export const founderPack: DomainPack = {
       ],
       ticker: [
         "We only work with what you actually gave us.",
-        "Nothing gets invented — if we didn’t catch it, we ask.",
+        "Nothing gets invented. If we didn’t catch it, we ask.",
         "A gap is a finding, not a failure.",
         "The panel reads this before you walk in.",
       ],
@@ -115,14 +161,14 @@ export const founderPack: DomainPack = {
         { label: "Evidence", text: "Checking what’s actually backed…" },
         { label: "Omissions", text: "Finding what a diligencer expects and can’t see…" },
         { label: "Severity", text: "Sorting blockers from gaps…" },
-        { label: "Axes", text: "Weighing market, customer, technical, go-to-market…" },
+        { label: "Coverage", text: "Weighing market, customer, technical, go-to-market…" },
       ],
       work: [
         "Reading your materials",
         "Extracting stated claims",
         "Verifying each against a source",
         "Assembling the gap map",
-        "Scoring the four axes",
+        "Mapping the pressure points",
       ],
       ticker: [
         "Every claim has to trace to a source.",
@@ -141,9 +187,9 @@ export const founderPack: DomainPack = {
       cta: "Take it to the panel",
     },
     panel: {
-      kicker: "Choose your interrogator",
+      kicker: "Choose who to practice with",
       heading: "Who do you want to face first?",
-      lead: "Each panelist reads your brief before the room opens. Start with whoever you least want to talk to. That's usually the one worth the most.",
+      lead: "Start with whoever you least want to talk to. That's usually the one worth the most.",
     },
     promptHelpers: [
       "Our wedge is…",
@@ -155,5 +201,5 @@ export const founderPack: DomainPack = {
   personas: PANEL_PERSONAS,
   turnTaking,
   briefing: buildRoomBriefing,
-  prompts: { analyzeSystem, analyzeUser, extractBrief, audit, orchestrate, report },
+  prompts: { analyzeSystem, analyzeUser, audit, orchestrate, debrief, extractScope },
 }

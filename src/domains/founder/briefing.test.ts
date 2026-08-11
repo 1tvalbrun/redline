@@ -3,31 +3,29 @@ import assert from "node:assert/strict"
 import { buildRoomBriefing } from "./briefing.ts"
 import type { Claim, Gap } from "../../lib/audit.ts"
 
-const gap = (title: string, axis: Gap["axis"], severity: Gap["severity"] = "blocker"): Gap => ({
+const gap = (title: string, severity: Gap["severity"] = "blocker"): Gap => ({
   severity,
   kind: "absent",
   title,
   detail: "detail",
-  axis,
 })
 
-const claim = (axis: Claim["axis"]): Claim => ({
+const claim = (): Claim => ({
   text: "claim",
   citation: { source: "deck.pdf", location: "page 1" },
-  axis,
 })
 
-test("a fresh session opens on the weakest audit axis and carries the gaps", () => {
+test("a fresh session with citable materials earns the materials clause and carries the gaps", () => {
   const briefing = buildRoomBriefing({
     scope: { ideaName: "Acme", description: "Inventory forecasting for pharmacies" },
     audit: {
-      claims: [claim("market")],
-      gaps: [gap("No accuracy methodology", "technical"), gap("No pricing evidence", "gtm", "gap")],
+      claims: [claim()],
+      gaps: [gap("No accuracy methodology"), gap("No pricing evidence", "gap")],
     },
     continuity: null,
     transcript: [],
   })
-  assert.match(briefing.startScript, /technical/i)
+  assert.match(briefing.startScript, /went through the Acme materials/)
   assert.match(briefing.personalityPreamble, /No accuracy methodology/)
   assert.match(briefing.personalityPreamble, /Acme/)
 })
@@ -83,10 +81,10 @@ test("a blocker outranks earlier plain gaps in the briefing", () => {
     audit: {
       claims: [],
       gaps: [
-        gap("Plain gap A", "market", "gap"),
-        gap("Plain gap B", "market", "gap"),
-        gap("Plain gap C", "market", "gap"),
-        gap("The blocker", "technical"),
+        gap("Plain gap A", "gap"),
+        gap("Plain gap B", "gap"),
+        gap("Plain gap C", "gap"),
+        gap("The blocker"),
       ],
     },
     continuity: null,
@@ -105,23 +103,41 @@ test("long turns are truncated in the digest", () => {
   assert.ok(!briefing.personalityPreamble.includes("x".repeat(200)))
 })
 
-test("an audit with nothing citable opens on the weakest axis without claiming to have read materials", () => {
+test("an audit with nothing citable never claims to have read materials", () => {
   const briefing = buildRoomBriefing({
     scope: { ideaName: "Acme", description: "desc" },
-    audit: { claims: [], gaps: [gap("No accuracy methodology", "technical")] },
+    audit: { claims: [], gaps: [gap("No accuracy methodology")] },
     continuity: null,
     transcript: [],
   })
-  assert.match(briefing.startScript, /technical/i)
+  assert.match(briefing.startScript, /one-minute version of Acme/)
   assert.doesNotMatch(briefing.startScript, /materials/)
 })
 
 const continuity = {
   lastSessionSummary: "Pricing remains contested; churn math was unresolved.",
   actionItems: [
-    { id: "r1:0", text: "Send the churn cohort data.", status: "open" as const, createdAt: 1 },
-    { id: "r1:1", text: "Ship the pilot agreement", status: "done" as const, createdAt: 2 },
-    { id: "r1:2", text: "Book a design partner call", status: "dropped" as const, createdAt: 3 },
+    {
+      id: "r1:0",
+      text: "Send the churn cohort data.",
+      priority: "high" as const,
+      status: "open" as const,
+      createdAt: 1,
+    },
+    {
+      id: "r1:1",
+      text: "Ship the pilot agreement",
+      priority: "medium" as const,
+      status: "done" as const,
+      createdAt: 2,
+    },
+    {
+      id: "r1:2",
+      text: "Book a design partner call",
+      priority: "low" as const,
+      status: "dropped" as const,
+      createdAt: 3,
+    },
   ],
   updatedAt: 3,
 }
@@ -157,7 +173,7 @@ test("continuity without open items keeps the standard opener but carries the me
 test("overflow drops trailing sections whole and keeps the core context", () => {
   const briefing = buildRoomBriefing({
     scope: { ideaName: "Acme", description: "desc" },
-    audit: { claims: [], gaps: [gap("No pricing evidence", "gtm")] },
+    audit: { claims: [], gaps: [gap("No pricing evidence")] },
     continuity: { ...continuity, lastSessionSummary: "x".repeat(5000) },
     transcript: [],
   })

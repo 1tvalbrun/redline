@@ -1,6 +1,7 @@
 import test from "node:test"
 import assert from "node:assert/strict"
-import { analyzeSystem, analyzeUser, audit, orchestrate, report } from "./prompts.ts"
+import { analyzeSystem, analyzeUser, audit, debrief, extractScope, orchestrate } from "./prompts.ts"
+import { auditPack } from "./pack.ts"
 import type { Scope } from "../types.ts"
 
 // Pin tests for the audit-lane prompts. Two lines are load-bearing above
@@ -11,7 +12,7 @@ const scope: Scope = {
   systemName: "CourtTime production",
   description: "SaaS on AWS, one region, five engineers",
   role: "DevOps lead who owns backups",
-  controlArea: "Data Recovery (Control 11)",
+  controlArea: "Data recovery · 11",
   concerns: ["Recovery testing"],
 }
 
@@ -27,6 +28,39 @@ test("analyze extracts the six context fields and stays in practice framing", ()
   assert.match(user, /Safeguard 11\.2/)
 })
 
+test("extractScope keeps the honesty rule and never invents", () => {
+  const prompt = extractScope({ source: "voice", pitch: "I own CourtTime backups." })
+  assert.match(prompt, /THE HONESTY RULE: extract ONLY what the auditee actually said/)
+  assert.match(prompt, /Never infer, never fill in plausible content/)
+  assert.match(prompt, /A missing answer is valuable information/)
+  assert.match(prompt, /Never use an em dash in any output value/)
+  assert.match(prompt, /spoken scope description/)
+  assert.match(prompt, /I own CourtTime backups\./)
+  assert.match(extractScope({ source: "deck", pitch: "p" }), /scope document text/)
+})
+
+test("extractScope asks for exactly the pack's scope-field keys and chip labels", () => {
+  const prompt = extractScope({ source: "voice", pitch: "x" })
+  for (const field of auditPack.scopeFields) {
+    assert.ok(prompt.includes(`"${field.key}"`), `missing key ${field.key}`)
+    for (const option of field.options ?? []) {
+      assert.ok(prompt.includes(`"${option.label}"`), `missing label ${option.label}`)
+    }
+  }
+})
+
+test("extractScope clamps the pitch to its char budget", () => {
+  const prompt = extractScope({ source: "voice", pitch: "y".repeat(20_000) })
+  assert.ok(!prompt.includes("y".repeat(12_001)))
+})
+
+test("no extractBrief on the pack, and tellIt copy stands in for intake, em dash free", () => {
+  assert.ok(!("extractBrief" in auditPack.prompts))
+  assert.ok(!("intake" in auditPack.copy))
+  assert.equal(auditPack.copy.tellIt.heading, "What are you preparing for?")
+  assert.ok(!auditPack.copy.tellIt.sub.includes("—"))
+})
+
 test("audit injects only the in-scope safeguards and forbids outside citations", () => {
   const prompt = audit({ scope, unreadableCount: 0, materialSections: "=== runbook.pdf ===" })
   assert.match(prompt, /Safeguard 11\.1 \(IG1\)/)
@@ -34,7 +68,8 @@ test("audit injects only the in-scope safeguards and forbids outside citations",
   assert.doesNotMatch(prompt, /Safeguard 5\.1/)
   assert.match(prompt, /never cite any other framework, standard, control, or safeguard number/)
   assert.match(prompt, /few or zero claims is the correct answer — do not invent/)
-  assert.match(prompt, /\{"claims":\[\{"text","source","location","axis"\}\]/)
+  assert.match(prompt, /\{"claims":\[\{"text","source","location"\}\]/)
+  assert.doesNotMatch(prompt, /axis/)
 })
 
 test("an unrecognized control area falls back to Data Recovery", () => {
@@ -43,27 +78,27 @@ test("an unrecognized control area falls back to Data Recovery", () => {
     unreadableCount: 0,
     materialSections: "x",
   })
-  assert.match(prompt, /Data Recovery \(Control 11\)/)
+  assert.match(prompt, /Data recovery · 11/)
 })
 
-test("orchestrate keeps the four axes, the score echo, and the rules", () => {
+test("orchestrate asks for a note and a topic, never scores", () => {
   const prompt = orchestrate({
     characterName: "Priya Nair",
     characterRole: "Lead Security Assessor",
     characterTone: "Methodical",
     scope,
-    current: { process: 55, evidence: 50, command: 45, cadence: 60 },
   })
   assert.match(prompt, /alongside Priya Nair \(Lead Security Assessor\)/)
-  assert.match(prompt, /process=55/)
-  assert.match(prompt, /cadence=60/)
-  assert.match(prompt, /return the CURRENT value UNCHANGED/)
-  assert.match(prompt, /Never move by more than 10 points/)
-  assert.match(prompt, /"riskScores":\{"process":int,"evidence":int,"command":int,"cadence":int\}/)
+  assert.match(prompt, /never cite any other framework, standard, or safeguard number/)
+  assert.match(prompt, /strong_answer: auditee gave a specific, record-backed answer/)
+  assert.match(prompt, /name the topic being discussed right now, in 5 words or fewer/)
+  assert.match(prompt, /"topic":"<5 words or fewer>" \| null/)
+  assert.doesNotMatch(prompt, /riskScores/)
+  assert.doesNotMatch(prompt, /0-100/)
 })
 
-test("report keeps the closed verdicts, the language rule, and the grounding rules", () => {
-  const prompt = report({
+test("debrief keeps the closed verdicts, the language rule, and the new contract", () => {
+  const prompt = debrief({
     scope,
     characterName: "Priya Nair",
     characterRole: "Lead Security Assessor",
@@ -75,13 +110,25 @@ test("report keeps the closed verdicts, the language rule, and the grounding rul
   assert.match(prompt, /"decision": "ready" \| "shaky" \| "not-ready"/)
   assert.match(prompt, /Never state or imply a compliance determination/)
   assert.match(prompt, /never cite any other framework, standard, control, or safeguard number/)
-  assert.match(prompt, /verbatim words in "quote"/)
+  assert.match(prompt, /"title": /)
+  assert.match(prompt, /"spokenVerdict": /)
+  assert.match(prompt, /"whatHappened": /)
+  assert.match(prompt, /"heldUp": \[/)
+  assert.match(prompt, /"didntHold": \[/)
+  assert.match(prompt, /"continuity": \{/)
+  assert.match(prompt, /"priority": "high" \| "medium" \| "low"/)
+  assert.match(prompt, /"ref" may name ONLY a safeguard from the list in scope/)
+  assert.match(prompt, /copied verbatim/)
   assert.match(prompt, /an empty list is the correct, honest output/)
-  assert.match(prompt, /\{"day": 7, "task"/)
+  assert.doesNotMatch(prompt, /overallScore/)
+  assert.doesNotMatch(prompt, /riskScores/)
+  assert.doesNotMatch(prompt, /panelVerdict/)
+  assert.doesNotMatch(prompt, /nextSevenDays/)
+  assert.doesNotMatch(prompt, /topRisks/)
 })
 
-test("report compounds the engagement memory and forbids repeating tracked commitments", () => {
-  const prompt = report({
+test("debrief compounds the engagement memory and forbids repeating tracked commitments", () => {
+  const prompt = debrief({
     scope,
     characterName: "Priya Nair",
     characterRole: "Lead Security Assessor",

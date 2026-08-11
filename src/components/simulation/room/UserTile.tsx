@@ -88,10 +88,12 @@ export const UserTile = ({ userName, micState, onToggleMic }: UserTileProps) => 
         onClick={onToggleMic}
         disabled={micDisabled}
         aria-label={MIC_LABELS[micState].aria}
-        className={`focus-ring mt-3 flex w-full items-center justify-center gap-[9px] border p-[10px] font-mono text-[11px] uppercase tracking-[.08em] transition-colors hover:bg-white/5 disabled:opacity-40 disabled:hover:bg-transparent ${
+        className={`focus-ring mt-3 flex w-full items-center justify-center gap-2 rounded-[10px] border p-[9px] text-[13px] font-medium transition-colors hover:bg-white/5 disabled:opacity-40 disabled:hover:bg-transparent ${
           micState === "blocked"
             ? "border-red-fg text-red-fg"
-            : "border-line-2 text-on-surface"
+            : micState === "muted"
+              ? "border-transparent bg-surface-3 text-on-surface"
+              : "border-line-2 text-on-surface"
         }`}
       >
         {micState === "live" ? <Mic className="h-3.5 w-3.5" /> : <MicOff className="h-3.5 w-3.5" />}

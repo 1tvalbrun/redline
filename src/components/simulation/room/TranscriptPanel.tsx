@@ -90,7 +90,7 @@ export const TranscriptPanel = ({
                 >
                   <div
                     className={`mb-[5px] flex justify-between font-mono text-[9.5px] uppercase tracking-[.12em] ${
-                      isUser ? "text-on-surface-2" : "text-red-fg"
+                      isUser ? "text-accent-blue" : "text-on-surface-2"
                     }`}
                   >
                     <span>{entry.speakerName}</span>

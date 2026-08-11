@@ -1,14 +1,14 @@
 import { LegalShell } from "@/components/shared/LegalShell"
 import { LEGAL_ENTITY } from "@/lib/legal"
 
-export const metadata = { title: "Terms of Service · Redline" }
+export const metadata = { title: "Terms of Service · Prestage" }
 
 const TermsPage = () => (
   <LegalShell title="Terms of Service">
     <section>
-      <h2>What Redline is</h2>
+      <h2>What Prestage is</h2>
       <p>
-        Redline is a practice tool operated by {LEGAL_ENTITY} (&ldquo;we&rdquo;,
+        Prestage is a practice tool operated by {LEGAL_ENTITY} (&ldquo;we&rdquo;,
         &ldquo;us&rdquo;). You describe something you are preparing for, upload supporting
         material, and rehearse against AI-generated interviewers who question you live and
         score the session. It is a simulation built to help you prepare, nothing more.

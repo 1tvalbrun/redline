@@ -7,13 +7,15 @@ import { usePathname, useRouter } from "next/navigation"
 import { ReactNode, useEffect } from "react"
 import { api } from "@convex/_generated/api"
 import { isPublicPath } from "@/lib/routes"
+import { LogoMark } from "@/components/shared/LogoMark"
 
 const convex = new ConvexReactClient(process.env.NEXT_PUBLIC_CONVEX_URL!)
 
 const Splash = () => (
   <div className="flex min-h-screen items-center justify-center bg-surface">
-    <p className="font-display text-[34px] font-bold tracking-[-.02em] text-on-surface">
-      Redline
+    <p className="flex items-center gap-3 text-[28px] font-semibold tracking-[-.02em] text-on-surface">
+      <LogoMark size="lg" />
+      Prestage
     </p>
   </div>
 )
