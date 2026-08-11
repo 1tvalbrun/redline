@@ -3,7 +3,7 @@
 import { use } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Check, FileText, Video } from "lucide-react"
+import { Video } from "lucide-react"
 import { useMutation, useQuery } from "convex/react"
 import { api } from "@convex/_generated/api"
 import type { Id } from "@convex/_generated/dataModel"
@@ -13,6 +13,7 @@ import { firstNameOf } from "@/domains/types"
 import { BTN_PRIMARY } from "@/components/shared/buttons"
 import { LaneBadge } from "@/components/shared/LaneBadge"
 import { PersonaAvatar } from "@/components/shared/PersonaAvatar"
+import { ToWorkOn } from "@/components/workspace/ToWorkOn"
 import { VerdictBadge } from "@/components/workspace/VerdictBadge"
 
 const PracticePage = ({ params }: { params: Promise<{ practiceId: string }> }) => {
@@ -22,7 +23,6 @@ const PracticePage = ({ params }: { params: Promise<{ practiceId: string }> }) =
   const practice = useQuery(api.practices.get, { id })
   const sessions = useQuery(api.sessions.listByPractice, { practiceId: id })
   const materials = useQuery(api.materials.listByPractice, { practiceId: id })
-  const setItemStatus = useMutation(api.practices.setActionItemStatus)
   const continueSession = useMutation(api.practices.continueSession)
 
   if (practice === undefined) return null
@@ -42,12 +42,6 @@ const PracticePage = ({ params }: { params: Promise<{ practiceId: string }> }) =
     ? pack.personas.find((p) => p.id === practice.personaId) ?? null
     : null
   const personaFirst = persona ? firstNameOf(persona.name) : null
-  const items = practice.continuity?.actionItems ?? []
-  const visibleItems = [
-    ...items.filter((item) => item.status === "open"),
-    ...items.filter((item) => item.status === "done").slice(0, 3),
-  ]
-  const openCount = items.filter((item) => item.status === "open").length
   const gaps = practice.audit?.status === "ready" ? practice.audit.gaps : []
   // Only real questions make the rail — the analyze model writes prose like
   // "Not provided in pitch scope." for missing info, which is honest data
@@ -62,9 +56,6 @@ const PracticePage = ({ params }: { params: Promise<{ practiceId: string }> }) =
     const { sessionId } = await continueSession({ id })
     router.push(sessionId ? `/simulation/${id}/room` : `/simulation/${id}/panel`)
   }
-
-  const handleToggleItem = (itemId: string, status: "open" | "done" | "dropped") =>
-    setItemStatus({ practiceId: id, itemId, status: status === "open" ? "done" : "open" })
 
   return (
     <div className="mx-auto max-w-[1200px] px-12 pb-20 pt-10 max-md:px-5 max-md:pt-7 xl:grid xl:grid-cols-[minmax(0,1fr)_348px] xl:gap-x-16">
@@ -93,75 +84,12 @@ const PracticePage = ({ params }: { params: Promise<{ practiceId: string }> }) =
       </header>
 
       <div className="min-w-0">
-        {visibleItems.length > 0 && (
-          <section className="mb-8">
-            <div className="mb-2.5 flex items-baseline justify-between px-0.5">
-              <h2 className="text-[11px] font-semibold uppercase tracking-[.09em] text-on-surface-3">
-                To work on
-              </h2>
-              <p className="text-xs text-on-surface-3">
-                <b className="font-medium text-on-surface-2 tabular-nums">{openCount} open</b>
-                {personaFirst && <> · {personaFirst} follows up on these</>}
-              </p>
-            </div>
-            <div className="overflow-hidden rounded-xl border border-line bg-surface-raised shadow-card">
-              {visibleItems.map((item) => {
-                const done = item.status === "done"
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    role="checkbox"
-                    aria-checked={done}
-                    onClick={() => handleToggleItem(item.id, item.status)}
-                    className="flex w-full items-start gap-3 border-b border-line px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-surface-2"
-                  >
-                    <span
-                      className={cn(
-                        "mt-px grid h-[18px] w-[18px] flex-none place-items-center rounded-md border-[1.5px] transition-colors",
-                        done ? "border-ok bg-ok" : "border-line-2 bg-surface-raised"
-                      )}
-                    >
-                      {done && <Check className="size-[11px] text-white" strokeWidth={3.4} />}
-                    </span>
-                    <span
-                      className={cn(
-                        "flex-1 text-[13.5px] leading-snug",
-                        done && "text-on-surface-3 line-through decoration-ink-4"
-                      )}
-                    >
-                      {item.text}
-                    </span>
-                    {item.priority === "high" && (
-                      <span
-                        className={cn(
-                          "mt-0.5 rounded-full border border-warn-line bg-warn-bg px-2 py-px font-mono text-[10px] text-warn",
-                          done && "opacity-40"
-                        )}
-                      >
-                        high
-                      </span>
-                    )}
-                  </button>
-                )
-              })}
-              {materials && materials.length > 0 && personaFirst && (
-                <div className="flex flex-wrap items-center gap-2 border-t border-line bg-surface px-4 py-2.5">
-                  <span className="text-xs text-on-surface-3">{personaFirst} reads:</span>
-                  {materials.map((material) => (
-                    <span
-                      key={material.materialId}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-line-2 bg-surface-raised px-2.5 py-1 text-xs text-on-surface-2"
-                    >
-                      <FileText className="size-[11px] text-on-surface-3" />
-                      {material.name}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-          </section>
-        )}
+        <ToWorkOn
+          practiceId={id}
+          items={practice.continuity?.actionItems ?? []}
+          personaFirst={personaFirst}
+          materials={materials ?? []}
+        />
 
         <section>
           <div className="mb-2.5 flex items-baseline justify-between px-0.5">

@@ -89,6 +89,7 @@ export type ActionItem = {
   priority: ActionItemPriority
   status: ActionItemStatus
   createdAt: number
+  settledAt?: number
 }
 export type Continuity = {
   lastSessionSummary: string

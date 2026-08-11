@@ -135,9 +135,8 @@ export const list = query({
         sessions.sort((a, b) => b._creationTime - a._creationTime)
         const latest = sessions[0] ?? null
         const latestDebriefed = sessions.find((session) => session.debrief) ?? null
-        const openItems = (practice.continuity?.actionItems ?? []).filter(
-          (item) => item.status === "open"
-        ).length
+        const actionItems = practice.continuity?.actionItems ?? []
+        const openItems = actionItems.filter((item) => item.status === "open").length
         return {
           practiceId: practice._id,
           name: practice.name,
@@ -148,6 +147,8 @@ export const list = query({
           sessionCount: sessions.length,
           hasLive: sessions.some((session) => session.status === "live"),
           openItems,
+          // Distinguishes "cleared the list" (✓ badge) from "never had one".
+          hasActionItems: actionItems.length > 0,
           lastSessionAt: latest?._creationTime ?? null,
           lastActivityAt: latest?._creationTime ?? practice._creationTime,
           lastVerdict: latestDebriefed?.debrief?.verdict ?? null,
@@ -169,6 +170,32 @@ export const setPinned = mutation({
     const practice = ownedOrNull(identity, await ctx.db.get(args.id))
     if (!practice) throw new Error("Practice not found")
     await ctx.db.patch(args.id, { pinned: args.pinned })
+  },
+})
+
+// Deleting a practice takes the whole thread with it: sessions, uploaded
+// materials and their stored files, then the practice row. The client
+// always confirms before calling this.
+export const remove = mutation({
+  args: { id: v.id("practices") },
+  handler: async (ctx, args) => {
+    const identity = await requireIdentity(ctx)
+    const practice = ownedOrNull(identity, await ctx.db.get(args.id))
+    if (!practice) throw new Error("Practice not found")
+    const sessions = await ctx.db
+      .query("sessions")
+      .withIndex("by_practice", (q) => q.eq("practiceId", args.id))
+      .collect()
+    for (const session of sessions) await ctx.db.delete(session._id)
+    const materials = await ctx.db
+      .query("materials")
+      .withIndex("by_practice", (q) => q.eq("practiceId", args.id))
+      .collect()
+    for (const material of materials) {
+      await ctx.storage.delete(material.storageId)
+      await ctx.db.delete(material._id)
+    }
+    await ctx.db.delete(args.id)
   },
 })
 
@@ -552,7 +579,7 @@ export const recordContinuity = internalMutation({
       }))
     const settled = existing
       .filter((item) => item.status !== "open")
-      .sort((a, b) => b.createdAt - a.createdAt)
+      .sort((a, b) => (b.settledAt ?? b.createdAt) - (a.settledAt ?? a.createdAt))
       .slice(0, Math.max(0, MAX_TOTAL_ITEMS - open.length - fresh.length))
     await ctx.db.patch(args.practiceId, {
       continuity: {
@@ -585,7 +612,13 @@ export const setActionItemStatus = mutation({
       continuity: {
         ...practice.continuity,
         actionItems: practice.continuity.actionItems.map((item) =>
-          item.id === args.itemId ? { ...item, status: args.status } : item
+          item.id === args.itemId
+            ? {
+                ...item,
+                status: args.status,
+                settledAt: args.status === "open" ? undefined : Date.now(),
+              }
+            : item
         ),
         updatedAt: Date.now(),
       },
