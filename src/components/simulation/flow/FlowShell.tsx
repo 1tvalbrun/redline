@@ -2,18 +2,22 @@
 
 import { useEffect, useRef } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { LogoMark } from "@/components/shared/LogoMark"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
-const STAGES = [
-  { key: "brief", label: "Brief" },
-  { key: "read", label: "Read" },
-  { key: "audit", label: "Audit" },
-  { key: "panel", label: "Panel" },
-  { key: "room", label: "Room" },
-] as const
-
-export type FlowStage = (typeof STAGES)[number]["key"]
+export type FlowStage = "brief" | "read" | "audit" | "panel" | "room"
 
 const STAGE_ROUTES: Record<FlowStage, (simulationId: string) => string> = {
   brief: () => "/simulation/new",
@@ -22,6 +26,15 @@ const STAGE_ROUTES: Record<FlowStage, (simulationId: string) => string> = {
   panel: (id) => `/simulation/${id}/panel`,
   room: (id) => `/simulation/${id}/room`,
 }
+
+// The rail shows four beats: read and audit are one "Pre-read" moment to
+// the user even though they are two routes.
+const DISPLAY_STEPS: { label: string; keys: FlowStage[] }[] = [
+  { label: "Brief", keys: ["brief"] },
+  { label: "Pre-read", keys: ["read", "audit"] },
+  { label: "Panel", keys: ["panel"] },
+  { label: "Room", keys: ["room"] },
+]
 
 // Retired alias — stage CTAs migrate to BTN_PRIMARY as their stages are
 // rebuilt (Stages 3–5).
@@ -38,32 +51,57 @@ type FlowShellProps = {
   stage: FlowStage
   simulationId?: string
   fullBleed?: boolean
+  // The room renders the whole shell on the dark surface.
+  dark?: boolean
+  // When leaving would interrupt something live, Save & exit confirms first.
+  confirmExit?: { title: string; description: string }
+  // Replaces the step rail — the room shows session meta instead of steps.
+  centerSlot?: React.ReactNode
   children: React.ReactNode
 }
 
-export const FlowShell = ({ stage, simulationId, fullBleed, children }: FlowShellProps) => {
+export const FlowShell = ({
+  stage,
+  simulationId,
+  fullBleed,
+  dark,
+  confirmExit,
+  centerSlot,
+  children,
+}: FlowShellProps) => {
+  const router = useRouter()
   const mainRef = useRef<HTMLElement>(null)
-  const currentIndex = STAGES.findIndex((s) => s.key === stage)
+  const currentIndex = DISPLAY_STEPS.findIndex((step) => step.keys.includes(stage))
 
   useEffect(() => {
     mainRef.current?.focus()
   }, [stage])
 
+  const exitClass =
+    "focus-ring rounded-lg px-2.5 py-1.5 text-[13px] text-on-surface-3 transition-colors hover:bg-surface-2"
+
   return (
-    <div className="flex h-dvh flex-col bg-surface">
+    <div
+      data-surface={dark ? "dark" : undefined}
+      className="flex h-dvh flex-col bg-surface text-on-surface"
+    >
       <header className="flex flex-none items-center gap-[26px] border-b border-line bg-surface-rail px-6 py-3.5">
         <Link href="/" className="focus-ring flex items-center gap-2">
           <LogoMark size="sm" />
           <span className="text-sm font-semibold">Redline</span>
         </Link>
 
+        {centerSlot ? (
+          <div className="flex flex-1 justify-center">{centerSlot}</div>
+        ) : (
         <nav aria-label="Run progress" className="flex flex-1 justify-center">
           <ol className="flex items-center">
-            {STAGES.map((s, i) => {
+            {DISPLAY_STEPS.map((displayStep, i) => {
               const state = i < currentIndex ? "done" : i === currentIndex ? "active" : "upcoming"
+              const lastKey = displayStep.keys[displayStep.keys.length - 1]
               const href =
-                state === "done" && simulationId && s.key !== "brief"
-                  ? STAGE_ROUTES[s.key](simulationId)
+                state === "done" && simulationId && lastKey !== "brief"
+                  ? STAGE_ROUTES[lastKey](simulationId)
                   : null
               const step = (
                 <span
@@ -75,12 +113,12 @@ export const FlowShell = ({ stage, simulationId, fullBleed, children }: FlowShel
                   )}
                 >
                   <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-current" />
-                  {s.label}
+                  {displayStep.label}
                 </span>
               )
               return (
                 <li
-                  key={s.key}
+                  key={displayStep.label}
                   aria-current={state === "active" ? "step" : undefined}
                   className="flex items-center"
                 >
@@ -91,7 +129,7 @@ export const FlowShell = ({ stage, simulationId, fullBleed, children }: FlowShel
                   ) : (
                     step
                   )}
-                  {i < STAGES.length - 1 && (
+                  {i < DISPLAY_STEPS.length - 1 && (
                     <span aria-hidden="true" className="mx-2.5 h-px w-[26px] bg-line-2" />
                   )}
                 </li>
@@ -99,13 +137,29 @@ export const FlowShell = ({ stage, simulationId, fullBleed, children }: FlowShel
             })}
           </ol>
         </nav>
+        )}
 
-        <Link
-          href="/"
-          className="focus-ring rounded-lg px-2.5 py-1.5 text-[13px] text-on-surface-3 transition-colors hover:bg-surface-2"
-        >
-          Save &amp; exit
-        </Link>
+        {confirmExit ? (
+          <AlertDialog>
+            <AlertDialogTrigger className={exitClass}>Save &amp; exit</AlertDialogTrigger>
+            <AlertDialogContent size="sm" data-surface={dark ? "dark" : undefined}>
+              <AlertDialogHeader>
+                <AlertDialogTitle>{confirmExit.title}</AlertDialogTitle>
+                <AlertDialogDescription>{confirmExit.description}</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Stay</AlertDialogCancel>
+                <AlertDialogAction onClick={() => router.push("/")}>
+                  Save &amp; exit
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        ) : (
+          <Link href="/" className={exitClass}>
+            Save &amp; exit
+          </Link>
+        )}
       </header>
 
       <main

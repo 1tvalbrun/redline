@@ -258,7 +258,7 @@
    cursors, expanding mic rings, skeleton shimmer, equalizer bars) stop for
    users who ask for reduced motion; every element they decorate reads
    correctly as a static state. JS-driven motion already checks the same
-   preference (WaitingScreen, PitchRecorder, useCountUp, useAutoplay). */
+   preference (WaitingScreen, TellIt capture, useAutoplay). */
 @media (prefers-reduced-motion: reduce) {
   .animate-eq,
   .animate-pulse-red,
@@ -273,6 +273,31 @@
   &:focus-visible {
     outline: 2px solid var(--ring);
     outline-offset: 2px;
+  }
+}
+
+/* Overlay-style scrollbar: invisible at rest and on hover, a thin thumb
+   only while actively scrolling (useAutoHideScrollbar stamps
+   data-scrolling and clears it shortly after the last scroll event). The
+   6px gutter stays reserved so content never shifts. */
+@utility scrollbar-subtle {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  &[data-scrolling] {
+    scrollbar-color: var(--line-2) transparent;
+  }
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 999px;
+  }
+  &[data-scrolling]::-webkit-scrollbar-thumb {
+    background: var(--line-2);
   }
 }
 

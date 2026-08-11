@@ -1,9 +1,4 @@
 import {
-  BUSINESS_MODEL_OPTIONS,
-  STAGE_OPTIONS,
-  TARGET_OPTIONS,
-} from "../../lib/briefOptions.ts"
-import {
   scopeList,
   scopeText,
   type AuditPromptInput,
@@ -22,28 +17,26 @@ export const analyzeSystem = `You are a business analyst. Extract structured con
 export const analyzeUser = (scope: Scope) =>
   `Idea: ${scopeText(scope, "ideaName")}\nStage: ${scopeText(scope, "stage")}\nDescription: ${scopeText(scope, "description")}\nTarget User: ${scopeText(scope, "targetUser")}\nBusiness Model: ${scopeText(scope, "businessModel")}\nFocus Areas: ${scopeList(scope, "focusAreas").join(", ")}`
 
-export const extractBrief = ({ source, pitch }: { source: "voice" | "deck"; pitch: string }) => {
-  const stageValues = STAGE_OPTIONS.map((o) => o.value).join(" | ")
-  const modelValues = BUSINESS_MODEL_OPTIONS.map((o) => `${o.value} (${o.label})`).join(", ")
-  const targetValues = TARGET_OPTIONS.map((o) => `${o.value} (${o.label})`).join(", ")
+export const extractScope = ({ source, pitch }: { source: "voice" | "deck"; pitch: string }) =>
+  `You turn a founder's ${source === "voice" ? "spoken pitch transcript" : "pitch deck text"} into a structured brief. This is extraction only, from what the founder actually said.
 
-  return `You turn a founder's ${source === "voice" ? "spoken pitch transcript" : "pitch deck text"} into a structured brief.
-
-THE HONESTY RULE: extract ONLY what the founder actually said. If a field is not clearly present, return null for it. A thin or vague pitch should produce mostly nulls. Never infer, never fill in plausible content, never polish vagueness into specifics.
+THE HONESTY RULE: extract ONLY what the founder actually said. If a field is not clearly present, return null for it. A thin or vague pitch should produce mostly nulls. Never infer, never fill in plausible content, never polish vagueness into specifics. A missing answer is valuable information, not a gap for you to close.
 
 Fields:
 - "ideaName": the product or company name, only if stated.
 - "description": what it is and does, 1-3 sentences using the founder's own substance (you may fix grammar, not add facts).
 - "whyNow": why this is the moment, only if the founder addressed timing.
-- "stage": one of ${stageValues} — only if stated or unmistakable.
-- "businessModel": one of these values, only if stated: ${modelValues}.
-- "targetUser": one of these values, only if the audience clearly matches one: ${targetValues}.
+- "stage": exactly one of "Idea" | "Prototype" | "MVP" | "Beta" | "Early revenue" | "Growth / Series A+", copied verbatim, only if stated or unmistakable.
+- "businessModel": exactly one of "SaaS · per-seat" | "SaaS · usage-based" | "SaaS · tiered" | "Marketplace" | "Ad-supported" | "One-time" | "Freemium" | "Enterprise", copied verbatim, only if stated.
+- "targetUser": exactly one of "SMB founders" | "Mid-market product leaders" | "Enterprise buyers" | "B2B SaaS (Series B+)" | "Developers" | "Designers and creators" | "Consumer audiences", copied verbatim, only if the audience clearly matches one.
+- "focusAreas": an array drawn from "Market need" | "Willingness to pay" | "Technical feasibility" | "Competition" | "Go-to-market" | "Pricing" | "User experience" | "Fundraising story", each copied verbatim, only where the founder named it as a worry. null if they named none.
 
-Return JSON only: {"ideaName","description","whyNow","stage","businessModel","targetUser"} with null for anything not present.
+Every value is a string except "focusAreas", which is an array of strings. A chip field that does not match a listed label verbatim is null. Never use an em dash in any output value.
+
+Return JSON only, keyed exactly: {"ideaName","description","whyNow","stage","businessModel","targetUser","focusAreas"} with null for anything not said.
 
 The pitch:
 ${pitch.slice(0, 12_000)}`
-}
 
 export const audit = ({ scope, unreadableCount, materialSections }: AuditPromptInput) =>
   `You are a diligence analyst auditing a founder's materials before a panel session.

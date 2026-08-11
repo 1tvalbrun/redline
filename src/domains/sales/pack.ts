@@ -2,11 +2,12 @@ import { BUYER_PERSONAS } from "./personas.ts"
 import type { DomainPack } from "../types.ts"
 import { OBJECTIONS } from "./objections.ts"
 import { buildRoomBriefing, turnTaking } from "./briefing.ts"
-import { analyzeSystem, analyzeUser, audit, debrief, orchestrate } from "./prompts.ts"
+import { analyzeSystem, analyzeUser, audit, debrief, extractScope, orchestrate } from "./prompts.ts"
 
 export const salesPack: DomainPack = {
   id: "sales",
   label: "Pitch a sale",
+  shortLabel: "Sales",
   description:
     "Face the buyer before the real one. Your offer gets read, audited, and pushed on live by a skeptical operator, then debriefed on whether the deal moved.",
   subjectField: "offering",
@@ -43,10 +44,10 @@ export const salesPack: DomainPack = {
       label: "What you're asking them to say yes to",
       kind: "chips",
       options: [
-        { value: "discovery", label: "A real discovery call" },
+        { value: "discovery", label: "A discovery call" },
         { value: "pilot", label: "A pilot" },
         { value: "paid-pilot", label: "A paid pilot" },
-        { value: "partnership", label: "A partnership / revenue share" },
+        { value: "partnership", label: "A partnership" },
         { value: "contract", label: "A signed contract" },
       ],
     },
@@ -78,13 +79,31 @@ export const salesPack: DomainPack = {
     fallback: "second-meeting",
   },
   copy: {
-    intake: {
-      kicker: "New pitch run",
-      heading: "Set up the room.",
-      lead: "Tell us what you're selling and who's across the table. The buyer reads everything before the first question.",
-      materialsLabel: "Materials",
-      materialsButton: "Add your one-pager, deck, or pricing sheet for the audit",
-      cta: "Read my pitch",
+    tellIt: {
+      heading: "What are you selling?",
+      sub: "Talk through what you're selling, who's across the table, and what you're asking them to say yes to. It gets shaped into a brief you'll confirm.",
+    },
+    form: {
+      sections: [
+        { title: "The deal", keys: ["offering", "description", "prospect"] },
+        { title: "The ask", keys: ["ask", "objections"] },
+      ],
+      materialsTitle: "Materials",
+      materialsMeta: "optional · PDF PPTX XLSX DOCX",
+    },
+    preview: {
+      title: "What Cole will read",
+      rows: [
+        { key: "offering", label: "Selling", hint: "Not yet named" },
+        {
+          key: "description",
+          label: "What it does",
+          hint: "The problem it removes, in Cole's terms",
+        },
+        { key: "prospect", label: "Across the table", hint: "Who Cole is playing" },
+      ],
+      chips: { label: "Ask and objections", keys: ["ask", "objections"] },
+      footer: "Only what you put here makes it in; gaps become questions, not guesses.",
     },
     readWait: {
       kicker: "Reading your pitch",
@@ -162,5 +181,5 @@ export const salesPack: DomainPack = {
   personas: BUYER_PERSONAS,
   turnTaking,
   briefing: buildRoomBriefing,
-  prompts: { analyzeSystem, analyzeUser, audit, orchestrate, debrief },
+  prompts: { analyzeSystem, analyzeUser, audit, orchestrate, debrief, extractScope },
 }

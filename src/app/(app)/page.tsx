@@ -13,6 +13,7 @@ import { personaInitials } from "@/components/shared/PersonaAvatar"
 import { LaneBadge } from "@/components/shared/LaneBadge"
 import { PersonaAvatar } from "@/components/shared/PersonaAvatar"
 import type { PracticeRow } from "@/components/layout/AppRail"
+import { firstNameOf } from "@/domains/types"
 
 const greeting = (hour: number) =>
   hour < 5 ? "Good night" : hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening"
@@ -46,7 +47,7 @@ const ResumeHero = ({ practice }: { practice: PracticeRow }) => {
 
   const waitingLine =
     practice.openItems > 0 && persona
-      ? `${persona.name.split(" ")[0]} is waiting on ${practice.openItems === 1 ? "one item" : `${practice.openItems} items`} you said you'd bring.`
+      ? `${firstNameOf(persona.name)} is waiting on ${practice.openItems === 1 ? "one item" : `${practice.openItems} items`} you said you'd bring.`
       : practice.hasLive
         ? "A session is still live. Step back in."
         : "Pick up where you left off."
@@ -77,7 +78,7 @@ const ResumeHero = ({ practice }: { practice: PracticeRow }) => {
         </div>
         <button type="button" onClick={handleContinue} className={BTN_PRIMARY}>
           <Video className="size-[15px]" />
-          {persona ? `Continue with ${persona.name.split(" ")[0]}` : "Continue"}
+          {persona ? `Continue with ${firstNameOf(persona.name)}` : "Continue"}
         </button>
       </div>
     </section>

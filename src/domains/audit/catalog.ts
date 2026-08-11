@@ -34,7 +34,7 @@ export type ControlArea = {
 export const CONTROL_AREAS: ControlArea[] = [
   {
     key: "data-recovery",
-    label: "Data Recovery (Control 11)",
+    label: "Data recovery · 11",
     control: 11,
     controlTitle: "Data Recovery",
     safeguards: [
@@ -50,14 +50,14 @@ export const CONTROL_AREAS: ControlArea[] = [
           "The change history showing the annual review actually happens",
         ],
         probe:
-          "Walk me through your recovery document — when was it last reviewed, and what changed in that review?",
+          "Walk me through your recovery document. When was it last reviewed, and what changed in that review?",
       },
       {
         id: "11.2",
         title: "Perform Automated Backups",
         ig: "IG1",
         restatement:
-          "Backups of in-scope assets run automatically, at least weekly — more often where the data's sensitivity warrants it.",
+          "Backups of in-scope assets run automatically, at least weekly, and more often where the data's sensitivity warrants it.",
         evidence: [
           "The backup tool's schedule configuration",
           "The last week of backup job logs showing completion",
@@ -82,7 +82,7 @@ export const CONTROL_AREAS: ControlArea[] = [
         title: "Establish and Maintain an Isolated Instance of Recovery Data",
         ig: "IG1",
         restatement:
-          "At least one copy of recovery data is isolated from the environment it protects — offline, off-site, or in separately controlled cloud storage — so an incident in production can't reach it.",
+          "At least one copy of recovery data is isolated from the environment it protects (offline, off-site, or in separately controlled cloud storage) so an incident in production can't reach it.",
         evidence: [
           "Where the isolated copy lives and what separates it",
           "Versioning and retention settings on the backup destination",
@@ -95,7 +95,7 @@ export const CONTROL_AREAS: ControlArea[] = [
         title: "Test Data Recovery",
         ig: "IG2",
         restatement:
-          "Recovery is tested at least quarterly against a sample of in-scope assets — restores are proven, not assumed.",
+          "Recovery is tested at least quarterly against a sample of in-scope assets: restores are proven, not assumed.",
         evidence: [
           "The most recent recovery test report, with date and outcome",
           "Recovery time and recovery point results against your targets",
@@ -108,7 +108,7 @@ export const CONTROL_AREAS: ControlArea[] = [
   },
   {
     key: "account-management",
-    label: "Account Management (Control 5)",
+    label: "Account management · 5",
     control: 5,
     controlTitle: "Account Management",
     safeguards: [
@@ -117,14 +117,14 @@ export const CONTROL_AREAS: ControlArea[] = [
         title: "Establish and Maintain an Inventory of Accounts",
         ig: "IG1",
         restatement:
-          "A maintained inventory covers user, administrator, and service accounts — name, username, start and stop dates, department — and active accounts are revalidated as authorized at least quarterly.",
+          "A maintained inventory covers user, administrator, and service accounts (name, username, start and stop dates, department), and active accounts are revalidated as authorized at least quarterly.",
         evidence: [
           "The account inventory itself",
           "The most recent quarterly validation record",
           "How service accounts are tracked and owned",
         ],
         probe:
-          "Open the inventory — when did you last confirm that every active account should still be active?",
+          "Open the inventory. When did you last confirm that every active account should still be active?",
       },
       {
         id: "5.2",
@@ -134,7 +134,7 @@ export const CONTROL_AREAS: ControlArea[] = [
           "Unique passwords everywhere, with a floor of 8 characters on MFA-protected accounts and 14 characters where there's no MFA.",
         evidence: [
           "The password policy configuration",
-          "Where the policy is enforced — directory, SSO, or per system",
+          "Where the policy is enforced: directory, SSO, or per system",
         ],
         probe: "Where is that enforced, and what happens when someone tries something shorter?",
       },
@@ -155,7 +155,7 @@ export const CONTROL_AREAS: ControlArea[] = [
         title: "Restrict Administrator Privileges to Dedicated Administrator Accounts",
         ig: "IG1",
         restatement:
-          "Administrative privileges live on dedicated admin accounts; everyday computing — email, browsing, documents — happens on a separate, non-privileged account.",
+          "Administrative privileges live on dedicated admin accounts; everyday computing (email, browsing, documents) happens on a separate, non-privileged account.",
         evidence: [
           "The admin account list next to primary accounts",
           "The policy or configuration keeping the two apart",
@@ -166,7 +166,7 @@ export const CONTROL_AREAS: ControlArea[] = [
   },
   {
     key: "access-control",
-    label: "Access Control Management (Control 6)",
+    label: "Access control · 6",
     control: 6,
     controlTitle: "Access Control Management",
     safeguards: [
@@ -175,19 +175,19 @@ export const CONTROL_AREAS: ControlArea[] = [
         title: "Establish an Access Granting Process",
         ig: "IG1",
         restatement:
-          "A documented — ideally automated — process governs granting access on hire or role change, and it's actually followed.",
+          "A documented process, ideally automated, governs granting access on hire or role change, and it's actually followed.",
         evidence: [
           "The documented granting process",
           "A recent hire's access trail matching that process",
         ],
-        probe: "Take your newest hire — walk me through exactly how their access came to exist.",
+        probe: "Take your newest hire. Walk me through exactly how their access came to exist.",
       },
       {
         id: "6.2",
         title: "Establish an Access Revoking Process",
         ig: "IG1",
         restatement:
-          "Access is revoked immediately on termination, rights revocation, or role change — disabling rather than deleting where audit trails must survive.",
+          "Access is revoked immediately on termination, rights revocation, or role change, disabling rather than deleting where audit trails must survive.",
         evidence: [
           "The documented revocation process",
           "A recent leaver's disable timestamp next to their departure date",
@@ -199,12 +199,12 @@ export const CONTROL_AREAS: ControlArea[] = [
         title: "Require MFA for Externally-Exposed Applications",
         ig: "IG1",
         restatement:
-          "Every externally reachable application enforces MFA where it's supported — enforcement through your directory or SSO counts.",
+          "Every externally reachable application enforces MFA where it's supported. Enforcement through your directory or SSO counts.",
         evidence: [
           "The list of externally exposed applications",
           "MFA enforcement configuration, per app or at the SSO layer",
         ],
-        probe: "Pick any externally facing app you run — show me where its MFA is enforced.",
+        probe: "Pick any externally facing app you run and show me where its MFA is enforced.",
       },
       {
         id: "6.4",
@@ -219,7 +219,7 @@ export const CONTROL_AREAS: ControlArea[] = [
         title: "Require MFA for Administrative Access",
         ig: "IG1",
         restatement:
-          "All administrative access takes MFA wherever the asset supports it — on-site or through a service provider.",
+          "All administrative access takes MFA wherever the asset supports it, on-site or through a service provider.",
         evidence: [
           "Admin MFA enforcement across your systems",
           "The exceptions list, with the reason for each",
@@ -230,7 +230,7 @@ export const CONTROL_AREAS: ControlArea[] = [
   },
   {
     key: "incident-response",
-    label: "Incident Response (Control 17)",
+    label: "Incident response · 17",
     control: 17,
     controlTitle: "Incident Response Management",
     safeguards: [
@@ -245,14 +245,14 @@ export const CONTROL_AREAS: ControlArea[] = [
           "The provider arrangement and its internal overseer, if any",
           "The last annual review of the designation",
         ],
-        probe: "Who runs the room when an incident starts — and who runs it if they're on a plane?",
+        probe: "Who runs the room when an incident starts, and who runs it if they're on a plane?",
       },
       {
         id: "17.2",
         title: "Establish and Maintain Contact Information for Reporting Security Incidents",
         ig: "IG1",
         restatement:
-          "A maintained contact list covers everyone an incident might require — staff, providers, law enforcement, insurers, agencies — and it's verified at least annually.",
+          "A maintained contact list covers everyone an incident might require (staff, providers, law enforcement, insurers, agencies), and it's verified at least annually.",
         evidence: ["The contact list, with its last verification date"],
         probe:
           "It's two in the morning and you need your cyber insurer. Where's the number, and when was it last checked?",
@@ -262,7 +262,7 @@ export const CONTROL_AREAS: ControlArea[] = [
         title: "Establish and Maintain an Enterprise Process for Reporting Incidents",
         ig: "IG1",
         restatement:
-          "A documented process tells the whole workforce how to report an incident — how fast, to whom, through what channel, with what minimum details — and everyone can actually find it.",
+          "A documented process tells the whole workforce how to report an incident (how fast, to whom, through what channel, with what minimum details), and everyone can actually find it.",
         evidence: [
           "The published reporting process",
           "Where the workforce sees it",

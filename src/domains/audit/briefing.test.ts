@@ -7,7 +7,7 @@ const scope = {
   systemName: "CourtTime production",
   description: "SaaS on AWS, one region, five engineers",
   role: "DevOps lead who owns backups",
-  controlArea: "Data Recovery (Control 11)",
+  controlArea: "Data recovery · 11",
   concerns: ["Recovery testing"],
 }
 

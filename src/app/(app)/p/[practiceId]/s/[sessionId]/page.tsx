@@ -1,6 +1,6 @@
 "use client"
 
-import { use } from "react"
+import { use, useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Check, Video } from "lucide-react"
@@ -13,6 +13,12 @@ import { bySpokenTime } from "@/lib/transcript"
 import { BTN_PRIMARY } from "@/components/shared/buttons"
 import { PersonaAvatar } from "@/components/shared/PersonaAvatar"
 import { VerdictBadge } from "@/components/workspace/VerdictBadge"
+import { firstNameOf } from "@/domains/types"
+import { useAutoHideScrollbar } from "@/components/shared/useAutoHideScrollbar"
+
+// Generation normally lands well inside this; the retry only appears once
+// the wait is genuinely unusual, so it can't be mashed on arrival.
+const RETRY_AFTER_MS = 12_000
 
 const SessionPage = ({
   params,
@@ -29,6 +35,17 @@ const SessionPage = ({
   const setItemStatus = useMutation(api.practices.setActionItemStatus)
   const continueSession = useMutation(api.practices.continueSession)
   const generateDebrief = useAction(api.sessions.generateDebrief)
+  const transcriptScroll = useAutoHideScrollbar<HTMLDivElement>()
+
+  // Once the debrief lands the pending branch unmounts for good, so the
+  // flag never needs resetting.
+  const debriefPending = session?.status === "concluded" && !session.debrief
+  const [showRetry, setShowRetry] = useState(false)
+  useEffect(() => {
+    if (!debriefPending) return
+    const timer = setTimeout(() => setShowRetry(true), RETRY_AFTER_MS)
+    return () => clearTimeout(timer)
+  }, [debriefPending])
 
   if (session === undefined || practice === undefined) return null
   if (session === null || practice === null) {
@@ -189,7 +206,7 @@ const SessionPage = ({
                     })}
                     <div className="flex items-center gap-2 border-t border-line bg-surface px-4 py-[11px] text-[12.5px] text-on-surface-3">
                       <Check className="size-3.5" />
-                      {session.persona.name.split(" ")[0]} follows up on these next session.
+                      {firstNameOf(session.persona.name)} follows up on these next session.
                     </div>
                   </div>
                 </section>
@@ -289,25 +306,30 @@ const SessionPage = ({
         <div className="mb-10 rounded-xl border border-dashed border-line-2 px-6 py-10 text-center">
           <p className="flex items-center justify-center gap-2.5 text-[14px] text-on-surface-2">
             <span aria-hidden="true" className="h-2 w-2 animate-pulse rounded-full bg-accent-blue" />
-            {session.persona.name.split(" ")[0]} is writing your debrief. It lands here in a
+            {firstNameOf(session.persona.name)} is writing your debrief. It lands here in a
             moment.
           </p>
-          <button
-            type="button"
-            onClick={handleRetryDebrief}
-            className="focus-ring mt-4 inline-flex items-center gap-2 rounded-[10px] border border-line-2 bg-surface-raised px-4 py-2 text-[13px] text-on-surface-2 shadow-btn transition hover:bg-surface-2"
-          >
-            Taking too long? Retry
-          </button>
+          {showRetry && (
+            <button
+              type="button"
+              onClick={handleRetryDebrief}
+              className="focus-ring mt-4 inline-flex items-center gap-2 rounded-[10px] border border-line-2 bg-surface-raised px-4 py-2 text-[13px] text-on-surface-2 shadow-btn transition hover:bg-surface-2"
+            >
+              Taking too long? Retry
+            </button>
+          )}
         </div>
       )}
 
       {transcript.length > 0 && (
         <details className="mt-14 border-t border-line pt-6">
           <summary className="cursor-pointer text-[13px] font-medium text-on-surface-2 hover:text-accent-blue">
-            Read the full transcript · {transcript.length} turns
+            Read the full transcript · {transcript.length} {transcript.length === 1 ? "turn" : "turns"}
           </summary>
-          <div className="mt-5 max-w-[52em] space-y-4">
+          <div
+            ref={transcriptScroll}
+            className="scrollbar-subtle mt-5 max-h-[60vh] max-w-[52em] space-y-4 overflow-y-auto overscroll-contain pr-2"
+          >
             {transcript.map((entry, i) => (
               <div key={i}>
                 <p

@@ -9,6 +9,7 @@ import { api } from "@convex/_generated/api"
 import type { Id } from "@convex/_generated/dataModel"
 import { cn } from "@/lib/utils"
 import { getPack } from "@/domains/registry"
+import { firstNameOf } from "@/domains/types"
 import { BTN_PRIMARY } from "@/components/shared/buttons"
 import { LaneBadge } from "@/components/shared/LaneBadge"
 import { PersonaAvatar } from "@/components/shared/PersonaAvatar"
@@ -47,7 +48,7 @@ const PracticePage = ({ params }: { params: Promise<{ practiceId: string }> }) =
   const persona = practice.personaId
     ? pack.personas.find((p) => p.id === practice.personaId) ?? null
     : null
-  const personaFirst = persona?.name.split(" ")[0] ?? null
+  const personaFirst = persona ? firstNameOf(persona.name) : null
   const items = practice.continuity?.actionItems ?? []
   const visibleItems = [
     ...items.filter((item) => item.status === "open"),

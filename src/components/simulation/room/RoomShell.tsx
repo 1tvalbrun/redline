@@ -6,7 +6,18 @@ import { useQuery, useAction, useMutation } from "convex/react"
 import { api } from "@convex/_generated/api"
 import { Id } from "@convex/_generated/dataModel"
 import { AvatarProvider, AvatarVideo } from "@runwayml/avatars-react"
-import { Mic, MicOff, Pause } from "lucide-react"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import { firstNameOf } from "@/domains/types"
 import { getPack } from "@/domains/registry"
 import { isSessionStale, lastActivityAt } from "@/lib/session"
 import { useNow } from "@/lib/useNow"
@@ -199,8 +210,8 @@ export const RoomShell = ({ simulationId }: RoomShellProps) => {
 
       <aside className="col-start-1 row-span-2 row-start-1 flex flex-col gap-[18px] border-r border-line bg-surface-raised px-4 py-5">
         <UserTile userName={pack.userTitle} micState={micState} onToggleMic={handleToggleMic} />
-        <PromptHelpers prompts={pack.copy.promptHelpers} className="mt-auto" />
-        <Disclosure />
+        <PromptHelpers prompts={pack.copy.promptHelpers} />
+        <Disclosure className="mt-auto" />
       </aside>
 
       <main className="relative col-start-2 row-start-1 overflow-hidden bg-[#0e0c0a]">
@@ -217,27 +228,25 @@ export const RoomShell = ({ simulationId }: RoomShellProps) => {
         ) : avatarFailure ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
             <p className="font-mono text-[11px] uppercase tracking-[.14em] text-red-fg">
-              {persona.name} isn&apos;t responding
+              {`${persona.name} isn't responding`}
             </p>
             <p className="max-w-[42ch] text-center text-[13.5px] text-on-surface-2">
-              {avatarFailure} Your session and everything said so far are
-              safe. Retry the connection, or end now and get your debrief
-              from what&apos;s on the record.
+              {`${avatarFailure} Your session and everything said so far are safe. Retry the connection, or end now and get your debrief from what's on the record.`}
             </p>
             <div className="flex items-center gap-3">
               <button
                 type="button"
                 onClick={handleRetryConnect}
-                className="focus-ring border border-line-2 px-4 py-[10px] font-mono text-[11px] uppercase tracking-[.08em] text-on-surface transition-colors hover:bg-white/5"
+                className="focus-ring rounded-[10px] border border-line-2 px-4 py-2.5 text-[13.5px] font-medium text-on-surface transition-colors hover:bg-white/5"
               >
                 Retry connection
               </button>
               <button
                 type="button"
                 onClick={handleEndSession}
-                className="focus-ring border border-red bg-red px-4 py-[10px] font-mono text-[11px] uppercase tracking-[.08em] text-white transition-colors hover:bg-red-deep"
+                className="focus-ring rounded-[10px] bg-red px-4 py-2.5 text-[13.5px] font-medium text-white shadow-btn transition-colors hover:bg-red-deep"
               >
-                End session · get the debrief <span aria-hidden="true">→</span>
+                End session, get the debrief <span aria-hidden="true">→</span>
               </button>
             </div>
           </div>
@@ -324,44 +333,40 @@ export const RoomShell = ({ simulationId }: RoomShellProps) => {
       </main>
 
       <div className="col-start-2 row-start-2 flex items-center gap-4 border-t border-line bg-surface-2 px-[22px] py-[13px]">
-        <button
-          type="button"
-          onClick={handleToggleMic}
-          disabled={micState === "blocked" || micState === "ended"}
-          aria-label={
-            micState === "blocked"
-              ? "Microphone blocked by browser permissions"
-              : micLive
-                ? "Mute microphone"
-                : "Unmute microphone"
-          }
-          className={`focus-ring flex h-[42px] w-[42px] items-center justify-center rounded-full border transition-colors hover:bg-white/5 disabled:opacity-40 disabled:hover:bg-transparent ${
-            micLive ? "border-ok-fg text-ok-fg" : "border-line-2 text-on-surface"
-          }`}
-        >
-          {micLive ? <Mic className="h-[18px] w-[18px]" /> : <MicOff className="h-[18px] w-[18px]" />}
-        </button>
-        <button
-          type="button"
-          disabled
-          aria-label="Pause session (not available in live sessions yet)"
-          title="Pause is not available in live sessions yet"
-          className="flex h-[42px] w-[42px] items-center justify-center rounded-full border border-line-2 text-on-surface opacity-40"
-        >
-          <Pause className="h-[18px] w-[18px]" />
-        </button>
         {session.currentTopic && (
           <span className="font-mono text-[11px] uppercase tracking-[.1em] text-on-surface-2">
             {session.currentTopic} under discussion
           </span>
         )}
-        <button
-          type="button"
-          onClick={handleEndSession}
-          className="focus-ring ml-auto flex items-center gap-[9px] border border-red bg-red px-5 py-[11px] font-mono text-[11px] uppercase tracking-[.08em] text-white transition-colors hover:bg-red-deep"
-        >
-          {stale ? "Get the debrief" : "End session"} <span aria-hidden="true">→</span>
-        </button>
+        {sessionOver ? (
+          <button
+            type="button"
+            onClick={handleEndSession}
+            className="focus-ring ml-auto flex items-center gap-2 rounded-[10px] bg-red px-[18px] py-2.5 text-[13.5px] font-medium text-white shadow-btn transition-colors hover:bg-red-deep"
+          >
+            Get the debrief <span aria-hidden="true">→</span>
+          </button>
+        ) : (
+          // A mis-click here throws away a live conversation — confirm, and
+          // let the confirmation promise what comes next.
+          <AlertDialog>
+            <AlertDialogTrigger className="focus-ring ml-auto flex items-center gap-2 rounded-[10px] bg-red px-[18px] py-2.5 text-[13.5px] font-medium text-white shadow-btn transition-colors hover:bg-red-deep">
+              End session <span aria-hidden="true">→</span>
+            </AlertDialogTrigger>
+            <AlertDialogContent size="sm" data-surface="dark">
+              <AlertDialogHeader>
+                <AlertDialogTitle>End session?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  {firstNameOf(persona.name)} will write your debrief.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Keep going</AlertDialogCancel>
+                <AlertDialogAction onClick={handleEndSession}>End session</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
       </div>
 
       <aside className="col-start-3 row-span-2 row-start-1 flex min-h-0 flex-col border-l border-line bg-surface-raised">

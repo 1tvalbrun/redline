@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --test src/lib/*.test.ts src/domains/*/*.test.ts"
+    "test": "node --test src/lib/*.test.ts src/domains/*.test.ts src/domains/*/*.test.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",

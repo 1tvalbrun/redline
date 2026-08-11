@@ -61,7 +61,13 @@ export type Persona = {
   attack: AttackSegment[]
   bio: string
   tags: string[]
+  // Their signature opening question, rendered as the card's serif quote.
+  signature: string
 }
+
+// "Dr. Sarah Okafor" → "Sarah", never "Dr." — honorifics end in a period.
+export const firstNameOf = (name: string): string =>
+  name.split(" ").find((word) => !word.endsWith(".")) ?? name
 
 // Per-session avatar briefing. personalityPreamble is prepended to the
 // persona stored on the Runway Character; startScript replaces its canned
@@ -184,19 +190,27 @@ export type StageWaitCopy = {
   stepMs: number
 }
 
-// Copy for the generic scope-form intake. Only packs without a bespoke
-// intake component define it; the founder lane's BriefForm carries its own.
-export type IntakeCopy = {
-  kicker: string
-  heading: string
-  lead: string
-  materialsLabel: string
-  materialsButton: string
-  cta: string
-}
+// One row of the typed form's live-preview rail: which scope field it
+// mirrors, how the reader labels it, and the coaching hint shown while
+// it's empty.
+export type PreviewRow = { key: string; label: string; hint: string }
 
 export type PackCopy = {
-  intake?: IntakeCopy
+  // The wizard's voice-first opening beat.
+  tellIt: { heading: string; sub: string }
+  // Typed-form structure: fields grouped into titled sections, in order.
+  form: {
+    sections: { title: string; meta?: string; keys: string[] }[]
+    materialsTitle: string
+    materialsMeta: string
+  }
+  // The "what {persona} will read" rail beside the typed form.
+  preview: {
+    title: string
+    rows: PreviewRow[]
+    chips: { label: string; keys: string[] }
+    footer: string
+  }
   readWait: StageWaitCopy
   auditWait: StageWaitCopy
   audit: {
@@ -219,6 +233,8 @@ export type DomainPack = {
   id: string
   // Onboarding card copy (the lane chooser).
   label: string
+  // Compact lane name for chips and rail headers ("Founder", "Sales", …).
+  shortLabel: string
   description: string
   // The scope key that names the engagement: feeds the ideas row, list
   // display, and the briefing subject.
@@ -254,5 +270,8 @@ export type DomainPack = {
     audit: (input: AuditPromptInput) => string
     orchestrate: (input: OrchestratePromptInput) => string
     debrief: (input: DebriefPromptInput) => string
+    // Spoken pitch → this pack's scope fields, extraction-only (never
+    // invent; absent means unsaid). Every lane has voice intake.
+    extractScope: (input: { source: "voice" | "deck"; pitch: string }) => string
   }
 }

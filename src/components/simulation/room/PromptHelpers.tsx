@@ -19,7 +19,7 @@ export const PromptHelpers = ({
   return (
     <div className={className}>
       <p className="mb-[10px] font-mono text-[9.5px] uppercase tracking-[.16em] text-on-surface-2">
-        Prompt helpers
+        If you&apos;re stuck, start with
       </p>
       {prompts.map((prompt) => (
         <button

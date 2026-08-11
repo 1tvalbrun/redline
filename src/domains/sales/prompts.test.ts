@@ -1,6 +1,7 @@
 import test from "node:test"
 import assert from "node:assert/strict"
-import { analyzeSystem, analyzeUser, audit, debrief, orchestrate } from "./prompts.ts"
+import { analyzeSystem, analyzeUser, audit, debrief, extractScope, orchestrate } from "./prompts.ts"
+import { salesPack } from "./pack.ts"
 import type { Scope } from "../types.ts"
 
 // Pin tests for the sales prompts, written with the pack. They hold the
@@ -25,6 +26,39 @@ test("analyze extracts the seven context fields from the scope", () => {
   const user = analyzeUser(scope)
   assert.match(user, /Offering: CourtFlow/)
   assert.match(user, /Expected objections: Switching cost, Price/)
+})
+
+test("extractScope keeps the honesty rule and never invents", () => {
+  const prompt = extractScope({ source: "voice", pitch: "We sell CourtFlow." })
+  assert.match(prompt, /THE HONESTY RULE: extract ONLY what the seller actually said/)
+  assert.match(prompt, /Never infer, never fill in plausible content/)
+  assert.match(prompt, /A missing answer is valuable information/)
+  assert.match(prompt, /Never use an em dash in any output value/)
+  assert.match(prompt, /spoken pitch transcript/)
+  assert.match(prompt, /We sell CourtFlow\./)
+  assert.match(extractScope({ source: "deck", pitch: "p" }), /pitch deck text/)
+})
+
+test("extractScope asks for exactly the pack's scope-field keys and chip labels", () => {
+  const prompt = extractScope({ source: "voice", pitch: "x" })
+  for (const field of salesPack.scopeFields) {
+    assert.ok(prompt.includes(`"${field.key}"`), `missing key ${field.key}`)
+    for (const option of field.options ?? []) {
+      assert.ok(prompt.includes(`"${option.label}"`), `missing label ${option.label}`)
+    }
+  }
+})
+
+test("extractScope clamps the pitch to its char budget", () => {
+  const prompt = extractScope({ source: "voice", pitch: "y".repeat(20_000) })
+  assert.ok(!prompt.includes("y".repeat(12_001)))
+})
+
+test("no extractBrief on the pack, and tellIt copy stands in for intake, em dash free", () => {
+  assert.ok(!("extractBrief" in salesPack.prompts))
+  assert.ok(!("intake" in salesPack.copy))
+  assert.equal(salesPack.copy.tellIt.heading, "What are you selling?")
+  assert.ok(!salesPack.copy.tellIt.sub.includes("—"))
 })
 
 test("audit keeps the evidence split and the citation contract", () => {

@@ -20,6 +20,7 @@ export const PANEL_PERSONAS: Persona[] = [
     ],
     bio: "Reviewed 2,000+ pitches, backed 23, watched 11 fail. Comes for market size, moats, pricing power and round math.",
     tags: ["Market sizing", "Defensibility", "Pricing power"],
+    signature: "Walk me through the market math, bottoms-up, not the report you bought.",
   },
   {
     id: "tc-01",
@@ -36,6 +37,7 @@ export const PANEL_PERSONAS: Persona[] = [
     ],
     bio: "Plays your real customer. Asks what it replaces, what switching costs, and what happens when it breaks at 11pm.",
     tags: ["Buying process", "Switching cost", "Procurement"],
+    signature: "Why would I rip out something that already works for this?",
   },
   {
     id: "ta-01",
@@ -52,5 +54,6 @@ export const PANEL_PERSONAS: Persona[] = [
     ],
     bio: 'Thinks in failure modes. Flags accuracy claims with no methodology and "optimize later" in the critical path.',
     tags: ["Latency", "Reliability", "Build vs buy"],
+    signature: "You said it's accurate. Show me how you measured that.",
   },
 ]

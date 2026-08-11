@@ -2,11 +2,12 @@ import { ASSESSOR_PERSONAS } from "./personas.ts"
 import { scopeText, type DomainPack } from "../types.ts"
 import { areaByLabel, CONTROL_AREAS } from "./catalog.ts"
 import { buildRoomBriefing, turnTaking } from "./briefing.ts"
-import { analyzeSystem, analyzeUser, audit, debrief, orchestrate } from "./prompts.ts"
+import { analyzeSystem, analyzeUser, audit, debrief, extractScope, orchestrate } from "./prompts.ts"
 
 export const auditPack: DomainPack = {
   id: "audit",
   label: "Face an audit",
+  shortLabel: "Audit",
   description:
     "Rehearse an audit interview before the real one. A lead assessor reads your scope and documents, interviews you on the safeguards in session scope, and tells you straight where you stand. Practice feedback, never a compliance determination.",
   subjectField: "systemName",
@@ -87,13 +88,29 @@ export const auditPack: DomainPack = {
     }))
   },
   copy: {
-    intake: {
-      kicker: "New audit session",
-      heading: "Set the scope.",
-      lead: "Tell the assessor what's being assessed, your role, and which control area this session covers. She reads everything before the first question.",
-      materialsLabel: "Documents",
-      materialsButton: "Add your policies, procedures, or runbooks for the pre-read",
-      cta: "Start the pre-read",
+    tellIt: {
+      heading: "What are you preparing for?",
+      sub: "Talk through the system you own, what's in place, and where you feel least ready. It gets shaped into a brief you'll confirm.",
+    },
+    form: {
+      sections: [
+        { title: "The scope", keys: ["systemName", "description", "role"] },
+        { title: "Control area for this session", keys: ["controlArea", "concerns"] },
+      ],
+      materialsTitle: "Documents",
+      materialsMeta: "optional · PDF PPTX XLSX DOCX",
+    },
+    // controlArea is deliberately not previewed; it drives the evidence
+    // rail instead.
+    preview: {
+      title: "What Priya will read",
+      rows: [
+        { key: "systemName", label: "Assessing", hint: "Not yet named" },
+        { key: "description", label: "Environment", hint: "What it is, where it runs" },
+        { key: "role", label: "Your role", hint: "What you own" },
+      ],
+      chips: { label: "Least ready", keys: ["concerns"] },
+      footer: "Only what you put here makes it in; gaps become findings, not surprises.",
     },
     readWait: {
       kicker: "Reading your scope",
@@ -171,5 +188,5 @@ export const auditPack: DomainPack = {
   personas: ASSESSOR_PERSONAS,
   turnTaking,
   briefing: buildRoomBriefing,
-  prompts: { analyzeSystem, analyzeUser, audit, orchestrate, debrief },
+  prompts: { analyzeSystem, analyzeUser, audit, orchestrate, debrief, extractScope },
 }

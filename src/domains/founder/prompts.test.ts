@@ -1,6 +1,7 @@
 import test from "node:test"
 import assert from "node:assert/strict"
-import { analyzeSystem, analyzeUser, audit, debrief, extractBrief, orchestrate } from "./prompts.ts"
+import { analyzeSystem, analyzeUser, audit, debrief, extractScope, orchestrate } from "./prompts.ts"
+import { founderPack } from "./pack.ts"
 import type { Scope } from "../types.ts"
 
 // Pin tests for the founder prompts, written when the templates moved out of
@@ -27,18 +28,37 @@ test("analyze extracts the seven context fields from the brief", () => {
   assert.match(user, /Focus Areas: pricing/)
 })
 
-test("extractBrief keeps the honesty rule and the closed vocabularies", () => {
-  const prompt = extractBrief({ source: "voice", pitch: "We build Acme." })
+test("extractScope keeps the honesty rule and never invents", () => {
+  const prompt = extractScope({ source: "voice", pitch: "We build Acme." })
   assert.match(prompt, /THE HONESTY RULE: extract ONLY what the founder actually said/)
   assert.match(prompt, /Never infer, never fill in plausible content/)
+  assert.match(prompt, /A missing answer is valuable information/)
+  assert.match(prompt, /Never use an em dash in any output value/)
   assert.match(prompt, /spoken pitch transcript/)
   assert.match(prompt, /We build Acme\./)
-  assert.match(extractBrief({ source: "deck", pitch: "p" }), /pitch deck text/)
+  assert.match(extractScope({ source: "deck", pitch: "p" }), /pitch deck text/)
 })
 
-test("extractBrief clamps the pitch to its char budget", () => {
-  const prompt = extractBrief({ source: "voice", pitch: "y".repeat(20_000) })
+test("extractScope asks for exactly the pack's scope-field keys and chip labels", () => {
+  const prompt = extractScope({ source: "voice", pitch: "x" })
+  for (const field of founderPack.scopeFields) {
+    assert.ok(prompt.includes(`"${field.key}"`), `missing key ${field.key}`)
+    for (const option of field.options ?? []) {
+      assert.ok(prompt.includes(`"${option.label}"`), `missing label ${option.label}`)
+    }
+  }
+})
+
+test("extractScope clamps the pitch to its char budget", () => {
+  const prompt = extractScope({ source: "voice", pitch: "y".repeat(20_000) })
   assert.ok(!prompt.includes("y".repeat(12_001)))
+})
+
+test("extractBrief is gone and tellIt copy stands in for intake, em dash free", () => {
+  assert.ok(!("extractBrief" in founderPack.prompts))
+  assert.ok(!("intake" in founderPack.copy))
+  assert.equal(founderPack.copy.tellIt.heading, "What are you building?")
+  assert.ok(!founderPack.copy.tellIt.sub.includes("—"))
 })
 
 test("audit keeps the evidence split and the citation contract", () => {

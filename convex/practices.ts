@@ -12,7 +12,7 @@ import { api, internal } from "./_generated/api"
 import type { Id } from "./_generated/dataModel"
 import { claimValidator, gapValidator, groundAudit } from "../src/lib/audit"
 import { materialFileType, validateMaterialFile } from "../src/lib/materials"
-import { parseExtractedBrief } from "../src/lib/intake"
+import { parseExtractedScope } from "../src/lib/intake"
 import { createOpenAI, resolveModel } from "../src/lib/openai"
 import { getPack, isPackId } from "../src/domains/registry"
 import { scopeText, type Scope } from "../src/domains/types"
@@ -305,35 +305,37 @@ export const analyze = action({
   },
 })
 
-// Intake extraction: pitch text (voice transcript or deck text) → honest
-// structured brief. No reads, no writes; the user reviews the result before
-// anything is created.
-export const extractBrief = action({
+// Intake extraction: spoken pitch (or deck text) → honest partial scope,
+// keyed by the lane's scope fields. No reads, no writes; the user reviews
+// and fills gaps before anything is created. An absent key means the
+// speaker never said it.
+export const extractScope = action({
   args: {
+    packId: v.string(),
     pitch: v.string(),
     source: v.union(v.literal("voice"), v.literal("deck")),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<Scope> => {
     await requireIdentity(ctx)
+    if (!isPackId(args.packId)) throw new Error("Unknown lane")
+    const pack = getPack(args.packId)
     const openai = await createOpenAI()
     const model = resolveModel("fast")
-    // Stateless intake with no practice yet; the founder lane is the only
-    // one with a pitch intake — packs without one never reach this action.
-    const pack = getPack()
-    const extractPrompt = pack.prompts.extractBrief
-    if (!extractPrompt) throw new Error("This lane has no pitch intake")
 
     const response = await openai.chat.completions.create({
       model,
       messages: [
-        { role: "system", content: extractPrompt({ source: args.source, pitch: args.pitch }) },
+        {
+          role: "system",
+          content: pack.prompts.extractScope({ source: args.source, pitch: args.pitch }),
+        },
       ],
       response_format: { type: "json_object" },
     })
 
     const content = response.choices[0]?.message?.content
     if (!content) throw new Error("Extraction returned nothing")
-    return parseExtractedBrief(JSON.parse(content))
+    return parseExtractedScope(JSON.parse(content), pack.scopeFields)
   },
 })
 

@@ -1,62 +1,68 @@
 import test from "node:test"
 import assert from "node:assert/strict"
-import { parseExtractedBrief } from "./intake.ts"
+import { parseExtractedScope } from "./intake.ts"
+import type { ScopeField } from "../domains/types.ts"
 
-test("a full extraction maps cleanly, with option values validated", () => {
-  const brief = parseExtractedBrief({
-    ideaName: "Cartograph",
-    description: "Turns warehouse data into a queryable map.",
-    whyNow: "Warehouse adoption crossed the chasm.",
-    stage: "idea",
-    businessModel: "saas-tiered",
-    targetUser: "midmarket-leaders",
+const FIELDS: ScopeField[] = [
+  { key: "offering", label: "What you're selling", kind: "text", required: true, maxLength: 60 },
+  { key: "description", label: "What it does", kind: "textarea", required: true, maxLength: 600 },
+  {
+    key: "ask",
+    label: "The ask",
+    kind: "chips",
+    options: [
+      { value: "pilot", label: "A pilot" },
+      { value: "contract", label: "A signed contract" },
+    ],
+  },
+  {
+    key: "objections",
+    label: "Objections",
+    kind: "multi",
+    options: [
+      { value: "price", label: "Price" },
+      { value: "timing", label: "Timing" },
+    ],
+  },
+]
+
+test("spoken content maps onto scope fields", () => {
+  const scope = parseExtractedScope(
+    {
+      offering: "  CourtTime scheduling ",
+      description: "Court booking that removes double-booked slots",
+      ask: "A pilot",
+      objections: ["Price", "Timing"],
+    },
+    FIELDS
+  )
+  assert.deepEqual(scope, {
+    offering: "CourtTime scheduling",
+    description: "Court booking that removes double-booked slots",
+    ask: "A pilot",
+    objections: ["Price", "Timing"],
   })
-  assert.equal(brief.ideaName, "Cartograph")
-  assert.equal(brief.stage, "idea")
-  assert.equal(brief.businessModel, "saas-tiered")
-  assert.equal(brief.targetUser, "midmarket-leaders")
 })
 
-test("missing or non-string fields become flagged gaps, never guesses", () => {
-  const brief = parseExtractedBrief({ ideaName: 42, description: null })
-  assert.deepEqual(brief, {
-    ideaName: null,
-    description: null,
-    whyNow: null,
-    stage: null,
-    businessModel: null,
-    targetUser: null,
-  })
+test("what wasn't said stays absent, never guessed", () => {
+  const scope = parseExtractedScope({ offering: "CourtTime", ask: null }, FIELDS)
+  assert.deepEqual(scope, { offering: "CourtTime" })
 })
 
-test("values outside the option vocabulary are rejected, not stored", () => {
-  const brief = parseExtractedBrief({
-    stage: "series-b",
-    businessModel: "crypto",
-    targetUser: "everyone",
-  })
-  assert.equal(brief.stage, null)
-  assert.equal(brief.businessModel, null)
-  assert.equal(brief.targetUser, null)
+test("chip values outside the vocabulary are dropped", () => {
+  const scope = parseExtractedScope(
+    { ask: "a quick sale", objections: ["Price", "Vendor fatigue"] },
+    FIELDS
+  )
+  assert.deepEqual(scope, { objections: ["Price"] })
 })
 
-test("option matching is case- and whitespace-insensitive", () => {
-  const brief = parseExtractedBrief({ stage: " Idea ", targetUser: "MIDMARKET-LEADERS" })
-  assert.equal(brief.stage, "idea")
-  assert.equal(brief.targetUser, "midmarket-leaders")
+test("free text is clamped to the field limit", () => {
+  const scope = parseExtractedScope({ offering: "x".repeat(200) }, FIELDS)
+  assert.equal((scope.offering as string).length, 60)
 })
 
-test("whitespace-only free text is a gap; overlong text is truncated", () => {
-  const brief = parseExtractedBrief({
-    whyNow: "   ",
-    description: "x".repeat(700),
-  })
-  assert.equal(brief.whyNow, null)
-  assert.ok(brief.description!.length <= 600)
-  assert.ok(brief.description!.endsWith("…"))
-})
-
-test("garbage input yields an all-gaps extraction", () => {
-  assert.deepEqual(parseExtractedBrief("not an object").ideaName, null)
-  assert.deepEqual(parseExtractedBrief(undefined).stage, null)
+test("garbage input yields an empty scope", () => {
+  assert.deepEqual(parseExtractedScope(null, FIELDS), {})
+  assert.deepEqual(parseExtractedScope({ offering: 42, objections: "Price" }, FIELDS), {})
 })

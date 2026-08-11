@@ -2,17 +2,18 @@ import { useEffect, useRef } from "react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { formatElapsed } from "@/lib/utils"
 
-// Marker glyph + color per orchestrator note type. Meaning is carried by
-// glyph and sr-only label, never color alone.
+// Two markers only, matching the debrief's held-up/didn't split these
+// notes feed: ✓ green (landed) and ? amber (flag). The sr-only label
+// keeps the specific note type; color never carries meaning alone.
 const NOTE_MARKERS: Record<string, { glyph: string; className: string; label: string }> = {
   strong_answer: { glyph: "✓", className: "text-ok-fg", label: "Strong answer" },
-  weak_assumption: { glyph: "⚠", className: "text-amber-fg", label: "Weak assumption" },
-  objection: { glyph: "✕", className: "text-red-fg", label: "Objection" },
+  weak_assumption: { glyph: "?", className: "text-amber-fg", label: "Weak assumption" },
+  objection: { glyph: "?", className: "text-amber-fg", label: "Objection" },
   follow_up: { glyph: "?", className: "text-amber-fg", label: "Follow-up" },
-  event: { glyph: "→", className: "text-on-surface-2", label: "Event" },
+  event: { glyph: "?", className: "text-amber-fg", label: "Event" },
 }
 
-const FALLBACK_MARKER = { glyph: "·", className: "text-on-surface-2", label: "Note" }
+const FALLBACK_MARKER = { glyph: "?", className: "text-amber-fg", label: "Note" }
 
 type Note = {
   type: string

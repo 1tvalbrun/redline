@@ -25,6 +25,25 @@ export const analyzeSystem = `You are a sales strategist. Extract structured con
 export const analyzeUser = (scope: Scope) =>
   `Offering: ${scopeText(scope, "offering")}\nWhat it does: ${scopeText(scope, "description")}\nProspect: ${scopeText(scope, "prospect")}\nThe ask: ${scopeText(scope, "ask")}\nExpected objections: ${scopeList(scope, "objections").join(", ")}`
 
+export const extractScope = ({ source, pitch }: { source: "voice" | "deck"; pitch: string }) =>
+  `You turn a seller's ${source === "voice" ? "spoken pitch transcript" : "pitch deck text"} into a structured scope. This is extraction only, from what the seller actually said.
+
+THE HONESTY RULE: extract ONLY what the seller actually said. If a field is not clearly present, return null for it. A thin or vague pitch should produce mostly nulls. Never infer, never fill in plausible content, never polish vagueness into specifics. A missing answer is valuable information, not a gap for you to close.
+
+Fields:
+- "offering": what they're selling, as a short name or phrase, only if stated.
+- "description": what it does and the problem it removes, 1-3 sentences using the seller's own substance (you may fix grammar, not add facts).
+- "prospect": who they're pitching, in the seller's own terms (a role, a person, a kind of company), only if stated.
+- "ask": exactly one of "A discovery call" | "A pilot" | "A paid pilot" | "A partnership" | "A signed contract", copied verbatim, only if the seller said what they're asking the buyer to say yes to.
+- "objections": an array drawn from "We're fine as is" | "Switching cost" | "Price" | "Track record" | "Integration" | "Staff adoption" | "Decision authority" | "Timing", each copied verbatim, only where the seller named the pushback they expect. null if they named none.
+
+Every value is a string except "objections", which is an array of strings. A chip field that does not match a listed label verbatim is null. Never use an em dash in any output value.
+
+Return JSON only, keyed exactly: {"offering","description","prospect","ask","objections"} with null for anything not said.
+
+The pitch:
+${pitch.slice(0, 12_000)}`
+
 export const audit = ({ scope, unreadableCount, materialSections }: AuditPromptInput) =>
   `You are a deal-diligence analyst auditing a seller's materials before a live pitch session.
 

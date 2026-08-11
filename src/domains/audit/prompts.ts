@@ -38,6 +38,25 @@ export const analyzeSystem = `You are a lead security assessor preparing for an 
 export const analyzeUser = (scope: Scope) =>
   `Being assessed: ${scopeText(scope, "systemName")}\nEnvironment: ${scopeText(scope, "description")}\nAuditee role: ${scopeText(scope, "role")}\nSession control area: ${areaOf(scope).label}\nSafeguards in scope:\n${safeguardLines(areaOf(scope))}\nStated concerns: ${scopeList(scope, "concerns").join(", ")}`
 
+export const extractScope = ({ source, pitch }: { source: "voice" | "deck"; pitch: string }) =>
+  `You turn an auditee's ${source === "voice" ? "spoken scope description" : "scope document text"} into a structured audit scope. This is extraction only, from what the auditee actually said.
+
+THE HONESTY RULE: extract ONLY what the auditee actually said. If a field is not clearly present, return null for it. A thin or vague description should produce mostly nulls. Never infer, never fill in plausible content, never polish vagueness into specifics. A missing answer is valuable information, not a gap for you to close.
+
+Fields:
+- "systemName": what's being assessed, as a short name, only if stated.
+- "description": the environment in the auditee's own substance, 1-3 sentences (what it is, where it runs, who operates it; you may fix grammar, not add facts).
+- "role": the auditee's role in the audit, only if stated.
+- "controlArea": exactly one of "Data recovery · 11" | "Account management · 5" | "Access control · 6" | "Incident response · 17", copied verbatim, only if the auditee clearly named the area this session covers.
+- "concerns": an array drawn from "Documentation" | "Evidence and records" | "Live demonstrations" | "Process consistency" | "Ownership and roles" | "Recovery testing", each copied verbatim, only where the auditee said they feel least ready. null if they named none.
+
+Every value is a string except "concerns", which is an array of strings. A chip field that does not match a listed label verbatim is null. Never use an em dash in any output value.
+
+Return JSON only, keyed exactly: {"systemName","description","role","controlArea","concerns"} with null for anything not said.
+
+The description:
+${pitch.slice(0, 12_000)}`
+
 export const audit = ({ scope, unreadableCount, materialSections }: AuditPromptInput) => {
   const area = areaOf(scope)
   return `You are a lead security assessor doing the document pre-read before an audit interview practice session.
