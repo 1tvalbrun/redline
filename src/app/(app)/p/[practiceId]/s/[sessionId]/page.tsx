@@ -282,6 +282,28 @@ const SessionPage = ({
                   ))}
                 </>
               )}
+
+              {(debrief.verifyItems ?? []).length > 0 && (
+                <>
+                  <div className="mb-1.5 mt-5 flex items-center gap-2">
+                    <span className="grid h-[17px] w-[17px] place-items-center rounded-[5px] bg-accent-bg text-[10px] font-bold text-accent-blue">
+                      !
+                    </span>
+                    <p className="text-xs font-semibold tracking-[.02em]">
+                      Verify before the real thing
+                    </p>
+                  </div>
+                  <p className="mb-1 text-xs leading-normal text-on-surface-3">
+                    Not weak answers — facts your interviewer couldn&apos;t vouch for. Check
+                    them with an official source.
+                  </p>
+                  {(debrief.verifyItems ?? []).map((item, i) => (
+                    <div key={i} className="border-t border-line py-2.5 first:border-t-0">
+                      <p className="text-[13px] leading-normal text-on-surface-2">{item.text}</p>
+                    </div>
+                  ))}
+                </>
+              )}
             </aside>
           </div>
 

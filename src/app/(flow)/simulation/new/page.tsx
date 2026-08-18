@@ -102,7 +102,7 @@ const NewPracticePage = ({
   }
 
   return (
-    <FlowShell stage="brief" fullBleed>
+    <FlowShell stage="brief" packId={pack.id} fullBleed>
       <div className="flex h-full min-h-0 flex-col px-10 pt-7 max-md:px-5">
       {lanes.length > 1 && !prefilled && (
         <nav aria-label="Practice lane" className="mb-7 flex flex-none justify-center gap-2">

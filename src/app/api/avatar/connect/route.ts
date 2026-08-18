@@ -44,6 +44,7 @@ const authorizeSession = async (
         audit: practice.audit
           ? { claims: practice.audit.claims, gaps: practice.audit.gaps }
           : null,
+        blueprint: practice.blueprint ?? null,
         continuity: practice.continuity ?? null,
         transcript: session.transcript,
       }),

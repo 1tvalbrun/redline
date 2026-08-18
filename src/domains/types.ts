@@ -1,4 +1,5 @@
 import type { Claim, Gap } from "../lib/audit.ts"
+import type { Blueprint } from "../lib/blueprint.ts"
 
 // The engine/pack contract. The engine (Convex actions, the connect route,
 // the flow UI) is domain-blind and pulls everything domain-flavored from a
@@ -100,6 +101,8 @@ export type Continuity = {
 export type BriefingInput = {
   scope: Scope
   audit: { claims: Claim[]; gaps: Gap[] } | null
+  // The interview lane's prep artifact; other lanes never receive one.
+  blueprint?: Blueprint | null
   continuity: Continuity | null
   transcript: { text: string; type: "user" | "panelist"; timestamp: number; spokenAt?: number }[]
 }
@@ -153,6 +156,8 @@ export type OrchestratePromptInput = {
   characterRole: string
   characterTone: string
   scope: Scope
+  // Blueprint theme titles, for lanes that track prepared-theme coverage.
+  themes?: string[] | null
 }
 
 export type DebriefPromptInput = {
@@ -170,6 +175,12 @@ export type DebriefPromptInput = {
     open: string[]
     delivered: string[]
   } | null
+  // The prep blueprint's sealed rubric and verify topics, so feedback traces
+  // to pre-declared criteria. Null for lanes without a blueprint.
+  blueprint?: {
+    rubric: { theme: string; strong: string; weak: string }[]
+    verifyTopics: string[]
+  } | null
 }
 
 // Stage copy the flow UI renders. Waiting rows carry anticipatory copy
@@ -184,6 +195,43 @@ export type StageWaitCopy = {
   work: string[]
   ticker: string[]
   stepMs: number
+}
+
+export type BlueprintPromptInput = {
+  scope: Scope
+  unreadableCount: number
+  materialSections: string
+}
+
+export type BlueprintRefineInput = {
+  scope: Scope
+  blueprint: Blueprint
+  removedThemes: string[]
+  redirectNote: string
+}
+
+export type PrepStageCopy = {
+  kicker: string
+  readyHeading: string
+  readyLead: string
+  cta: string
+}
+
+export type AuditPrep = {
+  kind: "audit"
+  stepLabel: string
+  prompt: (input: AuditPromptInput) => string
+  wait: StageWaitCopy
+  copy: PrepStageCopy & { zeroClaims: string }
+}
+
+export type BlueprintPrep = {
+  kind: "blueprint"
+  stepLabel: string
+  prompt: (input: BlueprintPromptInput) => string
+  refine: (input: BlueprintRefineInput) => string
+  wait: StageWaitCopy
+  copy: PrepStageCopy
 }
 
 // One row of the typed form's live-preview rail: which scope field it
@@ -208,14 +256,6 @@ export type PackCopy = {
     footer: string
   }
   readWait: StageWaitCopy
-  auditWait: StageWaitCopy
-  audit: {
-    kicker: string
-    readyHeading: string
-    readyLead: string
-    zeroClaims: string
-    cta: string
-  }
   panel: {
     kicker: string
     heading: string
@@ -252,6 +292,18 @@ export type DomainPack = {
   // produce", then evidence, then the interview. Only packs with a
   // pre-declared evidence model define it.
   evidenceRequests?: (scope: Scope) => { title: string; items: string[] }[]
+  // The middle stage between the read and the panel, discriminated so an
+  // interview pack cannot carry a dangling audit prompt and an audit pack
+  // cannot omit one. stepLabel names the beat in the flow rail.
+  prep: AuditPrep | BlueprintPrep
+  // Scope key whose value labels the session in the room header and panel
+  // card ("Session 4 · CourtTime · Data recovery"). Absent means the lane
+  // has no per-session focus; the shortLabel shows instead.
+  sessionMetaField?: string
+  // Pack-supplied persona recommendation, consulted after "you faced them
+  // last time" and before the generic focusAreas heuristic. Null means no
+  // opinion.
+  recommendPersona?: (scope: Scope) => { personaId: string; reason: string } | null
   copy: PackCopy
   personas: Persona[]
   // Session-personality preamble rules and the per-session briefing builder,
@@ -263,7 +315,6 @@ export type DomainPack = {
     analyzeUser: (scope: Scope) => string
     // Voice/deck pitch extraction; only packs with a spoken intake have one.
     extractBrief?: (input: { source: "voice" | "deck"; pitch: string }) => string
-    audit: (input: AuditPromptInput) => string
     orchestrate: (input: OrchestratePromptInput) => string
     debrief: (input: DebriefPromptInput) => string
     // Spoken pitch → this pack's scope fields, extraction-only (never

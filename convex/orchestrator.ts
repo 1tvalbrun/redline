@@ -61,6 +61,7 @@ export const decide = action({
             characterRole: persona.role,
             characterTone: persona.tone,
             scope: practice.scope,
+            themes: practice.blueprint?.themes.map((theme) => theme.title) ?? null,
           }),
         },
         { role: "user", content: `Recent conversation:\n${recent}` },

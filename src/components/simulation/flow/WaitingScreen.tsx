@@ -60,7 +60,7 @@ type WaitingScreenProps = WaitingContent & {
 }
 
 // The shared Read/Audit waiting mechanic; all copy arrives from the pack
-// (pack.copy.readWait / auditWait). Rows carry anticipatory copy about
+// (pack.copy.readWait / pack.prep.wait). Rows carry anticipatory copy about
 // what's being examined — never extracted values or counts; the real
 // findings live on the next screen. Callers unmount it the moment the real
 // operation finishes (never make the user wait out the animation); if the

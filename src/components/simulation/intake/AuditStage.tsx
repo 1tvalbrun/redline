@@ -89,7 +89,9 @@ export const AuditStage = ({ simulationId }: AuditStageProps) => {
   if (practice === undefined) return null
   if (practice === null) return <IdeaNotFound />
   const pack = getPack(practice.packId)
-  const copy = pack.copy.audit
+  const prep = pack.prep
+  if (prep.kind !== "audit") return null
+  const copy = prep.copy
   if (!practice.context) {
     return (
       <p className="text-[13.5px] text-on-surface-2">
@@ -129,13 +131,13 @@ export const AuditStage = ({ simulationId }: AuditStageProps) => {
           </>
         ) : (
           <WaitingScreen
-            kicker={pack.copy.auditWait.kicker}
-            heading={pack.copy.auditWait.heading(scopeText(practice.scope, pack.subjectField))}
-            lead={pack.copy.auditWait.lead}
-            rows={pack.copy.auditWait.rows}
-            work={pack.copy.auditWait.work}
-            ticker={pack.copy.auditWait.ticker}
-            stepMs={pack.copy.auditWait.stepMs}
+            kicker={prep.wait.kicker}
+            heading={prep.wait.heading(scopeText(practice.scope, pack.subjectField))}
+            lead={prep.wait.lead}
+            rows={prep.wait.rows}
+            work={prep.wait.work}
+            ticker={prep.wait.ticker}
+            stepMs={prep.wait.stepMs}
           />
         )}
       </div>

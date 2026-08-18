@@ -17,9 +17,12 @@ const RoomPage = ({ params }: { params: Promise<{ id: string }> }) => {
   // "Session 4 · CourtTime production · Data recovery" — the live session
   // is the newest, so its number is the total count. The third segment is
   // the session's focus where the lane has one (audit's control area).
-  const focus = practice
-    ? scopeText(practice.scope, "controlArea") || getPack(practice.packId).shortLabel
-    : null
+  const pack = practice ? getPack(practice.packId) : null
+  const focus =
+    practice && pack
+      ? (pack.sessionMetaField ? scopeText(practice.scope, pack.sessionMetaField) : "") ||
+        pack.shortLabel
+      : null
   const meta =
     practice && sessions?.length ? (
       <p className="font-mono text-[11px] uppercase tracking-[.04em] text-on-surface-3">
