@@ -23,6 +23,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { ThemeToggle } from "@/components/shared/ThemeToggle"
 import { LogoMark } from "@/components/shared/LogoMark"
+import { BrandName } from "@/components/shared/BrandName"
 import { useAutoHideScrollbar } from "@/components/shared/useAutoHideScrollbar"
 import { useClerkAppearance } from "@/components/shared/useClerkAppearance"
 
@@ -305,7 +306,9 @@ export const AppRail = () => {
     <aside className="flex w-[264px] flex-none flex-col border-r border-line bg-surface-rail px-3.5 pb-3.5 pt-5">
       <Link href="/" className="focus-ring flex items-center gap-2.5 px-2.5 pb-5 pt-0.5">
         <LogoMark />
-        <span className="text-[15px] font-semibold tracking-[-.01em]">Prestage</span>
+        <span className="text-[15px] font-semibold tracking-[-.01em]">
+          <BrandName />
+        </span>
       </Link>
 
       <Link

@@ -10,6 +10,7 @@ import { Id } from "@convex/_generated/dataModel"
 import { getPack } from "@/domains/registry"
 import { cn } from "@/lib/utils"
 import { LogoMark } from "@/components/shared/LogoMark"
+import { BrandName } from "@/components/shared/BrandName"
 import { BTN_SECONDARY } from "@/components/shared/buttons"
 import {
   AlertDialog,
@@ -101,7 +102,9 @@ export const FlowShell = ({
       <header className="flex flex-none items-center gap-[26px] border-b border-line bg-surface-rail px-6 py-3.5">
         <Link href="/" className="focus-ring flex items-center gap-2">
           <LogoMark size="sm" />
-          <span className="text-sm font-semibold">Prestage</span>
+          <span className="text-sm font-semibold">
+            <BrandName />
+          </span>
         </Link>
 
         {centerSlot ? (
