@@ -9,6 +9,7 @@
  */
 
 import type * as avatars from "../avatars.js";
+import type * as blueprints from "../blueprints.js";
 import type * as guard from "../guard.js";
 import type * as ingest from "../ingest.js";
 import type * as materials from "../materials.js";
@@ -25,6 +26,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   avatars: typeof avatars;
+  blueprints: typeof blueprints;
   guard: typeof guard;
   ingest: typeof ingest;
   materials: typeof materials;

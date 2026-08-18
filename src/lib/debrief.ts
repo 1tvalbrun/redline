@@ -14,6 +14,9 @@ export type DebriefContent = {
   whatHappened: string
   heldUp: { quote: string; why: string }[]
   didntHold: { text: string; ref?: string }[]
+  // "Verify with an official source" items — the interviewer couldn't vouch
+  // for a regulated fact. Distinct from didntHold (a weak answer).
+  verifyItems: { text: string }[]
   continuity: {
     summary: string
     actionItems: { text: string; priority: DebriefPriority }[]
@@ -46,6 +49,8 @@ const GAP_CHARS = 300
 const REF_CHARS = 40
 const MAX_HELD_UP = 3
 const MAX_DIDNT_HOLD = 4
+const VERIFY_CHARS = 200
+const MAX_VERIFY_ITEMS = 4
 const CONTINUITY_SUMMARY_CHARS = 1200
 const ACTION_ITEM_CHARS = 120
 const MAX_ACTION_ITEMS = 5
@@ -124,6 +129,14 @@ export const parseDebrief = (raw: unknown, options: ParseDebriefOptions): Debrie
       return [{ text: clamp(text, GAP_CHARS), ...(ref ? { ref: clamp(ref, REF_CHARS) } : {}) }]
     })
 
+  const verifyRaw = field(raw, "verifyItems")
+  const verifyItems = (Array.isArray(verifyRaw) ? verifyRaw : [])
+    .slice(0, MAX_VERIFY_ITEMS)
+    .flatMap((entry) => {
+      const text = asString(field(entry, "text"))
+      return text ? [{ text: clamp(text, VERIFY_CHARS) }] : []
+    })
+
   const continuityRaw = field(raw, "continuity")
   const actionItemsRaw = field(continuityRaw, "actionItems")
   const candidates = Array.isArray(actionItemsRaw) ? actionItemsRaw : []
@@ -159,6 +172,7 @@ export const parseDebrief = (raw: unknown, options: ParseDebriefOptions): Debrie
     whatHappened: clamp(asString(field(raw, "whatHappened")) ?? "", HAPPENED_CHARS),
     heldUp: groundedHeldUp(field(raw, "heldUp"), options.userTurns),
     didntHold,
+    verifyItems,
     continuity: {
       summary: clamp(asString(field(continuityRaw, "summary")) ?? "", CONTINUITY_SUMMARY_CHARS),
       actionItems,

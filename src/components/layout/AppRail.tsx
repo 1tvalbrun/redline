@@ -20,6 +20,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { ThemeToggle } from "@/components/shared/ThemeToggle"
 import { LogoMark } from "@/components/shared/LogoMark"
 import { useAutoHideScrollbar } from "@/components/shared/useAutoHideScrollbar"
@@ -66,7 +67,9 @@ const Thread = ({
   removing: boolean
   onTogglePin: () => void
   onDelete: () => void
-}) => (
+}) => {
+  const todos = `${practice.openItems} todo${practice.openItems === 1 ? "" : "s"}`
+  return (
   <li
     className={cn(
       "grid transition-[grid-template-rows,opacity] duration-300 ease-in-out motion-reduce:transition-none",
@@ -89,16 +92,29 @@ const Thread = ({
         >
           <span className="flex-1 truncate">{practice.name}</span>
           {practice.openItems > 0 ? (
-            <span className="grid h-5 min-w-5 place-items-center rounded-full bg-surface-3 px-1.5 text-[11px] font-medium tabular-nums text-on-surface-3">
-              {practice.openItems}
-            </span>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <span className="grid h-5 min-w-5 place-items-center rounded-full bg-surface-3 px-1.5 text-[11px] font-medium tabular-nums text-on-surface-3" />
+                }
+              >
+                <span aria-hidden="true">{practice.openItems}</span>
+                <span className="sr-only">{todos}</span>
+              </TooltipTrigger>
+              <TooltipContent>{todos}</TooltipContent>
+            </Tooltip>
           ) : practice.hasActionItems ? (
-            <span
-              aria-hidden="true"
-              className="grid h-5 min-w-5 place-items-center rounded-full bg-surface-3 px-1.5 text-on-surface-3"
-            >
-              <Check className="size-3" strokeWidth={2.5} />
-            </span>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <span className="grid h-5 min-w-5 place-items-center rounded-full bg-surface-3 px-1.5 text-on-surface-3" />
+                }
+              >
+                <Check className="size-3" strokeWidth={2.5} />
+                <span className="sr-only">Todos done</span>
+              </TooltipTrigger>
+              <TooltipContent>Todos done</TooltipContent>
+            </Tooltip>
           ) : null}
         </Link>
         <button
@@ -124,7 +140,8 @@ const Thread = ({
       </div>
     </div>
   </li>
-)
+  )
+}
 
 // practices === undefined means the query hasn't resolved — render the lane
 // head alone rather than a false "Nothing yet".

@@ -87,6 +87,47 @@ export const auditPack: DomainPack = {
       items: safeguard.evidence,
     }))
   },
+  prep: {
+    kind: "audit",
+    stepLabel: "Pre-read",
+    prompt: audit,
+    wait: {
+      kicker: "The pre-read · before the interview",
+      heading: (subject) => `Reading ${subject} against the safeguards in scope.`,
+      lead: "We check what your documents establish, and note everything an assessor will ask to see.",
+      rows: [
+        { label: "Claims", text: "Finding what your documents establish…" },
+        { label: "Citations", text: "Tracing each one back to a page…" },
+        { label: "Evidence", text: "Checking what's actually on record…" },
+        { label: "Omissions", text: "Finding what an assessor expects and can't see…" },
+        { label: "Severity", text: "Sorting session-stallers from soft spots…" },
+        { label: "Coverage", text: "Weighing process, evidence, command, cadence…" },
+      ],
+      work: [
+        "Reading your documents",
+        "Extracting established claims",
+        "Verifying each against a source",
+        "Assembling the gap map",
+        "Mapping the pressure points",
+      ],
+      ticker: [
+        "Every claim has to trace to a source.",
+        "If it can't be cited, it becomes a gap.",
+        "Gaps are what the assessor asks to see first.",
+        "This is the read before a single question.",
+      ],
+      stepMs: 2000,
+    },
+    copy: {
+      kicker: "The pre-read · before the interview",
+      readyHeading: "Here's what your documents establish, and what's missing.",
+      readyLead:
+        "Read straight from your materials before a single question. Every gap below is something a real assessor will ask to see. The tough ones come up first.",
+      zeroClaims: "That's the finding: the assessor will treat everything as undocumented.",
+      cta: "Into the interview",
+    },
+  },
+  sessionMetaField: "controlArea",
   copy: {
     tellIt: {
       heading: "What are you preparing for?",
@@ -138,41 +179,6 @@ export const auditPack: DomainPack = {
       ],
       stepMs: 1250,
     },
-    auditWait: {
-      kicker: "The pre-read · before the interview",
-      heading: (subject) => `Reading ${subject} against the safeguards in scope.`,
-      lead: "We check what your documents establish, and note everything an assessor will ask to see.",
-      rows: [
-        { label: "Claims", text: "Finding what your documents establish…" },
-        { label: "Citations", text: "Tracing each one back to a page…" },
-        { label: "Evidence", text: "Checking what's actually on record…" },
-        { label: "Omissions", text: "Finding what an assessor expects and can't see…" },
-        { label: "Severity", text: "Sorting session-stallers from soft spots…" },
-        { label: "Coverage", text: "Weighing process, evidence, command, cadence…" },
-      ],
-      work: [
-        "Reading your documents",
-        "Extracting established claims",
-        "Verifying each against a source",
-        "Assembling the gap map",
-        "Mapping the pressure points",
-      ],
-      ticker: [
-        "Every claim has to trace to a source.",
-        "If it can't be cited, it becomes a gap.",
-        "Gaps are what the assessor asks to see first.",
-        "This is the read before a single question.",
-      ],
-      stepMs: 2000,
-    },
-    audit: {
-      kicker: "The pre-read · before the interview",
-      readyHeading: "Here's what your documents establish, and what's missing.",
-      readyLead:
-        "Read straight from your materials before a single question. Every gap below is something a real assessor will ask to see. The tough ones come up first.",
-      zeroClaims: "That's the finding: the assessor will treat everything as undocumented.",
-      cta: "Into the interview",
-    },
     panel: {
       kicker: "Meet your assessor",
       heading: "Who's across the table?",
@@ -188,5 +194,5 @@ export const auditPack: DomainPack = {
   personas: ASSESSOR_PERSONAS,
   turnTaking,
   briefing: buildRoomBriefing,
-  prompts: { analyzeSystem, analyzeUser, audit, orchestrate, debrief, extractScope },
+  prompts: { analyzeSystem, analyzeUser, orchestrate, debrief, extractScope },
 }

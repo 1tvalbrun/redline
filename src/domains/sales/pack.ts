@@ -78,6 +78,46 @@ export const salesPack: DomainPack = {
     ],
     fallback: "second-meeting",
   },
+  prep: {
+    kind: "audit",
+    stepLabel: "Pre-read",
+    prompt: audit,
+    wait: {
+      kicker: "The audit · before the buyer pushes",
+      heading: (subject) => `Reading ${subject} the way a buyer would.`,
+      lead: "We check every claim for backing, and note everything a skeptical buyer will ask for.",
+      rows: [
+        { label: "Claims", text: "Pulling out every claim you've made…" },
+        { label: "Citations", text: "Tracing each one back to a page…" },
+        { label: "Evidence", text: "Checking what's actually backed…" },
+        { label: "Omissions", text: "Finding what a buyer expects and can't see…" },
+        { label: "Severity", text: "Sorting deal-stallers from soft spots…" },
+        { label: "Coverage", text: "Weighing value, fit, objections, the close…" },
+      ],
+      work: [
+        "Reading your materials",
+        "Extracting stated claims",
+        "Verifying each against a source",
+        "Assembling the gap map",
+        "Mapping the pressure points",
+      ],
+      ticker: [
+        "Every claim has to trace to a source.",
+        "If it can't be cited, it becomes a gap.",
+        "Gaps are what the buyer presses on first.",
+        "This is the read before a single question.",
+      ],
+      stepMs: 2000,
+    },
+    copy: {
+      kicker: "The audit · before the buyer pushes",
+      readyHeading: "Here's what we found, and what's missing.",
+      readyLead:
+        "Read straight from your materials before a single question. Every gap below is something a real buyer will find. The tough ones come up first.",
+      zeroClaims: "That's the finding: the buyer will treat everything as unproven.",
+      cta: "Take it to the buyer",
+    },
+  },
   copy: {
     tellIt: {
       heading: "What are you selling?",
@@ -131,41 +171,6 @@ export const salesPack: DomainPack = {
       ],
       stepMs: 1250,
     },
-    auditWait: {
-      kicker: "The audit · before the buyer pushes",
-      heading: (subject) => `Reading ${subject} the way a buyer would.`,
-      lead: "We check every claim for backing, and note everything a skeptical buyer will ask for.",
-      rows: [
-        { label: "Claims", text: "Pulling out every claim you've made…" },
-        { label: "Citations", text: "Tracing each one back to a page…" },
-        { label: "Evidence", text: "Checking what's actually backed…" },
-        { label: "Omissions", text: "Finding what a buyer expects and can't see…" },
-        { label: "Severity", text: "Sorting deal-stallers from soft spots…" },
-        { label: "Coverage", text: "Weighing value, fit, objections, the close…" },
-      ],
-      work: [
-        "Reading your materials",
-        "Extracting stated claims",
-        "Verifying each against a source",
-        "Assembling the gap map",
-        "Mapping the pressure points",
-      ],
-      ticker: [
-        "Every claim has to trace to a source.",
-        "If it can't be cited, it becomes a gap.",
-        "Gaps are what the buyer presses on first.",
-        "This is the read before a single question.",
-      ],
-      stepMs: 2000,
-    },
-    audit: {
-      kicker: "The audit · before the buyer pushes",
-      readyHeading: "Here's what we found, and what's missing.",
-      readyLead:
-        "Read straight from your materials before a single question. Every gap below is something a real buyer will find. The tough ones come up first.",
-      zeroClaims: "That's the finding: the buyer will treat everything as unproven.",
-      cta: "Take it to the buyer",
-    },
     panel: {
       kicker: "Meet your buyer",
       heading: "Who's across the table?",
@@ -181,5 +186,5 @@ export const salesPack: DomainPack = {
   personas: BUYER_PERSONAS,
   turnTaking,
   briefing: buildRoomBriefing,
-  prompts: { analyzeSystem, analyzeUser, audit, orchestrate, debrief, extractScope },
+  prompts: { analyzeSystem, analyzeUser, orchestrate, debrief, extractScope },
 }

@@ -308,6 +308,12 @@ export const generateDebrief = action({
                     .map((item) => item.text),
                 }
               : null,
+            blueprint: practice.blueprint
+              ? {
+                  rubric: practice.blueprint.rubric,
+                  verifyTopics: practice.blueprint.verifyTopics,
+                }
+              : null,
           }),
         },
       ],
@@ -340,6 +346,7 @@ export const generateDebrief = action({
         whatHappened: parsed.whatHappened,
         heldUp: parsed.heldUp,
         didntHold: parsed.didntHold,
+        ...(parsed.verifyItems.length > 0 ? { verifyItems: parsed.verifyItems } : {}),
       },
     })
 

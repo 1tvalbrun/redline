@@ -136,3 +136,44 @@ test("didntHold entries without ref omit it", () => {
   )
   assert.deepEqual(result.didntHold, [{ text: "No pricing answer." }])
 })
+
+test("verifyItems are accepted, capped at 4, and clamped", () => {
+  const parsed = parseDebrief(
+    {
+      verdict: { decision: "second-meeting", summary: "s" },
+      verifyItems: [
+        { text: "Confirm Georgia licensing requirements with the state board" },
+        { text: "x".repeat(400) },
+        { text: "third" },
+        { text: "fourth" },
+        { text: "fifth never survives the cap" },
+        "junk entry",
+      ],
+    },
+    {
+      verdictValues: ["buy", "second-meeting", "walk"],
+      fallbackVerdict: "second-meeting",
+      lowestVerdict: "walk",
+      userTurns: ["enough words to clear the participation floor ".repeat(3)],
+    }
+  )
+  assert.equal(parsed.verifyItems.length, 4)
+  assert.equal(
+    parsed.verifyItems[0].text,
+    "Confirm Georgia licensing requirements with the state board"
+  )
+  assert.equal(parsed.verifyItems[1].text.length, 200)
+})
+
+test("a debrief without verifyItems parses to an empty list", () => {
+  const parsed = parseDebrief(
+    { verdict: { decision: "walk", summary: "s" } },
+    {
+      verdictValues: ["buy", "second-meeting", "walk"],
+      fallbackVerdict: "second-meeting",
+      lowestVerdict: "walk",
+      userTurns: ["enough words to clear the participation floor ".repeat(3)],
+    }
+  )
+  assert.deepEqual(parsed.verifyItems, [])
+})

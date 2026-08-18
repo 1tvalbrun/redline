@@ -1,6 +1,7 @@
 import { defineSchema, defineTable } from "convex/server"
 import { v, type Infer } from "convex/values"
 import { claimValidator, gapValidator } from "../src/lib/audit"
+import { blueprintValidator } from "../src/lib/blueprint"
 
 // Closed vocabularies the schema enforces so the database — not just the
 // code sets that sanitize model output — rejects the value nothing
@@ -62,6 +63,10 @@ export const debriefValidator = v.object({
   whatHappened: v.string(),
   heldUp: v.array(v.object({ quote: v.string(), why: v.string() })),
   didntHold: v.array(v.object({ text: v.string(), ref: v.optional(v.string()) })),
+  // Present only when the session touched regulated territory the
+  // interviewer could not vouch for. Optional: existing debriefs without
+  // the field remain valid — no migration.
+  verifyItems: v.optional(v.array(v.object({ text: v.string() }))),
 })
 
 export default defineSchema({
@@ -118,6 +123,12 @@ export default defineSchema({
         failureReason: v.optional(v.string()),
       })
     ),
+    // The interview lane's prep artifact: themes and clarifying questions
+    // are shown to the user; questionPlan and rubric are sealed (stored
+    // here, never rendered client-side). Only blueprint-prep lanes write
+    // it. Ownership and fail-closed reads are inherited from the practice
+    // document — no new tables, no new indexes.
+    blueprint: v.optional(blueprintValidator),
     continuity: v.optional(continuityValidator),
   }).index("by_user", ["userId"]),
 

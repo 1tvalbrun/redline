@@ -411,6 +411,16 @@ export const auditInputs = internalQuery({
   },
 })
 
+// Which prep stage this practice's lane runs — lets the scheduler and the
+// audit pipeline stay off blueprint-lane practices (and vice versa).
+export const prepKind = internalQuery({
+  args: { id: v.id("practices") },
+  handler: async (ctx, args) => {
+    const practice = await ctx.db.get(args.id)
+    return practice ? getPack(practice.packId).prep.kind : null
+  },
+})
+
 export const setAuditOutcome = internalMutation({
   args: {
     id: v.id("practices"),
@@ -451,6 +461,11 @@ const generateAudit = async (
   const settled = await ctx.runQuery(internal.materials.allSettled, { practiceId: args.id })
   if (!settled) return
 
+  // A blueprint-pack practice must never grow an audit field — the claim
+  // itself would write one.
+  const kind = await ctx.runQuery(internal.practices.prepKind, { id: args.id })
+  if (kind !== "audit") return
+
   const claimed = await ctx.runMutation(internal.practices.claimAudit, {
     id: args.id,
     force: args.force,
@@ -488,13 +503,18 @@ const generateAudit = async (
     const openai = await createOpenAI()
     const model = resolveModel("quality")
     const pack = getPack(practice.packId)
+    if (pack.prep.kind !== "audit") {
+      await fail("This practice doesn't use the audit stage.")
+      return
+    }
+    const auditPrompt = pack.prep.prompt
 
     const response = await openai.chat.completions.create({
       model,
       messages: [
         {
           role: "system",
-          content: pack.prompts.audit({
+          content: auditPrompt({
             scope: practice.scope,
             unreadableCount,
             materialSections,

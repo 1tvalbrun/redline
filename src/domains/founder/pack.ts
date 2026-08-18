@@ -93,6 +93,46 @@ export const founderPack: DomainPack = {
     ],
     fallback: "iterate",
   },
+  prep: {
+    kind: "audit",
+    stepLabel: "Pre-read",
+    prompt: audit,
+    wait: {
+      kicker: "The audit · before the panel pushes",
+      heading: (subject) => `Reading ${subject} against a diligence framework.`,
+      lead: "We check every claim for backing, and note everything a real diligencer would ask for.",
+      rows: [
+        { label: "Claims", text: "Pulling out every claim you’ve made…" },
+        { label: "Citations", text: "Tracing each one back to a page…" },
+        { label: "Evidence", text: "Checking what’s actually backed…" },
+        { label: "Omissions", text: "Finding what a diligencer expects and can’t see…" },
+        { label: "Severity", text: "Sorting blockers from gaps…" },
+        { label: "Coverage", text: "Weighing market, customer, technical, go-to-market…" },
+      ],
+      work: [
+        "Reading your materials",
+        "Extracting stated claims",
+        "Verifying each against a source",
+        "Assembling the gap map",
+        "Mapping the pressure points",
+      ],
+      ticker: [
+        "Every claim has to trace to a source.",
+        "If it can’t be cited, it becomes a gap.",
+        "Gaps are what the panel presses on first.",
+        "This is the read before a single question.",
+      ],
+      stepMs: 2000,
+    },
+    copy: {
+      kicker: "The audit · before the panel pushes",
+      readyHeading: "Here's what we found, and what's missing.",
+      readyLead:
+        "Read straight from your materials before a single question. Every gap below is something a real diligencer will find. The panel presses on the red ones first.",
+      zeroClaims: "That's the finding: the panel will treat everything as unproven.",
+      cta: "Take it to the panel",
+    },
+  },
   copy: {
     tellIt: {
       heading: "What are you building?",
@@ -151,41 +191,6 @@ export const founderPack: DomainPack = {
       ],
       stepMs: 1250,
     },
-    auditWait: {
-      kicker: "The audit · before the panel pushes",
-      heading: (subject) => `Reading ${subject} against a diligence framework.`,
-      lead: "We check every claim for backing, and note everything a real diligencer would ask for.",
-      rows: [
-        { label: "Claims", text: "Pulling out every claim you’ve made…" },
-        { label: "Citations", text: "Tracing each one back to a page…" },
-        { label: "Evidence", text: "Checking what’s actually backed…" },
-        { label: "Omissions", text: "Finding what a diligencer expects and can’t see…" },
-        { label: "Severity", text: "Sorting blockers from gaps…" },
-        { label: "Coverage", text: "Weighing market, customer, technical, go-to-market…" },
-      ],
-      work: [
-        "Reading your materials",
-        "Extracting stated claims",
-        "Verifying each against a source",
-        "Assembling the gap map",
-        "Mapping the pressure points",
-      ],
-      ticker: [
-        "Every claim has to trace to a source.",
-        "If it can’t be cited, it becomes a gap.",
-        "Gaps are what the panel presses on first.",
-        "This is the read before a single question.",
-      ],
-      stepMs: 2000,
-    },
-    audit: {
-      kicker: "The audit · before the panel pushes",
-      readyHeading: "Here's what we found, and what's missing.",
-      readyLead:
-        "Read straight from your materials before a single question. Every gap below is something a real diligencer will find. The panel presses on the red ones first.",
-      zeroClaims: "That's the finding: the panel will treat everything as unproven.",
-      cta: "Take it to the panel",
-    },
     panel: {
       kicker: "Choose who to practice with",
       heading: "Who do you want to face first?",
@@ -201,5 +206,5 @@ export const founderPack: DomainPack = {
   personas: PANEL_PERSONAS,
   turnTaking,
   briefing: buildRoomBriefing,
-  prompts: { analyzeSystem, analyzeUser, audit, orchestrate, debrief, extractScope },
+  prompts: { analyzeSystem, analyzeUser, orchestrate, debrief, extractScope },
 }

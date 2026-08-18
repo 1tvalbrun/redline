@@ -4,6 +4,10 @@ import { useEffect, useRef } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { LogOut } from "lucide-react"
+import { useQuery } from "convex/react"
+import { api } from "@convex/_generated/api"
+import { Id } from "@convex/_generated/dataModel"
+import { getPack } from "@/domains/registry"
 import { cn } from "@/lib/utils"
 import { LogoMark } from "@/components/shared/LogoMark"
 import { BTN_SECONDARY } from "@/components/shared/buttons"
@@ -29,15 +33,6 @@ const STAGE_ROUTES: Record<FlowStage, (simulationId: string) => string> = {
   room: (id) => `/simulation/${id}/room`,
 }
 
-// The rail shows four beats: read and audit are one "Pre-read" moment to
-// the user even though they are two routes.
-const DISPLAY_STEPS: { label: string; keys: FlowStage[] }[] = [
-  { label: "Brief", keys: ["brief"] },
-  { label: "Pre-read", keys: ["read", "audit"] },
-  { label: "Panel", keys: ["panel"] },
-  { label: "Room", keys: ["room"] },
-]
-
 export const StageKicker = ({ children }: { children: React.ReactNode }) => (
   <p className="mb-4 flex items-center gap-2 font-mono text-[11px] uppercase tracking-[.09em] text-on-surface-3">
     <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-accent-blue" />
@@ -48,6 +43,9 @@ export const StageKicker = ({ children }: { children: React.ReactNode }) => (
 type FlowShellProps = {
   stage: FlowStage
   simulationId?: string
+  // Names the lane before a practice exists — the brief stage's wizard
+  // knows the lane, the later stages resolve it from the practice.
+  packId?: string
   fullBleed?: boolean
   // The room renders the whole shell on the dark surface.
   dark?: boolean
@@ -62,6 +60,7 @@ type FlowShellProps = {
 export const FlowShell = ({
   stage,
   simulationId,
+  packId,
   fullBleed,
   dark,
   confirmExit,
@@ -70,7 +69,22 @@ export const FlowShell = ({
 }: FlowShellProps) => {
   const router = useRouter()
   const mainRef = useRef<HTMLElement>(null)
-  const currentIndex = DISPLAY_STEPS.findIndex((step) => step.keys.includes(stage))
+  // The middle beat's name comes from the lane ("Pre-read" for audit lanes,
+  // the blueprint label for the interview lane). Resolved from the packId
+  // prop when the caller knows it, else from the practice; the default
+  // covers the frame before either loads.
+  const practice = useQuery(
+    api.practices.get,
+    packId || !simulationId ? "skip" : { id: simulationId as Id<"practices"> }
+  )
+  const pack = packId ? getPack(packId) : practice ? getPack(practice.packId) : null
+  const displaySteps: { label: string; keys: FlowStage[] }[] = [
+    { label: "Brief", keys: ["brief"] },
+    { label: pack?.prep.stepLabel ?? "Pre-read", keys: ["read", "audit"] },
+    { label: "Panel", keys: ["panel"] },
+    { label: "Room", keys: ["room"] },
+  ]
+  const currentIndex = displaySteps.findIndex((step) => step.keys.includes(stage))
 
   useEffect(() => {
     mainRef.current?.focus()
@@ -95,7 +109,7 @@ export const FlowShell = ({
         ) : (
         <nav aria-label="Practice progress" className="flex flex-1 justify-center">
           <ol className="flex items-center">
-            {DISPLAY_STEPS.map((displayStep, i) => {
+            {displaySteps.map((displayStep, i) => {
               const state = i < currentIndex ? "done" : i === currentIndex ? "active" : "upcoming"
               const lastKey = displayStep.keys[displayStep.keys.length - 1]
               const href =
@@ -128,7 +142,7 @@ export const FlowShell = ({
                   ) : (
                     step
                   )}
-                  {i < DISPLAY_STEPS.length - 1 && (
+                  {i < displaySteps.length - 1 && (
                     <span aria-hidden="true" className="mx-2.5 h-px w-[26px] bg-line-2" />
                   )}
                 </li>

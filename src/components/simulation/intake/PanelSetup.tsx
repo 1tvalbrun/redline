@@ -29,6 +29,11 @@ const recommendPersona = (
       return { persona: previous, reason: `You faced ${firstNameOf(previous.name)} last time` }
     }
   }
+  const packPick = pack.recommendPersona?.(scope) ?? null
+  if (packPick) {
+    const persona = pack.personas.find((p) => p.id === packPick.personaId)
+    if (persona) return { persona, reason: packPick.reason }
+  }
   const focus = scopeList(scope, "focusAreas")[0] ?? scopeText(scope, "focusAreas")
   if (focus) {
     const words = focus.toLowerCase().split(/\s+/).filter((word) => word.length > 3)
@@ -54,7 +59,10 @@ const PortraitTile = ({ persona, className }: { persona: Persona; className?: st
       alt={`${persona.name}, ${persona.role}`}
       fill
       sizes="(max-width: 768px) 100vw, 320px"
-      className="object-cover"
+      // Top-anchored crop: portrait-orientation headshots (the interview
+      // cast) keep the face when the wide tile crops their height; the
+      // landscape portraits match the tile ratio and are unaffected.
+      className="object-cover object-top"
     />
     <span className="absolute bottom-2 left-2.5 font-mono text-[10px] font-medium uppercase tracking-[.1em] text-white [text-shadow:0_1px_4px_rgba(0,0,0,.45)]">
       {persona.shortRole}
@@ -236,8 +244,9 @@ export const PanelSetup = ({ simulationId }: PanelSetupProps) => {
             <div className="min-w-0 flex-1">
               <p className="mb-1 text-[10.5px] font-semibold uppercase tracking-[.08em] text-on-surface-3">
                 {pack.shortLabel}
-                {scopeText(practice.scope, "controlArea") &&
-                  ` · ${scopeText(practice.scope, "controlArea")}`}
+                {pack.sessionMetaField &&
+                  scopeText(practice.scope, pack.sessionMetaField) &&
+                  ` · ${scopeText(practice.scope, pack.sessionMetaField)}`}
               </p>
               <p className="text-[19px] font-semibold tracking-[-.015em]">
                 {pack.personas[0].name}
