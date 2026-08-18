@@ -8,6 +8,7 @@ import { ReactNode, useEffect } from "react"
 import { api } from "@convex/_generated/api"
 import { isPublicPath } from "@/lib/routes"
 import { LogoMark } from "@/components/shared/LogoMark"
+import { BrandName } from "@/components/shared/BrandName"
 
 const convex = new ConvexReactClient(process.env.NEXT_PUBLIC_CONVEX_URL!)
 
@@ -15,7 +16,9 @@ const Splash = () => (
   <div className="flex min-h-screen items-center justify-center bg-surface">
     <p className="flex items-center gap-3 text-[28px] font-semibold tracking-[-.02em] text-on-surface">
       <LogoMark size="lg" />
-      Prestage
+      <span>
+        <BrandName />
+      </span>
     </p>
   </div>
 )
