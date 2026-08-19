@@ -9,7 +9,7 @@ import {
 } from "./_generated/server"
 import { api, internal } from "./_generated/api"
 import type { Id } from "./_generated/dataModel"
-import { createOpenAI, resolveModel } from "../src/lib/openai"
+import { createOpenAI, modelSettings } from "../src/lib/openai"
 import { getPack } from "../src/domains/registry"
 import {
   ANSWER_CHARS,
@@ -191,9 +191,9 @@ const generateBlueprint = async (
         : pack.prep.prompt({ scope: practice.scope, ...(await materialInputs(ctx, args.id)) })
 
     const openai = await createOpenAI()
-    const model = resolveModel("quality")
+    const settings = modelSettings("quality")
     const response = await openai.chat.completions.create({
-      model,
+      ...settings,
       messages: [{ role: "system", content: prompt }],
       response_format: { type: "json_object" },
     })
@@ -202,7 +202,7 @@ const generateBlueprint = async (
       userId: practice.userId,
       kind: refinement && current ? "blueprint_refine" : "blueprint",
       practiceId: args.id,
-      model,
+      model: settings.model,
       inputTokens: response.usage?.prompt_tokens,
       outputTokens: response.usage?.completion_tokens,
     })

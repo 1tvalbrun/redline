@@ -127,6 +127,9 @@ export default defineSchema({
     scope: v.record(v.string(), v.union(v.string(), v.array(v.string()))),
     // The shaping extraction, keyed by the pack's contextFields.
     context: v.optional(v.record(v.string(), v.string())),
+    // Claim stamp for the read: concurrent analyze calls inside the TTL
+    // collapse to one paid model call (practices.claimRead).
+    readClaimedAt: v.optional(v.number()),
     // Pre-session evidence audit ("still unproven"). Claims carry citations
     // grounding verified against extracted material text.
     audit: v.optional(
@@ -182,6 +185,10 @@ export default defineSchema({
     // What's being discussed right now (orchestrator-written, ≤5 words) —
     // feeds the room's topic chip.
     currentTopic: v.optional(v.string()),
+    // Debounce stamp: transcript entries arrive in bursts and the
+    // orchestrator reads the last 12 turns anyway, so one look per window
+    // is enough (sessions.claimOrchestrate).
+    lastOrchestratedAt: v.optional(v.number()),
     status: v.union(v.literal("live"), v.literal("concluded")),
     endedAt: v.optional(v.number()),
     debrief: v.optional(debriefValidator),
@@ -194,8 +201,9 @@ export default defineSchema({
   // the call site. costUsd is the cost known at write time (OpenAI tokens,
   // Runway connect fee); avatar minutes are estimated at rollup from
   // session durations (usage.summary). Read only by the internal summary
-  // query — never client-listed. No index yet on purpose: the only reader
-  // scans by _creationTime; quota enforcement adds by_user with its query.
+  // query — never client-listed. by_session_kind backs the per-session
+  // connect cap (usage.claimAvatarConnect); quota enforcement adds by_user
+  // with its query.
   usageEvents: defineTable({
     userId: v.string(),
     practiceId: v.optional(v.id("practices")),
@@ -205,7 +213,7 @@ export default defineSchema({
     inputTokens: v.optional(v.number()),
     outputTokens: v.optional(v.number()),
     costUsd: v.number(),
-  }),
+  }).index("by_session_kind", ["sessionId", "kind"]),
 
   // Extracted text from intake materials, keyed to a practice. Text is
   // consumed by the audit pipeline server-side and never listed back to the

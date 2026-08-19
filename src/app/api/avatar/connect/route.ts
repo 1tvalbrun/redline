@@ -106,6 +106,23 @@ export const POST = async (req: NextRequest) => {
   if (!authorized) return NextResponse.json({ error: "Unknown avatar" }, { status: 403 })
   const { briefing, turnTaking } = authorized
 
+  // Claim before minting: every Runway session is billed, so a session that
+  // has hit its connect cap — or a claim that errors — mints nothing (fail
+  // closed). The claim is also the usage-meter write. The two refusals stay
+  // distinct: a transient claim error must not read as a limit the user hit.
+  const claim = await convex
+    .mutation(api.usage.claimAvatarConnect, { sessionId: convexSessionId as Id<"sessions"> })
+    .catch((err) => {
+      console.warn("[/api/avatar/connect] connect claim failed:", err)
+      return null
+    })
+  if (claim === null) {
+    return NextResponse.json({ error: "Couldn't verify the session. Try again." }, { status: 503 })
+  }
+  if (!claim.allowed) {
+    return NextResponse.json({ error: "Connection limit reached for this session" }, { status: 429 })
+  }
+
   let personality: string | undefined
   if (storedPersonality) {
     personality = `${turnTaking}${briefing.personalityPreamble}${storedPersonality}`
@@ -140,14 +157,6 @@ export const POST = async (req: NextRequest) => {
   })
 
   if (!consumeRes.ok) return NextResponse.json({ error: "Consume failed" }, { status: 500 })
-
-  // Every mint is billed (retries and refreshes included), so every mint is
-  // metered. Best-effort: a failed write must not break the connect.
-  await convex
-    .mutation(api.usage.recordAvatarConnect, {
-      sessionId: convexSessionId as Id<"sessions">,
-    })
-    .catch((err) => console.warn("[/api/avatar/connect] usage record failed:", err))
 
   const data = await consumeRes.json()
   return NextResponse.json({
