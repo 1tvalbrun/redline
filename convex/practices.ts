@@ -19,6 +19,7 @@ import { scopeText, type Scope } from "../src/domains/types"
 import { priorityValidator } from "./schema"
 import { insertSessionForPersona } from "./sessions"
 import { ownedOrNull, requireIdentity } from "./guard"
+import { recordUsage } from "./usage"
 
 const MULTI_MAX_ITEMS = 8
 const MULTI_ITEM_CHARS = 80
@@ -292,6 +293,15 @@ export const analyze = action({
         response_format: { type: "json_object" },
       })
 
+      await recordUsage(ctx, {
+        userId: practice.userId,
+        kind: "analyze",
+        practiceId: args.id,
+        model,
+        inputTokens: response.usage?.prompt_tokens,
+        outputTokens: response.usage?.completion_tokens,
+      })
+
       const content = response.choices[0].message.content
       if (!content) throw new Error("No response from OpenAI")
 
@@ -340,7 +350,7 @@ export const extractScope = action({
     source: v.union(v.literal("voice"), v.literal("deck")),
   },
   handler: async (ctx, args): Promise<Scope> => {
-    await requireIdentity(ctx)
+    const identity = await requireIdentity(ctx)
     if (!isPackId(args.packId)) throw new Error("Unknown lane")
     const pack = getPack(args.packId)
     const openai = await createOpenAI()
@@ -355,6 +365,14 @@ export const extractScope = action({
         },
       ],
       response_format: { type: "json_object" },
+    })
+
+    await recordUsage(ctx, {
+      userId: identity.subject,
+      kind: "extract_scope",
+      model,
+      inputTokens: response.usage?.prompt_tokens,
+      outputTokens: response.usage?.completion_tokens,
     })
 
     const content = response.choices[0]?.message?.content
@@ -522,6 +540,15 @@ const generateAudit = async (
         },
       ],
       response_format: { type: "json_object" },
+    })
+
+    await recordUsage(ctx, {
+      userId: practice.userId,
+      kind: "audit",
+      practiceId: args.id,
+      model,
+      inputTokens: response.usage?.prompt_tokens,
+      outputTokens: response.usage?.completion_tokens,
     })
 
     const content = response.choices[0]?.message?.content

@@ -98,8 +98,9 @@ export const POST = async (req: NextRequest) => {
 
   // Independent fetches, in parallel; the connect path is already long
   // (session create + READY poll).
+  const convexSessionId = req.nextUrl.searchParams.get("sessionId")
   const [authorized, storedPersonality] = await Promise.all([
-    authorizeSession(convex, req.nextUrl.searchParams.get("sessionId"), avatarId),
+    authorizeSession(convex, convexSessionId, avatarId),
     fetchStoredPersonality(client, avatarId),
   ])
   if (!authorized) return NextResponse.json({ error: "Unknown avatar" }, { status: 403 })
@@ -139,6 +140,14 @@ export const POST = async (req: NextRequest) => {
   })
 
   if (!consumeRes.ok) return NextResponse.json({ error: "Consume failed" }, { status: 500 })
+
+  // Every mint is billed (retries and refreshes included), so every mint is
+  // metered. Best-effort: a failed write must not break the connect.
+  await convex
+    .mutation(api.usage.recordAvatarConnect, {
+      sessionId: convexSessionId as Id<"sessions">,
+    })
+    .catch((err) => console.warn("[/api/avatar/connect] usage record failed:", err))
 
   const data = await consumeRes.json()
   return NextResponse.json({

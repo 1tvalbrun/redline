@@ -6,6 +6,7 @@ import { createOpenAI, resolveModel } from "../src/lib/openai"
 import { getPack } from "../src/domains/registry"
 import type { NoteType } from "./schema"
 import { requireIdentity } from "./guard"
+import { recordUsage } from "./usage"
 
 const NOTE_TYPES: ReadonlySet<string> = new Set([
   "follow_up",
@@ -67,6 +68,16 @@ export const decide = action({
         { role: "user", content: `Recent conversation:\n${recent}` },
       ],
       response_format: { type: "json_object" },
+    })
+
+    await recordUsage(ctx, {
+      userId: session.userId,
+      kind: "orchestrate",
+      practiceId: session.practiceId,
+      sessionId: args.sessionId,
+      model,
+      inputTokens: response.usage?.prompt_tokens,
+      outputTokens: response.usage?.completion_tokens,
     })
 
     const content = response.choices[0]?.message?.content

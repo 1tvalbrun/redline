@@ -16,6 +16,7 @@ import type * as materials from "../materials.js";
 import type * as orchestrator from "../orchestrator.js";
 import type * as practices from "../practices.js";
 import type * as sessions from "../sessions.js";
+import type * as usage from "../usage.js";
 import type * as users from "../users.js";
 
 import type {
@@ -33,6 +34,7 @@ declare const fullApi: ApiFromModules<{
   orchestrator: typeof orchestrator;
   practices: typeof practices;
   sessions: typeof sessions;
+  usage: typeof usage;
   users: typeof users;
 }>;
 

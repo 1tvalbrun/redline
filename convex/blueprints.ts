@@ -23,6 +23,7 @@ import {
   rubricEntryValidator,
   themeValidator,
 } from "../src/lib/blueprint"
+import { recordUsage } from "./usage"
 import { ownedOrNull, requireIdentity } from "./guard"
 
 // Same discipline as the audit pipeline: one claim slot on the embedded
@@ -190,10 +191,20 @@ const generateBlueprint = async (
         : pack.prep.prompt({ scope: practice.scope, ...(await materialInputs(ctx, args.id)) })
 
     const openai = await createOpenAI()
+    const model = resolveModel("quality")
     const response = await openai.chat.completions.create({
-      model: resolveModel("quality"),
+      model,
       messages: [{ role: "system", content: prompt }],
       response_format: { type: "json_object" },
+    })
+
+    await recordUsage(ctx, {
+      userId: practice.userId,
+      kind: refinement && current ? "blueprint_refine" : "blueprint",
+      practiceId: args.id,
+      model,
+      inputTokens: response.usage?.prompt_tokens,
+      outputTokens: response.usage?.completion_tokens,
     })
 
     const content = response.choices[0]?.message?.content
