@@ -10,7 +10,7 @@ import { api, internal } from "./_generated/api"
 import type { Id } from "./_generated/dataModel"
 import { bySpokenTime } from "../src/lib/transcript"
 import { parseDebrief } from "../src/lib/debrief"
-import { createOpenAI, resolveModel } from "../src/lib/openai"
+import { createOpenAI, modelSettings } from "../src/lib/openai"
 import { getPack } from "../src/domains/registry"
 import type { DomainPack } from "../src/domains/types"
 import { debriefValidator, noteTypeValidator, transcriptTypeValidator } from "./schema"
@@ -197,6 +197,30 @@ export const end = mutation({
 })
 
 // Internal: written only by orchestrator.decide.
+// Debounce claim for orchestrator.decide: both transcript bridges fire it
+// on every written entry, and entries land in bursts. One look per window
+// is enough — the model reads the last 12 turns regardless — so claims
+// inside the window skip the model call entirely. Atomic check-and-stamp:
+// concurrent claims serialize in the mutation.
+const ORCHESTRATE_WINDOW_MS = 8_000
+
+export const claimOrchestrate = internalMutation({
+  args: { id: v.id("sessions") },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.id)
+    if (!session || session.status !== "live") return false
+    const now = Date.now()
+    if (
+      session.lastOrchestratedAt !== undefined &&
+      now - session.lastOrchestratedAt < ORCHESTRATE_WINDOW_MS
+    ) {
+      return false
+    }
+    await ctx.db.patch(args.id, { lastOrchestratedAt: now })
+    return true
+  },
+})
+
 export const addLiveNote = internalMutation({
   args: {
     id: v.id("sessions"),
@@ -284,10 +308,10 @@ export const generateDebrief = action({
     const priorContinuity = practice.continuity ?? null
 
     const openai = await createOpenAI()
-    const model = resolveModel("quality")
+    const settings = modelSettings("quality")
 
     const response = await openai.chat.completions.create({
-      model,
+      ...settings,
       messages: [
         {
           role: "system",
@@ -326,7 +350,7 @@ export const generateDebrief = action({
       kind: "debrief",
       practiceId: session.practiceId,
       sessionId: args.sessionId,
-      model,
+      model: settings.model,
       inputTokens: response.usage?.prompt_tokens,
       outputTokens: response.usage?.completion_tokens,
     })

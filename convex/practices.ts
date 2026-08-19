@@ -13,7 +13,7 @@ import type { Id } from "./_generated/dataModel"
 import { claimValidator, gapValidator, groundAudit } from "../src/lib/audit"
 import { materialFileType, validateMaterialFile } from "../src/lib/materials"
 import { parseExtractedScope } from "../src/lib/intake"
-import { createOpenAI, resolveModel } from "../src/lib/openai"
+import { createOpenAI, modelSettings } from "../src/lib/openai"
 import { getPack, isPackId } from "../src/domains/registry"
 import { scopeText, type Scope } from "../src/domains/types"
 import { priorityValidator } from "./schema"
@@ -106,7 +106,43 @@ export const create = mutation({
       await ctx.scheduler.runAfter(0, internal.ingest.extract, { materialId })
     }
 
+    // No materials means nothing triggers the prep stage until the user
+    // reaches its page — start it now so it runs while they confirm and
+    // read. (With materials, ingest.extract schedules it when the last one
+    // settles; the claim mutations collapse any double trigger.)
+    if ((args.materials ?? []).length === 0) {
+      await ctx.scheduler.runAfter(
+        0,
+        pack.prep.kind === "blueprint"
+          ? internal.blueprints.runInternal
+          : internal.practices.runAuditInternal,
+        { id: practiceId }
+      )
+    }
+
     return practiceId
+  },
+})
+
+// Claim slot for the read: concurrent analyze calls (kick-off plus retry
+// clicks) collapse to one paid model call. The TTL lets a claim from a
+// crashed action expire so retry still works; a completed read (context
+// present) never re-runs — a new brief is a new practice.
+const READ_CLAIM_TTL_MS = 60_000
+
+export const claimRead = internalMutation({
+  args: { id: v.id("practices") },
+  handler: async (ctx, args) => {
+    const practice = await ctx.db.get(args.id)
+    if (!practice || practice.context) return false
+    const now = Date.now()
+    const held =
+      practice.status === "shaping" &&
+      practice.readClaimedAt !== undefined &&
+      now - practice.readClaimedAt < READ_CLAIM_TTL_MS
+    if (held) return false
+    await ctx.db.patch(args.id, { status: "shaping", readClaimedAt: now })
+    return true
   },
 })
 
@@ -272,20 +308,21 @@ export const setContext = internalMutation({
 
 export const analyze = action({
   args: { id: v.id("practices") },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<Record<string, string> | null> => {
     await requireIdentity(ctx)
     const practice = await ctx.runQuery(api.practices.get, { id: args.id })
     if (!practice) throw new Error("Practice not found")
 
-    await ctx.runMutation(internal.practices.setStatus, { id: args.id, status: "shaping" })
+    const claimed = await ctx.runMutation(internal.practices.claimRead, { id: args.id })
+    if (!claimed) return null
 
     try {
       const openai = await createOpenAI()
-      const model = resolveModel("fast")
+      const settings = modelSettings("fast")
       const pack = getPack(practice.packId)
 
       const response = await openai.chat.completions.create({
-        model,
+        ...settings,
         messages: [
           { role: "system", content: pack.prompts.analyzeSystem },
           { role: "user", content: pack.prompts.analyzeUser(practice.scope) },
@@ -297,7 +334,7 @@ export const analyze = action({
         userId: practice.userId,
         kind: "analyze",
         practiceId: args.id,
-        model,
+        model: settings.model,
         inputTokens: response.usage?.prompt_tokens,
         outputTokens: response.usage?.completion_tokens,
       })
@@ -354,10 +391,10 @@ export const extractScope = action({
     if (!isPackId(args.packId)) throw new Error("Unknown lane")
     const pack = getPack(args.packId)
     const openai = await createOpenAI()
-    const model = resolveModel("fast")
+    const settings = modelSettings("fast")
 
     const response = await openai.chat.completions.create({
-      model,
+      ...settings,
       messages: [
         {
           role: "system",
@@ -370,7 +407,7 @@ export const extractScope = action({
     await recordUsage(ctx, {
       userId: identity.subject,
       kind: "extract_scope",
-      model,
+      model: settings.model,
       inputTokens: response.usage?.prompt_tokens,
       outputTokens: response.usage?.completion_tokens,
     })
@@ -519,7 +556,7 @@ const generateAudit = async (
         : "(No readable materials were provided.)"
 
     const openai = await createOpenAI()
-    const model = resolveModel("quality")
+    const settings = modelSettings("quality")
     const pack = getPack(practice.packId)
     if (pack.prep.kind !== "audit") {
       await fail("This practice doesn't use the audit stage.")
@@ -528,7 +565,7 @@ const generateAudit = async (
     const auditPrompt = pack.prep.prompt
 
     const response = await openai.chat.completions.create({
-      model,
+      ...settings,
       messages: [
         {
           role: "system",
@@ -546,7 +583,7 @@ const generateAudit = async (
       userId: practice.userId,
       kind: "audit",
       practiceId: args.id,
-      model,
+      model: settings.model,
       inputTokens: response.usage?.prompt_tokens,
       outputTokens: response.usage?.completion_tokens,
     })
@@ -571,15 +608,18 @@ const generateAudit = async (
   }
 }
 
+// No public force: a ready audit can't be client-regenerated in a loop
+// (metered model spend) — same discipline as blueprints.run. Forced re-runs
+// go through runAuditInternal via the CLI.
 export const runAudit = action({
-  args: { id: v.id("practices"), force: v.optional(v.boolean()) },
+  args: { id: v.id("practices") },
   handler: async (ctx, args): Promise<void> => {
     await requireIdentity(ctx)
     // api.practices.get is ownership-scoped: someone else's practice reads
     // as missing, and no model call is spent on it.
     const practice = await ctx.runQuery(api.practices.get, { id: args.id })
     if (!practice) return
-    await generateAudit(ctx, args)
+    await generateAudit(ctx, { id: args.id })
   },
 })
 

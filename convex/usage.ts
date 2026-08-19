@@ -58,15 +58,29 @@ export const recordUsage = async (
   }
 }
 
-// Public because the avatar connect route runs with the caller's own Convex
-// token. userId comes from the identity and the session must be owned, so
-// the worst a direct caller can do is inflate their own meter.
-export const recordAvatarConnect = mutation({
+// Claim-before-mint for the avatar connect route: every Runway realtime
+// session is billed, so the route asks here first and a denied claim means
+// no mint. The cap is a sanity bound no legitimate room hits — it exists so
+// reconnect-chaining can't spend without limit. Public because the route
+// runs with the caller's own Convex token: userId comes from the identity
+// and the session must be owned, so a direct caller can only claim (and
+// count) against their own session. Atomic: mutations serialize, so
+// concurrent claims can't slip past the cap.
+const MAX_CONNECTS_PER_SESSION = 5
+
+export const claimAvatarConnect = mutation({
   args: { sessionId: v.id("sessions") },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<{ allowed: boolean }> => {
     const identity = await requireIdentity(ctx)
     const session = ownedOrNull(identity, await ctx.db.get(args.sessionId))
-    if (!session) return
+    if (!session) return { allowed: false }
+    const prior = await ctx.db
+      .query("usageEvents")
+      .withIndex("by_session_kind", (q) =>
+        q.eq("sessionId", args.sessionId).eq("kind", "avatar_connect")
+      )
+      .take(MAX_CONNECTS_PER_SESSION)
+    if (prior.length >= MAX_CONNECTS_PER_SESSION) return { allowed: false }
     await ctx.db.insert("usageEvents", {
       userId: identity.subject,
       kind: "avatar_connect",
@@ -74,6 +88,7 @@ export const recordAvatarConnect = mutation({
       sessionId: args.sessionId,
       costUsd: RUNWAY_CONNECT_USD,
     })
+    return { allowed: true }
   },
 })
 

@@ -2,7 +2,7 @@ import { v } from "convex/values"
 import { action } from "./_generated/server"
 import { api, internal } from "./_generated/api"
 import { bySpokenTime } from "../src/lib/transcript"
-import { createOpenAI, resolveModel } from "../src/lib/openai"
+import { createOpenAI, modelSettings } from "../src/lib/openai"
 import { getPack } from "../src/domains/registry"
 import type { NoteType } from "./schema"
 import { requireIdentity } from "./guard"
@@ -27,9 +27,18 @@ export const decide = action({
   // (decide → api → decide), which otherwise fails `next build` typechecking.
   handler: async (ctx, args): Promise<DecideResult> => {
     await requireIdentity(ctx)
+    // api.sessions.get is ownership-scoped, so the claim below can only ever
+    // stamp the caller's own session.
     const session = await ctx.runQuery(api.sessions.get, { id: args.sessionId })
     if (!session || session.status !== "live") return null
     if (session.transcript.length === 0) return null
+
+    // Debounce before further reads or model spend: a claim inside the
+    // window means another decide just ran (or is running) here.
+    const claimed = await ctx.runMutation(internal.sessions.claimOrchestrate, {
+      id: args.sessionId,
+    })
+    if (!claimed) return null
 
     const practice = await ctx.runQuery(api.practices.get, { id: session.practiceId })
     if (!practice) return null
@@ -50,10 +59,10 @@ export const decide = action({
       .join("\n")
 
     const openai = await createOpenAI()
-    const model = resolveModel("fast")
+    const settings = modelSettings("fast")
 
     const response = await openai.chat.completions.create({
-      model,
+      ...settings,
       messages: [
         {
           role: "system",
@@ -75,7 +84,7 @@ export const decide = action({
       kind: "orchestrate",
       practiceId: session.practiceId,
       sessionId: args.sessionId,
-      model,
+      model: settings.model,
       inputTokens: response.usage?.prompt_tokens,
       outputTokens: response.usage?.completion_tokens,
     })
