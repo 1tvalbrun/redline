@@ -28,6 +28,20 @@ export type NoteType = Infer<typeof noteTypeValidator>
 export type Priority = Infer<typeof priorityValidator>
 export type ActionItemStatus = Infer<typeof actionItemStatusValidator>
 
+// One entry per paid provider call. Closed so the meter can't grow
+// unclassifiable rows.
+export const usageKindValidator = v.union(
+  v.literal("extract_scope"),
+  v.literal("analyze"),
+  v.literal("audit"),
+  v.literal("blueprint"),
+  v.literal("blueprint_refine"),
+  v.literal("orchestrate"),
+  v.literal("debrief"),
+  v.literal("avatar_connect")
+)
+export type UsageKind = Infer<typeof usageKindValidator>
+
 // Cross-session memory, written at debrief time and read into the next
 // session's briefing. Bounded (one summary, ≤10 open items), so it lives
 // inline on the practice — the durable thread that links sessions.
@@ -175,6 +189,23 @@ export default defineSchema({
     .index("by_practice", ["practiceId"])
     .index("by_practice_status", ["practiceId", "status"])
     .index("by_user", ["userId"]),
+
+  // The usage meter: one row per paid provider call, written server-side at
+  // the call site. costUsd is the cost known at write time (OpenAI tokens,
+  // Runway connect fee); avatar minutes are estimated at rollup from
+  // session durations (usage.summary). Read only by the internal summary
+  // query — never client-listed. No index yet on purpose: the only reader
+  // scans by _creationTime; quota enforcement adds by_user with its query.
+  usageEvents: defineTable({
+    userId: v.string(),
+    practiceId: v.optional(v.id("practices")),
+    sessionId: v.optional(v.id("sessions")),
+    kind: usageKindValidator,
+    model: v.optional(v.string()),
+    inputTokens: v.optional(v.number()),
+    outputTokens: v.optional(v.number()),
+    costUsd: v.number(),
+  }),
 
   // Extracted text from intake materials, keyed to a practice. Text is
   // consumed by the audit pipeline server-side and never listed back to the

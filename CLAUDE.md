@@ -4,7 +4,8 @@
 An AI panel stress test. A founder pitches an idea and is interrogated live
 by one of three Runway avatar characters (VC, Target Customer, Technical
 Architect), chosen at the Panel stage. Flow: Brief → Read → Audit → Panel →
-Room → Verdict, ending in a scored report with the panelist's spoken verdict.
+Room → Verdict, ending in a debrief report (qualitative feedback, what
+didn't hold, to-dos — no numeric scoring) with the panelist's spoken verdict.
 Stage keys and route names differ (read → /analyze, verdict → /report); the
 mapping lives in src/components/simulation/flow/FlowShell.tsx.
 

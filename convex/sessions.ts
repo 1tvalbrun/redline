@@ -15,6 +15,7 @@ import { getPack } from "../src/domains/registry"
 import type { DomainPack } from "../src/domains/types"
 import { debriefValidator, noteTypeValidator, transcriptTypeValidator } from "./schema"
 import { ownedOrNull, requireIdentity } from "./guard"
+import { recordUsage } from "./usage"
 
 // Same discipline as the audit's per-material budget: a marathon session
 // must not blow the context window. The oldest turns are dropped first —
@@ -318,6 +319,16 @@ export const generateDebrief = action({
         },
       ],
       response_format: { type: "json_object" },
+    })
+
+    await recordUsage(ctx, {
+      userId: session.userId,
+      kind: "debrief",
+      practiceId: session.practiceId,
+      sessionId: args.sessionId,
+      model,
+      inputTokens: response.usage?.prompt_tokens,
+      outputTokens: response.usage?.completion_tokens,
     })
 
     const content = response.choices[0]?.message?.content

@@ -23,7 +23,7 @@ const PrivacyPage = () => (
         <li>
           Content you create to use the service: your briefs, uploaded documents, the text
           transcripts of your practice sessions (including what you say aloud, transcribed),
-          and the scores and reports generated from them.
+          and the feedback and reports generated from them.
         </li>
         <li>
           Session media: your audio during a live session is streamed to run the conversation,
