@@ -10,17 +10,12 @@ import type { FunctionReturnType } from "convex/server"
 import { api } from "@convex/_generated/api"
 import { cn, prefersReducedMotion } from "@/lib/utils"
 import { getPack, isPackId } from "@/domains/registry"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import {
+  DeletePracticeDialog,
+  DeletePracticeError,
+  useDeletePractice,
+} from "@/components/shared/DeletePracticeDialog"
 import { ThemeToggle } from "@/components/shared/ThemeToggle"
 import { LogoMark } from "@/components/shared/LogoMark"
 import { BrandName } from "@/components/shared/BrandName"
@@ -38,9 +33,10 @@ const EXIT_MS = 300
 
 const NEW_PRACTICE_LINK_ID = "new-practice-link"
 
-// Focus target once a deleted thread unmounts (taking the dialog's trigger
-// with it), so keyboard users aren't dropped back to <body>.
-const focusNewPractice = () => document.getElementById(NEW_PRACTICE_LINK_ID)?.focus()
+// Focus target once a deleted practice unmounts (taking the dialog's trigger
+// with it), so keyboard users aren't dropped back to <body>. Shared with the
+// home page's card deletion, which strands focus the same way.
+export const focusNewPractice = () => document.getElementById(NEW_PRACTICE_LINK_ID)?.focus()
 
 const readCollapsedLanes = (): ReadonlySet<string> => {
   if (typeof window === "undefined") return new Set()
@@ -77,9 +73,12 @@ const Thread = ({
       removing ? "pointer-events-none grid-rows-[0fr] opacity-0" : "grid-rows-[1fr]"
     )}
   >
-    {/* Clip only while collapsing — overflow-hidden at rest would crop the
+    {/* min-w-0: the li's auto grid column won't shrink below this item's
+        min-content width, and the nowrap title makes that the full title —
+        without it, long titles push the row's icons past the nav clip edge.
+        Clip only while collapsing — overflow-hidden at rest would crop the
         focus rings of the row's controls. */}
-    <div className={removing ? "overflow-hidden" : undefined}>
+    <div className={cn("min-w-0", removing && "overflow-hidden")}>
       <div className="group/thread flex items-center gap-1">
         <Link
           href={`/p/${practice.practiceId}`}
@@ -225,17 +224,7 @@ export const AppRail = () => {
   const clerkAppearance = useClerkAppearance()
   const railScroll = useAutoHideScrollbar<HTMLElement>()
   const setPinned = useMutation(api.practices.setPinned)
-  const removePractice = useMutation(api.practices.remove).withOptimisticUpdate(
-    (localStore, args) => {
-      const current = localStore.getQuery(api.practices.list, {})
-      if (!current) return
-      localStore.setQuery(
-        api.practices.list,
-        {},
-        current.filter((practice) => practice.practiceId !== args.id)
-      )
-    }
-  )
+  const removePractice = useDeletePractice()
   const [collapsedLanes, setCollapsedLanes] = useState<ReadonlySet<string>>(readCollapsedLanes)
   // The target outlives the dialog's open state: clearing it on close would
   // blank the title mid exit animation.
@@ -341,30 +330,14 @@ export const AppRail = () => {
         ))}
       </nav>
 
-      {deleteFailed && (
-        <p role="alert" className="px-2.5 py-1.5 text-[12.5px] text-red-fg">
-          Deletion didn&apos;t go through, so nothing was removed. Check your connection and try
-          again.
-        </p>
-      )}
+      {deleteFailed && <DeletePracticeError className="px-2.5 py-1.5" />}
 
-      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <AlertDialogContent size="sm">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete {confirmTarget?.name}?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This permanently removes the practice with its sessions, transcripts, debriefs,
-              and uploads. There&apos;s no undo.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Keep it</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" onClick={handleConfirmDelete}>
-              Delete practice
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <DeletePracticeDialog
+        name={confirmTarget?.name}
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        onConfirm={handleConfirmDelete}
+      />
 
       <div className="mt-1.5 border-t border-line pt-3">
         <div className="flex items-center gap-2.5 px-2.5 pb-1 pt-1.5">

@@ -1,8 +1,9 @@
 "use client"
 
+import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ChevronRight, Plus, Video } from "lucide-react"
+import { ChevronRight, Plus, Trash2, Video } from "lucide-react"
 import { useMutation, useQuery } from "convex/react"
 import { api } from "@convex/_generated/api"
 import type { Id } from "@convex/_generated/dataModel"
@@ -12,7 +13,12 @@ import { BTN_PRIMARY } from "@/components/shared/buttons"
 import { personaInitials } from "@/components/shared/PersonaAvatar"
 import { LaneBadge } from "@/components/shared/LaneBadge"
 import { PersonaAvatar } from "@/components/shared/PersonaAvatar"
-import type { PracticeRow } from "@/components/layout/AppRail"
+import {
+  DeletePracticeDialog,
+  DeletePracticeError,
+  useDeletePractice,
+} from "@/components/shared/DeletePracticeDialog"
+import { focusNewPractice, type PracticeRow } from "@/components/layout/AppRail"
 import { firstNameOf } from "@/domains/types"
 
 const greeting = (hour: number) =>
@@ -77,7 +83,7 @@ const ResumeHero = ({ practice }: { practice: PracticeRow }) => {
   )
 }
 
-const PracticeCard = ({ practice }: { practice: PracticeRow }) => {
+const PracticeCard = ({ practice, onDelete }: { practice: PracticeRow; onDelete: () => void }) => {
   const persona = personaFor(practice)
   const statusLine =
     practice.lastQuote ??
@@ -85,14 +91,27 @@ const PracticeCard = ({ practice }: { practice: PracticeRow }) => {
       ? "Brief confirmed, no sessions yet."
       : "Brief in progress. Finish setting up.")
   return (
-    <Link
-      href={`/p/${practice.practiceId}`}
-      className="group flex min-h-[150px] flex-col rounded-xl border border-line bg-surface-raised p-[17px] shadow-card transition hover:-translate-y-px hover:bg-surface-2"
-    >
+    // A stretched link rather than a card-as-link: the delete button can't
+    // legally nest inside an anchor, so the link overlays the card and the
+    // button layers above it.
+    <div className="group relative flex min-h-[150px] flex-col rounded-xl border border-line bg-surface-raised p-[17px] shadow-card transition hover:-translate-y-px hover:bg-surface-2">
+      <Link
+        href={`/p/${practice.practiceId}`}
+        aria-label={`Open ${practice.name}`}
+        className="focus-ring absolute inset-0 rounded-xl"
+      />
       <div className="mb-2.5 flex items-center gap-2">
         <span className="min-w-0 flex-1 truncate text-[14.5px] font-semibold tracking-[-.005em]">
           {practice.name}
         </span>
+        <button
+          type="button"
+          onClick={onDelete}
+          aria-label={`Delete ${practice.name}`}
+          className="focus-ring relative grid size-6 flex-none place-items-center rounded-md text-ink-4 opacity-0 transition-opacity hover:bg-surface-3 hover:text-red-fg focus-visible:opacity-100 group-hover:opacity-100"
+        >
+          <Trash2 className="size-3" />
+        </button>
         <LaneBadge packId={practice.packId} />
       </div>
       {persona && (
@@ -125,7 +144,7 @@ const PracticeCard = ({ practice }: { practice: PracticeRow }) => {
         )}
         <ChevronRight className="size-3.5 text-ink-4 transition group-hover:translate-x-0.5 group-hover:text-accent-blue" />
       </div>
-    </Link>
+    </div>
   )
 }
 
@@ -195,6 +214,27 @@ const FirstRun = ({ lanes }: { lanes: string[] }) => (
 const HomePage = () => {
   const user = useQuery(api.users.getCurrent)
   const practices = useQuery(api.practices.list)
+  const removePractice = useDeletePractice()
+  // The target outlives the dialog's open state: clearing it on close would
+  // blank the title mid exit animation.
+  const [confirmTarget, setConfirmTarget] = useState<PracticeRow | null>(null)
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [deleteFailed, setDeleteFailed] = useState(false)
+
+  const handleRequestDelete = (practice: PracticeRow) => {
+    setConfirmTarget(practice)
+    setConfirmOpen(true)
+  }
+
+  const handleConfirmDelete = () => {
+    if (!confirmTarget) return
+    setConfirmOpen(false)
+    setDeleteFailed(false)
+    removePractice({ id: confirmTarget.practiceId }).catch(() => setDeleteFailed(true))
+    // The optimistic update unmounts the card (and the dialog's trigger with
+    // it) immediately, so land keyboard focus somewhere deterministic.
+    focusNewPractice()
+  }
 
   if (practices === undefined) return null
 
@@ -254,9 +294,14 @@ const HomePage = () => {
             </p>
           )}
         </div>
+        {deleteFailed && <DeletePracticeError className="mb-3 px-0.5" />}
         <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-3.5">
           {practices.map((practice) => (
-            <PracticeCard key={practice.practiceId as Id<"practices">} practice={practice} />
+            <PracticeCard
+              key={practice.practiceId as Id<"practices">}
+              practice={practice}
+              onDelete={() => handleRequestDelete(practice)}
+            />
           ))}
           <Link
             href="/simulation/new"
@@ -269,6 +314,13 @@ const HomePage = () => {
           </Link>
         </div>
       </section>
+
+      <DeletePracticeDialog
+        name={confirmTarget?.name}
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        onConfirm={handleConfirmDelete}
+      />
     </div>
   )
 }
