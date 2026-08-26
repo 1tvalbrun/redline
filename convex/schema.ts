@@ -42,6 +42,17 @@ export const usageKindValidator = v.union(
 )
 export type UsageKind = Infer<typeof usageKindValidator>
 
+// How a session's room ended (spec: Care Rules). Stamped at conclusion;
+// the future quota policy reads it (short/error sessions may not count).
+export const endedReasonValidator = v.union(
+  v.literal("verdict"), // historical only: no writer since the ending tools were removed (2026-08-25)
+  v.literal("time"),
+  v.literal("user"),
+  v.literal("idle"),
+  v.literal("error")
+)
+export type EndedReason = Infer<typeof endedReasonValidator>
+
 // Cross-session memory, written at debrief time and read into the next
 // session's briefing. Bounded (one summary, ≤10 open items), so it lives
 // inline on the practice — the durable thread that links sessions.
@@ -147,6 +158,18 @@ export default defineSchema({
     // document — no new tables, no new indexes.
     blueprint: v.optional(blueprintValidator),
     continuity: v.optional(continuityValidator),
+    // Home-list rollups, denormalized at the single writer sites — session
+    // insert (sessions.insertSessionForPersona) and the debrief write
+    // (sessions.setDebrief) — so practices.list never collects transcripts.
+    // Optional: pre-backfill rows lack them (practices.backfillRollups).
+    sessionCount: v.optional(v.number()),
+    lastSessionAt: v.optional(v.number()),
+    lastVerdict: v.optional(v.string()),
+    lastQuote: v.optional(v.string()),
+    // Creation time of the session lastVerdict came from: setDebrief's
+    // out-of-order guard (a retried older debrief must not overwrite the
+    // newest session's verdict).
+    lastVerdictSessionAt: v.optional(v.number()),
   }).index("by_user", ["userId"]),
 
   // One live conversation with the practice's persona, debrief embedded —
@@ -189,6 +212,20 @@ export default defineSchema({
     // orchestrator reads the last 12 turns anyway, so one look per window
     // is enough (sessions.claimOrchestrate).
     lastOrchestratedAt: v.optional(v.number()),
+    // Room clock anchor: stamped once at the first successful avatar connect
+    // claim, never updated. All landing math derives from it (src/lib/roomClock).
+    roomStartedAt: v.optional(v.number()),
+    // Latest connecting browser tab; a mismatched live tab yields the room
+    // instead of minting a competing avatar session.
+    roomClientId: v.optional(v.string()),
+    // Latest connect's Runway realtime-session id; keys Runway's post-session
+    // conversation record (transcript + tool-call history) for auditing.
+    // Latest connect wins — retries overwrite.
+    runwaySessionId: v.optional(v.string()),
+    endedReason: v.optional(endedReasonValidator),
+    // Claim stamp for the debrief: concurrent generateDebrief calls inside
+    // the TTL collapse to one paid model call (sessions.claimDebrief).
+    debriefClaimedAt: v.optional(v.number()),
     status: v.union(v.literal("live"), v.literal("concluded")),
     endedAt: v.optional(v.number()),
     debrief: v.optional(debriefValidator),

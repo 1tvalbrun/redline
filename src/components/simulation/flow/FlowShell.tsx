@@ -53,6 +53,9 @@ type FlowShellProps = {
   // When leaving would interrupt something live, the exit action confirms
   // first; label defaults to the wizard's "Save & exit".
   confirmExit?: { title: string; description: string; label?: string; confirmLabel?: string }
+  // The room's settle fades every piece of chrome, this header included —
+  // opacity only, so the layout never collapses under the scene.
+  chromeFaded?: boolean
   // Replaces the step rail — the room shows session meta instead of steps.
   centerSlot?: React.ReactNode
   children: React.ReactNode
@@ -65,6 +68,7 @@ export const FlowShell = ({
   fullBleed,
   dark,
   confirmExit,
+  chromeFaded,
   centerSlot,
   children,
 }: FlowShellProps) => {
@@ -99,7 +103,12 @@ export const FlowShell = ({
       data-surface={dark ? "dark" : undefined}
       className="flex h-dvh flex-col bg-surface text-on-surface"
     >
-      <header className="flex flex-none items-center gap-[26px] border-b border-line bg-surface-rail px-6 py-3.5">
+      <header
+        className={cn(
+          "flex flex-none items-center gap-[26px] border-b border-line bg-surface-rail px-6 py-3.5 transition-opacity duration-700 motion-reduce:transition-none",
+          chromeFaded && "pointer-events-none opacity-0"
+        )}
+      >
         <Link href="/" className="focus-ring flex items-center gap-2">
           <LogoMark size="sm" />
           <span className="text-sm font-semibold">

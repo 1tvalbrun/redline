@@ -53,8 +53,12 @@ const PracticePage = ({ params }: { params: Promise<{ practiceId: string }> }) =
     .slice(0, 4)
 
   const handleContinue = async () => {
-    const { sessionId } = await continueSession({ id })
-    router.push(sessionId ? `/simulation/${id}/room` : `/simulation/${id}/panel`)
+    try {
+      const { sessionId } = await continueSession({ id })
+      router.push(sessionId ? `/simulation/${id}/room` : `/simulation/${id}/panel`)
+    } catch (err) {
+      console.error("continue session failed:", err)
+    }
   }
 
   return (
@@ -123,7 +127,11 @@ const PracticePage = ({ params }: { params: Promise<{ practiceId: string }> }) =
                       )}
                     >
                       {session.title ??
-                        (session.status === "live" ? "Live now" : "Session")}
+                        (session.status === "live"
+                          ? "Live now"
+                          : session.userTurns === 0 || session.panelistTurns === 0
+                            ? "Nothing recorded"
+                            : "Session")}
                     </span>
                     {session.verdict && <VerdictBadge decision={session.verdict} />}
                     {session.status === "live" && (

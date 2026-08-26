@@ -9,8 +9,9 @@ import {
   type ActionCtx,
 } from "./_generated/server"
 import { api, internal } from "./_generated/api"
-import type { Id } from "./_generated/dataModel"
+import type { Doc, Id } from "./_generated/dataModel"
 import { claimValidator, gapValidator, groundAudit } from "../src/lib/audit"
+import type { Blueprint } from "../src/lib/blueprint"
 import { materialFileType, validateMaterialFile } from "../src/lib/materials"
 import { parseExtractedScope } from "../src/lib/intake"
 import { createOpenAI, modelSettings } from "../src/lib/openai"
@@ -146,15 +147,59 @@ export const claimRead = internalMutation({
   },
 })
 
+// The blueprint's interview intel — questionPlan, rubric, verifyTopics,
+// candidateHooks — is sealed: it all feeds the persona briefing, no client
+// component renders any of it, and any public function that returns it is
+// client-callable and therefore a leak. The client copy of the practice
+// carries only what the prep screens show — the fields are picked, not
+// spread, and the return type drops the rest so no caller can quietly grow
+// a dependency. Server-side consumers use internal.practices.getFull.
+type RedactedBlueprint = Omit<
+  Blueprint,
+  "questionPlan" | "rubric" | "verifyTopics" | "candidateHooks"
+>
+type RedactedPractice = Omit<Doc<"practices">, "blueprint"> & {
+  blueprint?: RedactedBlueprint
+}
+
+const redactBlueprint = (blueprint: Blueprint): RedactedBlueprint => ({
+  status: blueprint.status,
+  themes: blueprint.themes,
+  clarifyingQuestions: blueprint.clarifyingQuestions,
+  ...(blueprint.refinement !== undefined ? { refinement: blueprint.refinement } : {}),
+  ...(blueprint.failureMessage !== undefined
+    ? { failureMessage: blueprint.failureMessage }
+    : {}),
+})
+
 export const get = query({
   args: { id: v.id("practices") },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<RedactedPractice | null> => {
     const identity = await requireIdentity(ctx)
-    return ownedOrNull(identity, await ctx.db.get(args.id))
+    const practice = ownedOrNull(identity, await ctx.db.get(args.id))
+    if (!practice) return null
+    const { blueprint, ...rest } = practice
+    return blueprint ? { ...rest, blueprint: redactBlueprint(blueprint) } : rest
+  },
+})
+
+// The whole practice document, sealed blueprint fields included. Internal =
+// server-only: this is the ONLY path on which questionPlan and rubric exist;
+// its callers (sessions.generateDebrief, avatars.mint) reach the practice
+// through an ownership-scoped session read first.
+export const getFull = internalQuery({
+  args: { id: v.id("practices") },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.id)
   },
 })
 
 // Everything the sidebar, Home grid, and resume hero need, one query.
+// Session-derived values come from the rollup fields denormalized at the
+// single writer sites (session insert, setDebrief) — collecting every
+// session's full transcript here made this the heaviest query in the app.
+// hasLive stays a query: liveness is transient state no counter should own,
+// and the indexed .first() reads one document at most.
 export const list = query({
   args: {},
   handler: async (ctx) => {
@@ -165,13 +210,12 @@ export const list = query({
       .collect()
     const rows = await Promise.all(
       practices.map(async (practice) => {
-        const sessions = await ctx.db
+        const live = await ctx.db
           .query("sessions")
-          .withIndex("by_practice", (q) => q.eq("practiceId", practice._id))
-          .collect()
-        sessions.sort((a, b) => b._creationTime - a._creationTime)
-        const latest = sessions[0] ?? null
-        const latestDebriefed = sessions.find((session) => session.debrief) ?? null
+          .withIndex("by_practice_status", (q) =>
+            q.eq("practiceId", practice._id).eq("status", "live")
+          )
+          .first()
         const actionItems = practice.continuity?.actionItems ?? []
         const openItems = actionItems.filter((item) => item.status === "open").length
         return {
@@ -181,15 +225,15 @@ export const list = query({
           personaId: practice.personaId ?? null,
           pinned: practice.pinned ?? false,
           status: practice.status,
-          sessionCount: sessions.length,
-          hasLive: sessions.some((session) => session.status === "live"),
+          sessionCount: practice.sessionCount ?? 0,
+          hasLive: live !== null,
           openItems,
           // Distinguishes "cleared the list" (✓ badge) from "never had one".
           hasActionItems: actionItems.length > 0,
-          lastSessionAt: latest?._creationTime ?? null,
-          lastActivityAt: latest?._creationTime ?? practice._creationTime,
-          lastVerdict: latestDebriefed?.debrief?.verdict ?? null,
-          lastQuote: latestDebriefed?.debrief?.spokenVerdict.text ?? null,
+          lastSessionAt: practice.lastSessionAt ?? null,
+          lastActivityAt: practice.lastSessionAt ?? practice._creationTime,
+          lastVerdict: practice.lastVerdict ?? null,
+          lastQuote: practice.lastQuote ?? null,
         }
       })
     )
@@ -197,6 +241,37 @@ export const list = query({
     return rows.sort(
       (a, b) => Number(b.pinned) - Number(a.pinned) || b.lastActivityAt - a.lastActivityAt
     )
+  },
+})
+
+// One-time backfill for the rollup fields on pre-existing practices; new
+// rows are kept in sync at the writer sites. Developer-run, once, after
+// deploy:
+//   npx convex run practices:backfillRollups '{}'
+export const backfillRollups = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const practices = await ctx.db.query("practices").collect()
+    for (const practice of practices) {
+      const sessions = await ctx.db
+        .query("sessions")
+        .withIndex("by_practice", (q) => q.eq("practiceId", practice._id))
+        .collect()
+      sessions.sort((a, b) => b._creationTime - a._creationTime)
+      const latest = sessions[0]
+      const latestDebriefed = sessions.find((session) => session.debrief)
+      await ctx.db.patch(practice._id, {
+        sessionCount: sessions.length,
+        ...(latest ? { lastSessionAt: latest._creationTime } : {}),
+        ...(latestDebriefed?.debrief
+          ? {
+              lastVerdict: latestDebriefed.debrief.verdict,
+              lastQuote: latestDebriefed.debrief.spokenVerdict.text,
+              lastVerdictSessionAt: latestDebriefed._creationTime,
+            }
+          : {}),
+      })
+    }
   },
 })
 

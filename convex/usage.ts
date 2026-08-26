@@ -15,6 +15,7 @@ import {
   type UsageTotals,
 } from "../src/lib/usage"
 import { lastActivityAt } from "../src/lib/session"
+import { maxDurationSec } from "../src/lib/roomClock"
 
 // Internal only: every OpenAI call site records here with a userId taken
 // from the owning document (or the verified identity), never from client
@@ -65,22 +66,38 @@ export const recordUsage = async (
 // runs with the caller's own Convex token: userId comes from the identity
 // and the session must be owned, so a direct caller can only claim (and
 // count) against their own session. Atomic: mutations serialize, so
-// concurrent claims can't slip past the cap.
+// concurrent claims can't slip past the cap. Latest claim wins the tab:
+// roomClientId is overwritten so a crashed tab can never lock the user out —
+// the older tab detects the mismatch and yields.
 const MAX_CONNECTS_PER_SESSION = 5
 
 export const claimAvatarConnect = mutation({
-  args: { sessionId: v.id("sessions") },
-  handler: async (ctx, args): Promise<{ allowed: boolean }> => {
+  args: { sessionId: v.id("sessions"), clientId: v.string() },
+  handler: async (
+    ctx,
+    args
+  ): Promise<
+    { allowed: true; maxDurationSec: number } | { allowed: false; reason: "not_found" | "cap" | "complete" }
+  > => {
     const identity = await requireIdentity(ctx)
     const session = ownedOrNull(identity, await ctx.db.get(args.sessionId))
-    if (!session) return { allowed: false }
+    if (!session) return { allowed: false, reason: "not_found" }
+    const now = Date.now()
+    // Server-owned room clock: reconnects get the remainder; below the
+    // floor the room is over — refuse before anything is billed.
+    const budget = maxDurationSec(session.roomStartedAt, now)
+    if (budget === null) return { allowed: false, reason: "complete" }
     const prior = await ctx.db
       .query("usageEvents")
       .withIndex("by_session_kind", (q) =>
         q.eq("sessionId", args.sessionId).eq("kind", "avatar_connect")
       )
       .take(MAX_CONNECTS_PER_SESSION)
-    if (prior.length >= MAX_CONNECTS_PER_SESSION) return { allowed: false }
+    if (prior.length >= MAX_CONNECTS_PER_SESSION) return { allowed: false, reason: "cap" }
+    await ctx.db.patch(args.sessionId, {
+      roomStartedAt: session.roomStartedAt ?? now,
+      roomClientId: args.clientId,
+    })
     await ctx.db.insert("usageEvents", {
       userId: identity.subject,
       kind: "avatar_connect",
@@ -88,7 +105,7 @@ export const claimAvatarConnect = mutation({
       sessionId: args.sessionId,
       costUsd: RUNWAY_CONNECT_USD,
     })
-    return { allowed: true }
+    return { allowed: true, maxDurationSec: budget }
   },
 })
 
