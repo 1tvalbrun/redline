@@ -55,6 +55,17 @@ test("a claim with no locatable source is demoted to an unsupported gap", () => 
   assert.equal(result.gaps[0].title, "14 enterprise LOIs signed")
 })
 
+test("a demoted claim keeps its full text — display may truncate, storage never", () => {
+  const text =
+    "User Account Management Policy provides guidelines for user account management including provisioning, deprovisioning, and periodic access reviews"
+  const result = groundAudit(
+    { claims: [{ text, source: "missing.pdf", location: "page 1" }], gaps: [] },
+    MATERIALS
+  )
+  assert.equal(result.gaps.length, 1)
+  assert.equal(result.gaps[0].title, text)
+})
+
 test("with no materials at all, every claim is demoted — nothing can be asserted", () => {
   const result = groundAudit(
     { claims: [{ text: "Huge TAM", source: "deck.pdf", location: "page 1" }], gaps: [] },

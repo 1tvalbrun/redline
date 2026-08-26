@@ -52,7 +52,7 @@ const MAX_DIDNT_HOLD = 4
 const VERIFY_CHARS = 200
 const MAX_VERIFY_ITEMS = 4
 const CONTINUITY_SUMMARY_CHARS = 1200
-const ACTION_ITEM_CHARS = 120
+const ACTION_ITEM_CHARS = 200
 const MAX_ACTION_ITEMS = 5
 const PRIORITIES: ReadonlySet<string> = new Set(["high", "medium", "low"])
 
@@ -67,7 +67,16 @@ const normalize = (value: string) =>
     .replace(/\s+/g, " ")
     .trim()
 
-const clamp = (value: string, max: number) => value.trim().slice(0, max)
+// Overflow cuts at the last word boundary and shows it honestly with an
+// ellipsis — a hard slice ends mid-word and reads as data loss. The result
+// never exceeds max (the ellipsis rides inside the budget).
+const clamp = (value: string, max: number) => {
+  const trimmed = value.trim()
+  if (trimmed.length <= max) return trimmed
+  const cut = trimmed.slice(0, max - 1)
+  const lastSpace = cut.lastIndexOf(" ")
+  return `${(lastSpace > 0 ? cut.slice(0, lastSpace) : cut).trimEnd()}…`
+}
 
 const groundedHeldUp = (
   raw: unknown,

@@ -281,6 +281,9 @@ export type DomainPack = {
   // Compact lane name for chips and rail headers ("Founder", "Sales", …).
   shortLabel: string
   description: string
+  // The lane chooser's start button. Authored per lane — composing it from
+  // the label produces grammar like "Start a face an audit practice".
+  startCta: string
   // The scope key that names the engagement: feeds the ideas row, list
   // display, and the briefing subject.
   subjectField: string

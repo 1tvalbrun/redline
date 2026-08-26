@@ -119,6 +119,33 @@ test("real participation leaves the model's verdict alone", () => {
   assert.equal(result.verdict, "advance")
 })
 
+test("an overlong action item clamps at a word boundary with an ellipsis, never mid-word", () => {
+  const text = `Provide the MFA enforcement screenshots and configuration ${"evidence ".repeat(30)}`
+  const result = parseDebrief(
+    { ...FULL, continuity: { summary: "x", actionItems: [{ text, priority: "high" }] } },
+    OPTS
+  )
+  const clamped = result.continuity.actionItems[0].text
+  assert.ok(clamped.length <= 200, `expected ≤ 200 chars, got ${clamped.length}`)
+  assert.ok(clamped.endsWith("…"), `expected trailing ellipsis, got: ${clamped.slice(-20)}`)
+  // Everything before the ellipsis is whole words from the original: the
+  // body is a prefix of the source and the cut landed on a space.
+  const body = clamped.slice(0, -1)
+  assert.ok(text.startsWith(body))
+  assert.ok(!body.endsWith(" "))
+  assert.equal(text[body.length], " ")
+})
+
+test("an action item under the 200-char cap survives whole", () => {
+  const text =
+    "Provide the disable timestamp record for the recent leaver, matched to the documented revocation process with audit trails intact and the ticket reference attached".slice(0, 162)
+  const result = parseDebrief(
+    { ...FULL, continuity: { summary: "x", actionItems: [{ text, priority: "high" }] } },
+    OPTS
+  )
+  assert.equal(result.continuity.actionItems[0].text, text)
+})
+
 test("string-shaped action items are currently dropped (documents the suspected bug)", () => {
   const result = parseDebrief(
     { ...FULL, continuity: { summary: "x", actionItems: ["Bring the automated test plan"] } },

@@ -8,6 +8,7 @@ export const salesPack: DomainPack = {
   id: "sales",
   label: "Pitch a sale",
   shortLabel: "Sales",
+  startCta: "Start a sales practice",
   description:
     "Face the buyer before the real one. Your offer gets read, audited, and pushed on live by a skeptical operator, then debriefed on whether the deal moved.",
   subjectField: "offering",

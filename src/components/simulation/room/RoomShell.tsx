@@ -599,7 +599,7 @@ const RoomShellBody = ({
                 />
               </div>
               <p className="text-[16px] font-medium text-on-surface">
-                {firstNameOf(persona.name)} is writing up your verdict.
+                {firstNameOf(persona.name)} is writing up your debrief.
               </p>
               <p className="mt-2 text-[13px] text-on-surface-3">
                 {settleSoftened ? "Taking a bit longer than usual." : "Nothing else for you to do here."}

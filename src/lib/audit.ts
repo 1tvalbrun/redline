@@ -89,7 +89,7 @@ export const groundAudit = (
       gaps.push({
         severity: "gap",
         kind: "unsupported",
-        title: text.length > 60 ? `${text.slice(0, 57)}…` : text,
+        title: text,
         detail: "Stated, but nothing in the materials backs it.",
       })
     }

@@ -181,7 +181,7 @@ const FirstRun = ({ lanes }: { lanes: string[] }) => (
               {pack.description}
             </span>
             <span className="mt-4 flex items-center gap-[7px] border-t border-line pt-3.5 text-[13px] font-medium">
-              Start a {pack.label.toLowerCase()} practice
+              {pack.startCta}
               <ChevronRight className="size-3.5 text-ink-4 transition group-hover:translate-x-0.5 group-hover:text-accent-blue" />
             </span>
           </Link>

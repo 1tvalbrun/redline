@@ -31,6 +31,7 @@ export const founderPack: DomainPack = {
   id: "founder",
   label: "Pitch a startup",
   shortLabel: "Founder",
+  startCta: "Start a pitch practice",
   description:
     "Face an investor panel before the real one. Your idea gets read, audited, and interrogated live, then debriefed.",
   subjectField: "ideaName",
