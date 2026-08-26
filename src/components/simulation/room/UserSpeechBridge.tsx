@@ -9,6 +9,14 @@ import { startFounderTranscription } from "@/lib/founderTranscription"
 type UserSpeechBridgeProps = {
   sessionId: Id<"sessions">
   enabled: boolean
+  // Lifted so the room can suspend the idle rule and warn the user while
+  // transcription can't hear them, instead of silently idle-ending a
+  // talking user.
+  onFailureChange: (failed: boolean) => void
+  // Fired whenever the stream hears the user at all — interims included,
+  // seconds before a final commits. The idle rule reads this so a user
+  // mid-answer never counts as silence, however slow the record is.
+  onHeard: () => void
 }
 
 // Streams the founder's speech through the shared transcription core and
@@ -17,12 +25,20 @@ type UserSpeechBridgeProps = {
 // display-delayed to the avatar's cadence (see RoomShell), and a live
 // interim would undercut that symmetry. The avatar's own speech is
 // transcribed by Runway (TranscriptBridge) — this bridge is founder-only.
-export const UserSpeechBridge = ({ sessionId, enabled }: UserSpeechBridgeProps) => {
+export const UserSpeechBridge = ({
+  sessionId,
+  enabled,
+  onFailureChange,
+  onHeard,
+}: UserSpeechBridgeProps) => {
   const addTranscriptEntry = useMutation(api.sessions.addTranscriptEntry)
   const decide = useAction(api.orchestrator.decide)
 
   useEffect(() => {
-    if (!enabled) return
+    if (!enabled) {
+      onFailureChange(false)
+      return
+    }
 
     const writeFinalTurn = async (text: string, spokenAt: number | null) => {
       try {
@@ -52,22 +68,27 @@ export const UserSpeechBridge = ({ sessionId, enabled }: UserSpeechBridgeProps) 
     const stream = startFounderTranscription({
       // Finals keep flowing through the stop-flush so in-flight speech is
       // written even when the mic goes off or the room concludes.
-      onFinalTurn: (text, spokenAt) => void writeFinalTurn(text, spokenAt),
-      onInterim: () => {},
+      onFinalTurn: (text, spokenAt) => {
+        onHeard()
+        void writeFinalTurn(text, spokenAt)
+      },
+      onInterim: () => onHeard(),
       onStatus: (status) => {
         if (status === "denied" || status === "error") {
           console.warn("[UserSpeechBridge] transcription unavailable:", status)
+          onFailureChange(true)
         }
       },
     })
 
     return () => {
+      onFailureChange(false)
       // Graceful stop (not dispose): capture is released immediately (mic
       // indicator clears), while the socket flush still commits speech that
       // was in flight.
       void stream.stop()
     }
-  }, [sessionId, enabled, addTranscriptEntry, decide])
+  }, [sessionId, enabled, addTranscriptEntry, decide, onFailureChange, onHeard])
 
   return null
 }

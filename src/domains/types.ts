@@ -70,6 +70,15 @@ export type Persona = {
 export const firstNameOf = (name: string): string =>
   name.split(" ").find((word) => !word.endsWith(".")) ?? name
 
+// "Dr. Sarah Okafor" → "SO": monogram from the first two non-honorific words.
+export const initialsOf = (name: string): string =>
+  name
+    .split(" ")
+    .filter((word) => word.length > 0 && !word.endsWith("."))
+    .slice(0, 2)
+    .map((word) => word[0].toUpperCase())
+    .join("")
+
 // Per-session avatar briefing. personalityPreamble is prepended to the
 // persona stored on the Runway Character; startScript replaces its canned
 // opener, which otherwise repeats verbatim every session, including resumes

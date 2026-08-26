@@ -1,6 +1,6 @@
 "use client"
 
-import { use } from "react"
+import { use, useCallback, useState } from "react"
 import { useQuery } from "convex/react"
 import { api } from "@convex/_generated/api"
 import { Id } from "@convex/_generated/dataModel"
@@ -13,6 +13,10 @@ const RoomPage = ({ params }: { params: Promise<{ id: string }> }) => {
   const { id } = use(params)
   const practice = useQuery(api.practices.get, { id: id as Id<"practices"> })
   const sessions = useQuery(api.sessions.listByPractice, { practiceId: id as Id<"practices"> })
+  // The settle fades everything, including the flow header this page owns
+  // through FlowShell — the room reports the moment, the page relays it.
+  const [settled, setSettled] = useState(false)
+  const handleSettled = useCallback(() => setSettled(true), [])
 
   // "Session 4 · CourtTime production · Data recovery" — the live session
   // is the newest, so its number is the total count. The third segment is
@@ -37,6 +41,7 @@ const RoomPage = ({ params }: { params: Promise<{ id: string }> }) => {
       simulationId={id}
       fullBleed
       dark
+      chromeFaded={settled}
       centerSlot={meta}
       confirmExit={{
         label: "Leave room",
@@ -46,7 +51,7 @@ const RoomPage = ({ params }: { params: Promise<{ id: string }> }) => {
           "Your session stays live and you can rejoin from this practice. If you're finished, use End session instead. That's what gets you your debrief.",
       }}
     >
-      <RoomShell simulationId={id} />
+      <RoomShell simulationId={id} onSettled={handleSettled} />
     </FlowShell>
   )
 }

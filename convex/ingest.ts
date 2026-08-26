@@ -1,15 +1,9 @@
 "use node"
 
 import { v } from "convex/values"
-import { action, internalAction } from "./_generated/server"
+import { internalAction } from "./_generated/server"
 import { internal } from "./_generated/api"
-import { requireIdentity } from "./guard"
-import {
-  clampExtractedText,
-  materialFileType,
-  ooxmlText,
-  type MaterialFileType,
-} from "../src/lib/materials"
+import { clampExtractedText, ooxmlText, type MaterialFileType } from "../src/lib/materials"
 
 const extractPdf = async (buffer: ArrayBuffer): Promise<string> => {
   const { extractText, getDocumentProxy } = await import("unpdf")
@@ -122,29 +116,6 @@ export const extract = internalAction({
           : internal.practices.runAuditInternal,
         { id: material.practiceId }
       )
-    }
-  },
-})
-
-// Pre-create extraction for the intake deck on-ramp: same extractors, no
-// material row yet (the user hasn't committed to a simulation).
-export const extractUpload = action({
-  args: { storageId: v.id("_storage"), name: v.string() },
-  handler: async (ctx, args): Promise<{ ok: true; text: string } | { ok: false; reason: string }> => {
-    await requireIdentity(ctx)
-    const fileType = materialFileType(args.name)
-    if (!fileType) return { ok: false, reason: "Only PDF, PPTX, XLSX, and DOCX files are supported." }
-    const blob = await ctx.storage.get(args.storageId)
-    if (!blob) return { ok: false, reason: "The upload didn't reach storage. Try again." }
-    try {
-      const text = await EXTRACTORS[fileType](await blob.arrayBuffer())
-      const hasContent = text.replace(/\[(page|slide|sheet)[^\]]*\]/g, "").trim().length > 0
-      if (!hasContent) {
-        return { ok: false, reason: "No readable text found. Scanned or image-only files can't be read yet." }
-      }
-      return { ok: true, text: clampExtractedText(text) }
-    } catch (error) {
-      return { ok: false, reason: failureReason(error) }
     }
   },
 })

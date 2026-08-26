@@ -8,6 +8,7 @@ import { useAction, useMutation, useQuery } from "convex/react"
 import { api } from "@convex/_generated/api"
 import type { Id } from "@convex/_generated/dataModel"
 import { cn } from "@/lib/utils"
+import { clearRoomLanding, peekRoomLanding } from "@/lib/roomLanding"
 import { verdictDirection } from "@/domains/registry"
 import { bySpokenTime } from "@/lib/transcript"
 import { BTN_PRIMARY, BTN_SECONDARY } from "@/components/shared/buttons"
@@ -17,9 +18,16 @@ import { VerdictBadge } from "@/components/workspace/VerdictBadge"
 import { firstNameOf } from "@/domains/types"
 import { useAutoHideScrollbar } from "@/components/shared/useAutoHideScrollbar"
 
-// Generation normally lands well inside this; the retry only appears once
-// the wait is genuinely unusual, so it can't be mashed on arrival.
-const RETRY_AFTER_MS = 12_000
+// Generation on the quality tier measures around twenty five seconds; the
+// retry only appears once the wait is genuinely unusual, so it can't be
+// mashed on arrival.
+const RETRY_AFTER_MS = 30_000
+
+// The settle veil's ceilings: it always begins fading within the hold cap
+// even if data is still loading, and it stops rendering once the fade is
+// done. The fade duration matches the room chrome's own transitions.
+const VEIL_HOLD_CAP_MS = 2_500
+const VEIL_FADE_MS = 700
 
 const SessionPage = ({
   params,
@@ -38,9 +46,20 @@ const SessionPage = ({
   const generateDebrief = useAction(api.sessions.generateDebrief)
   const transcriptScroll = useAutoHideScrollbar<HTMLDivElement>()
 
+  // No debrief was ever generated when either side never got a word on the
+  // record: the user never spoke (a debrief with nothing of theirs to judge
+  // can only be invented), or no panelist entry exists (no interviewer on
+  // the record means no interview happened, whatever the mic captured
+  // instead). Without this the pending state below would spin forever
+  // waiting on a generation that never runs.
+  const nothingRecorded =
+    session?.status === "concluded" &&
+    !session.debrief &&
+    (session.transcript.every((e) => e.type !== "user") ||
+      session.transcript.every((e) => e.type !== "panelist"))
   // Once the debrief lands the pending branch unmounts for good, so the
   // flag never needs resetting.
-  const debriefPending = session?.status === "concluded" && !session.debrief
+  const debriefPending = session?.status === "concluded" && !session.debrief && !nothingRecorded
   const [showRetry, setShowRetry] = useState(false)
   useEffect(() => {
     if (!debriefPending) return
@@ -48,7 +67,54 @@ const SessionPage = ({
     return () => clearTimeout(timer)
   }, [debriefPending])
 
-  if (session === undefined || practice === undefined) return null
+  // The settle veil: the room marks its navigation just before router.push,
+  // and this page reads the mark in its lazy initializer so the dark ground
+  // is in the very first paint — no light frame between the room and the
+  // veil — then fades into the debrief, the crossfade in the approved mock.
+  // The peek is read-only (StrictMode runs initializers twice); the effect
+  // clears the mark so back-navigation and refresh get no veil.
+  const [veil, setVeil] = useState<"none" | "solid" | "fading">(() =>
+    peekRoomLanding() ? "solid" : "none"
+  )
+  useEffect(() => {
+    clearRoomLanding()
+  }, [])
+
+  // Fade the moment the session query lands — the debrief's own rise plays
+  // underneath — and always within the hold cap even if data is still
+  // loading: an opaque cover must never strand the page.
+  const sessionLoaded = session !== undefined
+  useEffect(() => {
+    if (veil !== "solid") return
+    const fade = setTimeout(() => setVeil("fading"), sessionLoaded ? 0 : VEIL_HOLD_CAP_MS)
+    return () => clearTimeout(fade)
+  }, [veil, sessionLoaded])
+
+  // The unmount waits out the CSS fade plus a beat: the transition starts a
+  // paint after the state flip, and clipping its tail reads as a pop.
+  useEffect(() => {
+    if (veil !== "fading") return
+    const done = setTimeout(() => setVeil("none"), VEIL_FADE_MS + 100)
+    return () => clearTimeout(done)
+  }, [veil])
+
+  // motion-reduce:hidden — reduced-motion users get no veil at all; the
+  // debrief simply appears. pointer-events-none throughout: the veil is
+  // scenery, and a click on the debrief must land even mid-fade. The
+  // duration-700 class must match VEIL_FADE_MS.
+  const veilNode =
+    veil === "none" ? null : (
+      <div
+        aria-hidden="true"
+        data-surface="dark"
+        className={cn(
+          "pointer-events-none fixed inset-0 z-50 bg-surface transition-opacity duration-700 motion-reduce:hidden",
+          veil === "fading" && "opacity-0"
+        )}
+      />
+    )
+
+  if (session === undefined || practice === undefined) return veilNode
   if (session === null || practice === null) {
     return (
       <div className="mx-auto max-w-[640px] px-8 pt-24 text-center">
@@ -56,6 +122,7 @@ const SessionPage = ({
         <Link href="/" className="mt-4 inline-block text-[13px] text-accent-blue hover:underline">
           Back home
         </Link>
+        {veilNode}
       </div>
     )
   }
@@ -79,8 +146,12 @@ const SessionPage = ({
   }
 
   const handlePracticeAgain = async () => {
-    const { sessionId: nextId } = await continueSession({ id: practice._id })
-    router.push(nextId ? `/simulation/${practice._id}/room` : `/simulation/${practice._id}/panel`)
+    try {
+      const { sessionId: nextId } = await continueSession({ id: practice._id })
+      router.push(nextId ? `/simulation/${practice._id}/room` : `/simulation/${practice._id}/panel`)
+    } catch (err) {
+      console.error("continue session failed:", err)
+    }
   }
 
   const transcript = bySpokenTime(session.transcript)
@@ -102,7 +173,7 @@ const SessionPage = ({
       {debrief ? (
         <>
           <header className="mb-10">
-            <div className="mb-4 flex items-center gap-2.5">
+            <div className="mb-4 flex animate-rise items-center gap-2.5 motion-reduce:animate-none">
               <VerdictBadge decision={debrief.verdict} />
               {direction === "up" && (
                 <span className="text-xs font-medium text-ok">up from last time</span>
@@ -111,7 +182,7 @@ const SessionPage = ({
                 <span className="text-xs font-medium text-warn">down from last time</span>
               )}
             </div>
-            <blockquote className="max-w-[30em] font-serif text-[27px] font-normal leading-[1.42] max-md:text-[22px]">
+            <blockquote className="max-w-[30em] animate-rise font-serif text-[27px] font-normal leading-[1.42] [animation-delay:100ms] max-md:text-[22px] motion-reduce:animate-none">
               <span aria-hidden="true" className="text-ink-4">
                 &ldquo;
               </span>
@@ -120,7 +191,7 @@ const SessionPage = ({
                 &rdquo;
               </span>
             </blockquote>
-            <div className="mt-3.5 flex items-center gap-2.5">
+            <div className="mt-3.5 flex animate-rise items-center gap-2.5 [animation-delay:100ms] motion-reduce:animate-none">
               <PersonaAvatar name={session.persona.name} size="sm" />
               <p className="text-[13px] text-on-surface-2">
                 <b className="font-medium text-on-surface">{session.persona.name}</b>
@@ -129,7 +200,7 @@ const SessionPage = ({
             </div>
           </header>
 
-          <div className="grid grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)] items-start gap-x-16 max-lg:grid-cols-1">
+          <div className="grid animate-rise grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)] items-start gap-x-16 [animation-delay:200ms] max-lg:grid-cols-1 motion-reduce:animate-none">
             <div className="min-w-0">
               {debrief.whatHappened && (
                 <section className="mb-8">
@@ -322,6 +393,23 @@ const SessionPage = ({
             Rejoin the session
           </Link>
         </div>
+      ) : nothingRecorded ? (
+        <div className="mb-10 rounded-xl border border-dashed border-line-2 px-6 py-10 text-center">
+          <p className="text-[15px] font-medium text-on-surface">Nothing to debrief</p>
+          <p className="mx-auto mt-2 max-w-[44ch] text-[13px] text-on-surface-3">
+            This session never became a real conversation, so there is no debrief and nothing
+            counts against you.
+          </p>
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+            <button type="button" onClick={handlePracticeAgain} className={BTN_PRIMARY}>
+              <Video className="size-[15px]" />
+              Go again
+            </button>
+            <Link href={`/p/${practiceId}`} className={BTN_SECONDARY}>
+              Back to your practice
+            </Link>
+          </div>
+        </div>
       ) : (
         // Concluded with no debrief yet: generation is in flight. This is a
         // live query, so the debrief replaces this block the moment it
@@ -329,8 +417,10 @@ const SessionPage = ({
         <div className="mb-10 rounded-xl border border-dashed border-line-2 px-6 py-10 text-center">
           <p className="flex items-center justify-center gap-2.5 text-[14px] text-on-surface-2">
             <span aria-hidden="true" className="h-2 w-2 animate-pulse rounded-full bg-accent-blue" />
-            {firstNameOf(session.persona.name)} is writing your debrief. It lands here in a
-            moment.
+            {firstNameOf(session.persona.name)} is writing up your verdict.
+          </p>
+          <p className="mt-2 text-[13px] text-on-surface-3">
+            {showRetry ? "Taking a bit longer than usual." : "Reviewing what held and what didn't."}
           </p>
           {showRetry && (
             <button
@@ -376,6 +466,7 @@ const SessionPage = ({
           </div>
         </details>
       )}
+      {veilNode}
     </div>
   )
 }
