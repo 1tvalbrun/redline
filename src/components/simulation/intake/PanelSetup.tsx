@@ -4,7 +4,7 @@ import { useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowRight, FileText } from "lucide-react"
+import { ArrowRight } from "lucide-react"
 import { useMutation, useQuery } from "convex/react"
 import { api } from "@convex/_generated/api"
 import { Id } from "@convex/_generated/dataModel"
@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils"
 import { getPack } from "@/domains/registry"
 import { firstNameOf, scopeList, scopeText, type DomainPack, type Persona, type Scope } from "@/domains/types"
 import { BTN_PRIMARY, BTN_SECONDARY } from "@/components/shared/buttons"
+import { ReceiptChip } from "@/components/shared/ReceiptChip"
 import { StageKicker } from "@/components/simulation/flow/FlowShell"
 import { IdeaNotFound } from "@/components/simulation/flow/IdeaNotFound"
 
@@ -80,12 +81,6 @@ const AttackLine = ({ persona }: { persona: Persona }) => (
   </p>
 )
 
-const ReceiptChip = ({ children }: { children: React.ReactNode }) => (
-  <span className="inline-flex items-center gap-1.5 rounded-full border border-line-2 bg-surface-raised px-3 py-1 text-xs text-on-surface-2">
-    <FileText className="size-[11px] text-on-surface-3" />
-    {children}
-  </span>
-)
 
 const CONSENT =
   "Sessions are live voice conversations with an AI avatar. Entering the room is your consent to your audio being transcribed and the conversation being processed, and possibly recorded, by our avatar provider to run the session."
@@ -264,11 +259,11 @@ export const PanelSetup = ({ simulationId }: PanelSetupProps) => {
             <span className="text-xs text-on-surface-3">
               {firstNameOf(pack.personas[0].name)}&apos;s read:
             </span>
-            <ReceiptChip>Your brief</ReceiptChip>
+            <ReceiptChip label="Your brief" />
             {docChips.map((name) => (
-              <ReceiptChip key={name}>{name}</ReceiptChip>
+              <ReceiptChip key={name} label={name} />
             ))}
-            {gapCount > 0 && <ReceiptChip>The gap map · {gapCount} open</ReceiptChip>}
+            {gapCount > 0 && <ReceiptChip label={`The gap map · ${gapCount} open`} />}
           </div>
           <div className="flex flex-wrap items-center gap-3.5 border-t border-line px-7 py-4">
             <button
@@ -288,9 +283,9 @@ export const PanelSetup = ({ simulationId }: PanelSetupProps) => {
       {trio && (
         <p className="mt-7 flex flex-wrap items-center justify-center gap-2 text-[12.5px] text-on-surface-3">
           They&apos;ve all read:
-          <ReceiptChip>Your brief</ReceiptChip>
+          <ReceiptChip label="Your brief" />
           {docChips.map((name) => (
-            <ReceiptChip key={name}>{name}</ReceiptChip>
+            <ReceiptChip key={name} label={name} />
           ))}
           <span>· You can face the others in later sessions.</span>
         </p>

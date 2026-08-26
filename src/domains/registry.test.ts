@@ -15,6 +15,18 @@ test("every lane declares its prep stage", () => {
   }
 })
 
+test("every lane declares its own start CTA — composing 'Start a {label}' reads broken", () => {
+  for (const pack of ALL_PACKS) {
+    assert.ok(pack.startCta.startsWith("Start "), `${pack.id}: "${pack.startCta}"`)
+    // The bug this guards: templating the label produced "Start a face an
+    // audit practice". The CTA must not embed the lane label verbatim.
+    assert.ok(
+      !pack.startCta.toLowerCase().includes(pack.label.toLowerCase()),
+      `${pack.id}: CTA embeds the label: "${pack.startCta}"`
+    )
+  }
+})
+
 test("verdict values stay distinct across packs (findVerdict is first-match-wins)", () => {
   const values = ALL_PACKS.flatMap((pack) => pack.verdicts.options.map((option) => option.value))
   assert.equal(new Set(values).size, values.length)

@@ -1,12 +1,13 @@
 "use client"
 
 import { useState } from "react"
-import { Check, ChevronDown, FileText } from "lucide-react"
+import { Check, ChevronDown } from "lucide-react"
 import { useMutation } from "convex/react"
 import { api } from "@convex/_generated/api"
 import type { Id } from "@convex/_generated/dataModel"
 import { cn, prefersReducedMotion } from "@/lib/utils"
 import type { ActionItem, ActionItemPriority } from "@/domains/types"
+import { ReceiptChip } from "@/components/shared/ReceiptChip"
 
 const PRIORITY_RANK: Record<ActionItemPriority, number> = { high: 0, medium: 1, low: 2 }
 
@@ -288,13 +289,7 @@ export const ToWorkOn = ({
           <div className="flex flex-wrap items-center gap-2 border-t border-line bg-surface px-4 py-2.5">
             <span className="text-xs text-on-surface-3">{personaFirst} reads:</span>
             {materials.map((material) => (
-              <span
-                key={material.materialId}
-                className="inline-flex items-center gap-1.5 rounded-full border border-line-2 bg-surface-raised px-2.5 py-1 text-xs text-on-surface-2"
-              >
-                <FileText className="size-[11px] text-on-surface-3" />
-                {material.name}
-              </span>
+              <ReceiptChip key={material.materialId} label={material.name} className="px-2.5" />
             ))}
           </div>
         )}

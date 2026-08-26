@@ -1,9 +1,9 @@
 "use client"
 
-import { use } from "react"
+import { use, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Video } from "lucide-react"
+import { ChevronDown, Video } from "lucide-react"
 import { useMutation, useQuery } from "convex/react"
 import { api } from "@convex/_generated/api"
 import type { Id } from "@convex/_generated/dataModel"
@@ -24,6 +24,18 @@ const PracticePage = ({ params }: { params: Promise<{ practiceId: string }> }) =
   const sessions = useQuery(api.sessions.listByPractice, { practiceId: id })
   const materials = useQuery(api.materials.listByPractice, { practiceId: id })
   const continueSession = useMutation(api.practices.continueSession)
+  const [expandedGaps, setExpandedGaps] = useState<ReadonlySet<number>>(new Set())
+  const [showAllQuestions, setShowAllQuestions] = useState(false)
+
+  const handleToggleGap = (index: number) =>
+    setExpandedGaps((current) => {
+      const next = new Set(current)
+      if (next.has(index)) next.delete(index)
+      else next.add(index)
+      return next
+    })
+
+  const handleShowAllQuestions = () => setShowAllQuestions((current) => !current)
 
   if (practice === undefined) return null
   if (practice === null) {
@@ -50,7 +62,7 @@ const PracticePage = ({ params }: { params: Promise<{ practiceId: string }> }) =
     .split(/\n|(?<=\?)\s+/)
     .map((line) => line.trim())
     .filter((line) => line.endsWith("?"))
-    .slice(0, 4)
+  const visibleQuestions = showAllQuestions ? openQuestions : openQuestions.slice(0, 4)
 
   const handleContinue = async () => {
     try {
@@ -176,11 +188,9 @@ const PracticePage = ({ params }: { params: Promise<{ practiceId: string }> }) =
               <p className="mb-1 mt-3 text-[11px] font-semibold uppercase tracking-[.08em] text-on-surface-3">
                 From your materials
               </p>
-              {gaps.map((gap, i) => (
-                <div
-                  key={i}
-                  className="flex gap-2.5 border-t border-line py-2 first:border-t-0"
-                >
+              {gaps.map((gap, i) => {
+                const expanded = expandedGaps.has(i)
+                const dot = (
                   <span
                     aria-hidden="true"
                     className={cn(
@@ -188,12 +198,56 @@ const PracticePage = ({ params }: { params: Promise<{ practiceId: string }> }) =
                       gap.severity === "blocker" ? "bg-red-fg" : "bg-warn"
                     )}
                   />
-                  <p className="text-[13px] leading-normal text-on-surface-2">
+                )
+                const title = (
+                  <span className="flex-1 text-[13px] leading-normal text-on-surface-2">
                     <span className="sr-only">{gap.severity}: </span>
                     {gap.title}
-                  </p>
-                </div>
-              ))}
+                  </span>
+                )
+                if (!gap.detail) {
+                  return (
+                    <div key={i} className="flex gap-2.5 border-t border-line py-2 first:border-t-0">
+                      {dot}
+                      {title}
+                    </div>
+                  )
+                }
+                return (
+                  <div key={i} className="border-t border-line first:border-t-0">
+                    <button
+                      type="button"
+                      aria-expanded={expanded}
+                      aria-controls={`gap-detail-${i}`}
+                      onClick={() => handleToggleGap(i)}
+                      className="focus-ring flex w-full items-start gap-2.5 py-2 text-left"
+                    >
+                      {dot}
+                      {title}
+                      <ChevronDown
+                        aria-hidden="true"
+                        className={cn(
+                          "mt-[3px] size-3.5 flex-none text-ink-4 transition-transform duration-300 ease-brand motion-reduce:transition-none",
+                          expanded && "rotate-180"
+                        )}
+                      />
+                    </button>
+                    <div
+                      id={`gap-detail-${i}`}
+                      className={cn(
+                        "grid transition-[grid-template-rows] duration-300 ease-brand motion-reduce:transition-none",
+                        expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+                      )}
+                    >
+                      <div className="overflow-hidden" inert={!expanded || undefined}>
+                        <p className="pb-2.5 pl-4 text-[12.5px] leading-normal text-on-surface-3">
+                          {gap.detail}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
             </>
           )}
           {openQuestions.length > 0 && (
@@ -201,12 +255,29 @@ const PracticePage = ({ params }: { params: Promise<{ practiceId: string }> }) =
               <p className="mb-1 mt-4 text-[11px] font-semibold uppercase tracking-[.08em] text-on-surface-3">
                 Open from the brief
               </p>
-              {openQuestions.map((question, i) => (
+              {visibleQuestions.map((question, i) => (
                 <div key={i} className="flex gap-2.5 border-t border-line py-2 first:border-t-0">
                   <span className="font-mono text-[11px] text-ink-4">Q·{i + 1}</span>
                   <p className="text-[13px] leading-normal text-on-surface-2">{question}</p>
                 </div>
               ))}
+              {openQuestions.length > 4 && (
+                <button
+                  type="button"
+                  aria-expanded={showAllQuestions}
+                  onClick={handleShowAllQuestions}
+                  className="focus-ring flex w-full items-center gap-1.5 border-t border-line py-2 text-[12.5px] text-on-surface-3 transition-colors hover:text-on-surface-2"
+                >
+                  {showAllQuestions ? "Show fewer" : `Show all ${openQuestions.length}`}
+                  <ChevronDown
+                    aria-hidden="true"
+                    className={cn(
+                      "ml-auto size-3.5 text-ink-4 transition-transform duration-300 ease-brand motion-reduce:transition-none",
+                      showAllQuestions && "rotate-180"
+                    )}
+                  />
+                </button>
+              )}
             </>
           )}
         </aside>

@@ -3,7 +3,7 @@
 import { use, useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Check, Video } from "lucide-react"
+import { ArrowLeft, Check, Video } from "lucide-react"
 import { useAction, useMutation, useQuery } from "convex/react"
 import { api } from "@convex/_generated/api"
 import type { Id } from "@convex/_generated/dataModel"
@@ -164,9 +164,10 @@ const SessionPage = ({
         </h1>
         <Link
           href={`/p/${practiceId}`}
-          className="focus-ring rounded-lg px-2.5 py-1.5 text-[13px] text-on-surface-3 transition-colors hover:bg-surface-2"
+          className="focus-ring flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[13px] text-on-surface-3 transition-colors hover:bg-surface-2 hover:text-accent-blue"
         >
-          Close
+          <ArrowLeft className="size-3.5" />
+          Back to practice
         </Link>
       </div>
 
@@ -417,7 +418,7 @@ const SessionPage = ({
         <div className="mb-10 rounded-xl border border-dashed border-line-2 px-6 py-10 text-center">
           <p className="flex items-center justify-center gap-2.5 text-[14px] text-on-surface-2">
             <span aria-hidden="true" className="h-2 w-2 animate-pulse rounded-full bg-accent-blue" />
-            {firstNameOf(session.persona.name)} is writing up your verdict.
+            {firstNameOf(session.persona.name)} is writing up your debrief.
           </p>
           <p className="mt-2 text-[13px] text-on-surface-3">
             {showRetry ? "Taking a bit longer than usual." : "Reviewing what held and what didn't."}

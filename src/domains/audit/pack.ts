@@ -8,6 +8,7 @@ export const auditPack: DomainPack = {
   id: "audit",
   label: "Face an audit",
   shortLabel: "Audit",
+  startCta: "Start an audit practice",
   description:
     "Rehearse an audit interview before the real one. A lead assessor reads your scope and documents, interviews you on the safeguards in session scope, and tells you straight where you stand. Practice feedback, never a compliance determination.",
   subjectField: "systemName",
