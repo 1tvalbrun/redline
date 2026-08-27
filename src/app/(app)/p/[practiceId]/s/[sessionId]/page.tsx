@@ -15,8 +15,8 @@ import { BTN_PRIMARY, BTN_SECONDARY } from "@/components/shared/buttons"
 import { PersonaAvatar } from "@/components/shared/PersonaAvatar"
 import { Disclosure } from "@/components/shared/Disclosure"
 import { VerdictBadge } from "@/components/workspace/VerdictBadge"
+import { TranscriptDialog } from "@/components/workspace/TranscriptDialog"
 import { firstNameOf } from "@/domains/types"
-import { useAutoHideScrollbar } from "@/components/shared/useAutoHideScrollbar"
 
 // Generation on the quality tier measures around twenty five seconds; the
 // retry only appears once the wait is genuinely unusual, so it can't be
@@ -44,7 +44,6 @@ const SessionPage = ({
   const setItemStatus = useMutation(api.practices.setActionItemStatus)
   const continueSession = useMutation(api.practices.continueSession)
   const generateDebrief = useAction(api.sessions.generateDebrief)
-  const transcriptScroll = useAutoHideScrollbar<HTMLDivElement>()
 
   // No debrief was ever generated when either side never got a word on the
   // record: the user never spoke (a debrief with nothing of theirs to judge
@@ -162,13 +161,16 @@ const SessionPage = ({
         <h1 className="font-mono text-[11px] font-normal uppercase tracking-[.06em] text-on-surface-3">
           The debrief · <b className="font-medium text-on-surface-2">{practice.name}</b>
         </h1>
-        <Link
-          href={`/p/${practiceId}`}
-          className="focus-ring flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[13px] text-on-surface-3 transition-colors hover:bg-surface-2 hover:text-accent-blue"
-        >
-          <ArrowLeft className="size-3.5" />
-          Back to practice
-        </Link>
+        <div className="flex items-center gap-1">
+          <TranscriptDialog transcript={transcript} personaName={session.persona.name} />
+          <Link
+            href={`/p/${practiceId}`}
+            className="focus-ring flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[13px] text-on-surface-3 transition-colors hover:bg-surface-2 hover:text-accent-blue"
+          >
+            <ArrowLeft className="size-3.5" />
+            Back to practice
+          </Link>
+        </div>
       </div>
 
       {debrief ? (
@@ -435,38 +437,6 @@ const SessionPage = ({
         </div>
       )}
 
-      {transcript.length > 0 && (
-        <details className="mt-14 border-t border-line pt-6">
-          <summary className="cursor-pointer text-[13px] font-medium text-on-surface-2 hover:text-accent-blue">
-            Read the full transcript · {transcript.length} {transcript.length === 1 ? "turn" : "turns"}
-          </summary>
-          <div
-            ref={transcriptScroll}
-            className="scrollbar-subtle mt-5 max-h-[60vh] max-w-[52em] space-y-4 overflow-y-auto overscroll-contain pr-2"
-          >
-            {transcript.map((entry, i) => (
-              <div key={i}>
-                <p
-                  className={cn(
-                    "mb-0.5 text-[10.5px] font-semibold uppercase tracking-[.08em]",
-                    entry.type === "user" ? "text-accent-blue" : "text-on-surface-3"
-                  )}
-                >
-                  {entry.speakerName}
-                </p>
-                <p
-                  className={cn(
-                    "text-[13px] leading-relaxed text-on-surface-2",
-                    entry.type === "panelist" && "font-serif text-sm italic text-on-surface"
-                  )}
-                >
-                  {entry.text}
-                </p>
-              </div>
-            ))}
-          </div>
-        </details>
-      )}
       {veilNode}
     </div>
   )
