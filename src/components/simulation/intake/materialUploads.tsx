@@ -7,7 +7,7 @@ import { api } from "@convex/_generated/api"
 import { Id } from "@convex/_generated/dataModel"
 import { REJECTION_MESSAGES, validateMaterialFile } from "@/lib/materials"
 
-export type UploadEntry = { key: string; name: string; size: number } & (
+export type UploadEntry = { key: string; laneId: string; name: string; size: number } & (
   | { state: "uploading" }
   | { state: "ready"; storageId: Id<"_storage"> }
   | { state: "rejected"; reason: string }
@@ -17,21 +17,21 @@ const formatSize = (bytes: number) =>
   bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)}MB` : `${Math.ceil(bytes / 1024)}KB`
 
 // Upload state + transport for intake materials, shared by every lane's
-// intake form. Client-side validation mirrors the server's; anything that
-// slips past is rejected loudly by simulations.create.
-export const useMaterialUploads = () => {
+// intake form. Entries are tagged with the lane they were added in and the
+// hook exposes only the active lane's — a resume uploaded on Interview is
+// never shown, extracted, or attached anywhere else, but it's waiting when
+// the user switches back. An upload finishing after a lane switch still
+// lands in its own lane's list (laneId is captured at add time).
+// Client-side validation mirrors the server's; anything that slips past is
+// rejected loudly by practices.create.
+export const useMaterialUploads = (laneId: string) => {
   const generateUploadUrl = useMutation(api.materials.generateUploadUrl)
-  const [uploads, setUploads] = useState<UploadEntry[]>([])
+  const [allUploads, setAllUploads] = useState<UploadEntry[]>([])
 
-  const uploadFile = async (key: string, file: File) => {
-    const fail = (reason: string) =>
-      setUploads((prev) =>
-        prev.map((entry) =>
-          entry.key === key
-            ? { key, name: file.name, size: file.size, state: "rejected", reason }
-            : entry
-        )
-      )
+  const uploadFile = async (key: string, ownerLane: string, file: File) => {
+    const settle = (settled: UploadEntry) =>
+      setAllUploads((prev) => prev.map((entry) => (entry.key === key ? settled : entry)))
+    const base = { key, laneId: ownerLane, name: file.name, size: file.size }
     try {
       const uploadUrl = await generateUploadUrl()
       const response = await fetch(uploadUrl, {
@@ -39,38 +39,35 @@ export const useMaterialUploads = () => {
         headers: { "Content-Type": file.type || "application/octet-stream" },
         body: file,
       })
-      if (!response.ok) return fail("Upload failed. Try again.")
+      if (!response.ok) return settle({ ...base, state: "rejected", reason: "Upload failed. Try again." })
       const { storageId } = (await response.json()) as { storageId: Id<"_storage"> }
-      setUploads((prev) =>
-        prev.map((entry) =>
-          entry.key === key
-            ? { key, name: file.name, size: file.size, state: "ready", storageId }
-            : entry
-        )
-      )
+      settle({ ...base, state: "ready", storageId })
     } catch {
-      fail("Upload failed. Check your connection and try again.")
+      settle({ ...base, state: "rejected", reason: "Upload failed. Check your connection and try again." })
     }
   }
 
   const addFiles = (files: FileList | null) => {
     for (const file of Array.from(files ?? [])) {
       const key = crypto.randomUUID()
+      const base = { key, laneId, name: file.name, size: file.size }
       const rejection = validateMaterialFile(file.name, file.size)
       if (rejection) {
-        setUploads((prev) => [
+        setAllUploads((prev) => [
           ...prev,
-          { key, name: file.name, size: file.size, state: "rejected", reason: REJECTION_MESSAGES[rejection] },
+          { ...base, state: "rejected", reason: REJECTION_MESSAGES[rejection] },
         ])
         continue
       }
-      setUploads((prev) => [...prev, { key, name: file.name, size: file.size, state: "uploading" }])
-      uploadFile(key, file)
+      setAllUploads((prev) => [...prev, { ...base, state: "uploading" }])
+      uploadFile(key, laneId, file)
     }
   }
 
   const removeUpload = (key: string) =>
-    setUploads((prev) => prev.filter((entry) => entry.key !== key))
+    setAllUploads((prev) => prev.filter((entry) => entry.key !== key))
+
+  const uploads = allUploads.filter((entry) => entry.laneId === laneId)
 
   const readyMaterials = uploads.flatMap((entry) =>
     entry.state === "ready"
@@ -100,7 +97,7 @@ export const UploadList = ({
       {uploads.map((entry) => (
         <li
           key={entry.key}
-          className="flex items-center gap-2.5 border border-line bg-surface px-[11px] py-[9px] text-[13px]"
+          className="flex items-center gap-2.5 rounded-lg border border-line bg-surface-raised px-[11px] py-[9px] text-[13px] shadow-card"
         >
           <span className="flex-none bg-on-surface px-1.5 py-[2px] font-mono text-[9px] tracking-[.06em] text-surface">
             {entry.name.split(".").pop()?.toUpperCase().slice(0, 4) ?? "?"}

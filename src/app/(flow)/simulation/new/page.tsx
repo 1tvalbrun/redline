@@ -1,6 +1,6 @@
 "use client"
 
-import { use, useState } from "react"
+import { use, useCallback, useEffect, useReducer, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Mic } from "lucide-react"
 import { useAction, useMutation, useQuery } from "convex/react"
@@ -8,6 +8,7 @@ import { api } from "@convex/_generated/api"
 import { Id } from "@convex/_generated/dataModel"
 import { cn } from "@/lib/utils"
 import { getPack, isPackId } from "@/domains/registry"
+import { initialFormState, laneFormsReducer, type IntakeFormAction } from "@/lib/intakeForm"
 import type { Scope } from "@/domains/types"
 import { FlowShell } from "@/components/simulation/flow/FlowShell"
 import { TellIt } from "@/components/simulation/intake/TellIt"
@@ -37,7 +38,6 @@ const NewPracticePage = ({
   const extractScope = useAction(api.practices.extractScope)
   const createPractice = useMutation(api.practices.create)
   const analyze = useAction(api.practices.analyze)
-  const uploads = useMaterialUploads()
 
   const [chosenLane, setChosenLane] = useState<string | null>(null)
   // A ?from= prefill goes straight to the typed form — the words already
@@ -46,25 +46,44 @@ const NewPracticePage = ({
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [extractFailed, setExtractFailed] = useState(false)
+  // Typed-form state and uploads live here, keyed per lane, so each lane's
+  // fields, markers, and documents survive lane switches and mode toggles
+  // until the page is left — and never appear in any other lane.
+  const [forms, dispatchForms] = useReducer(laneFormsReducer, {})
   const tellScroll = useAutoHideScrollbar<HTMLDivElement>()
   const confirmScroll = useAutoHideScrollbar<HTMLDivElement>()
+
+  const requested = lane && isPackId(lane) ? lane : undefined
+  const pack = getPack(source?.packId ?? chosenLane ?? requested ?? user?.defaultLane)
+  const uploads = useMaterialUploads(pack.id)
+  const dispatchForm = useCallback(
+    (action: IntakeFormAction) => dispatchForms({ lane: pack.id, action }),
+    [pack.id]
+  )
+
+  // Seeds the ?from= prefill once its source query lands (external data
+  // arrival); the reducer ignores a seed for a lane that already exists.
+  useEffect(() => {
+    if (source) dispatchForms({ lane: source.packId, action: { type: "seed", scope: source.scope } })
+  }, [source])
 
   if (user === undefined) return null
   // A prefill source that's still loading would flash a blank form; one the
   // caller doesn't own resolves to null and falls through to a blank form.
   if (from && source === undefined) return null
 
-  const requested = lane && isPackId(lane) ? lane : undefined
-  const pack = getPack(source?.packId ?? chosenLane ?? requested ?? user?.defaultLane)
   const lanes = (user?.lanes ?? []).filter(isPackId)
   const prefilled = source !== null && source !== undefined
 
   const handleLaneSwitch = (laneId: string) => {
     if (laneId === pack.id) return
-    // A lane switch means a different brief shape: any extraction or typed
-    // progress belongs to the old lane and is discarded.
+    // Each lane's typed progress and uploads stay in its own record — the
+    // switch only changes which record is visible. The chosen input mode is
+    // the user's, not the lane's — typing stays typing. Mid-voice beats
+    // (extracting, confirm) carry the old lane's spoken content, so they
+    // land back on "tell".
     setChosenLane(laneId)
-    setBeat({ kind: "tell" })
+    setBeat((prev) => (prev.kind === "type" ? prev : { kind: "tell" }))
     setExtractFailed(false)
   }
 
@@ -170,9 +189,9 @@ const NewPracticePage = ({
             </button>
           </div>
           <TypedForm
-            key={`${pack.id}:${from ?? "new"}`}
             pack={pack}
-            initialScope={source?.scope}
+            form={forms[pack.id] ?? initialFormState()}
+            dispatch={dispatchForm}
             uploads={uploads}
             submitting={submitting}
             submitError={submitError}

@@ -1,6 +1,15 @@
 import { field } from "./audit.ts"
 import type { Scope, ScopeField } from "../domains/types.ts"
 
+// Appended to every pack's extraction prompt for document sources only.
+// Observed live: a session presentation's cover line ("…Session
+// presentation, March 2025") extracted as the environment description —
+// document furniture read as substance. Spoken pitches have no covers, so
+// the voice path never needs this.
+export const DECK_EXTRACTION_CAUTION = `
+
+Document text includes cover pages, titles, section headers, agendas, footers, and dates. None of those are statements of any field. A presentation or company name is not a description of what is being assessed or sold. Only the document's actual content — sentences that state a field's answer — counts; when the slides never state it, return null.`
+
 const MULTI_MAX_ITEMS = 8
 const TEXT_FALLBACK_CHARS = 60
 

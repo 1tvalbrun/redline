@@ -141,6 +141,7 @@ export const auditPack: DomainPack = {
       ],
       materialsTitle: "Documents",
       materialsMeta: "optional · PDF PPTX XLSX DOCX",
+      materialsPrompt: "Add your documents.",
     },
     // controlArea is deliberately not previewed; it drives the evidence
     // rail instead.

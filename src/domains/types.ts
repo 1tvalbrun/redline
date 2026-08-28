@@ -256,6 +256,10 @@ export type PackCopy = {
     sections: { title: string; meta?: string; keys: string[] }[]
     materialsTitle: string
     materialsMeta: string
+    // The dropzone's first line — names the lane's actual documents
+    // ("Add your resume or the job description."), so the noun can't be
+    // guessed wrong from persona count.
+    materialsPrompt: string
   }
   // The "what {persona} will read" rail beside the typed form.
   preview: {

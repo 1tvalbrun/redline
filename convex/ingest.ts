@@ -1,9 +1,16 @@
 "use node"
 
 import { v } from "convex/values"
-import { internalAction } from "./_generated/server"
-import { internal } from "./_generated/api"
-import { clampExtractedText, ooxmlText, type MaterialFileType } from "../src/lib/materials"
+import { action, internalAction } from "./_generated/server"
+import { api, internal } from "./_generated/api"
+import {
+  clampExtractedText,
+  materialFileType,
+  ooxmlText,
+  type MaterialFileType,
+} from "../src/lib/materials"
+import type { Scope } from "../src/domains/types"
+import { requireIdentity } from "./guard"
 
 const extractPdf = async (buffer: ArrayBuffer): Promise<string> => {
   const { extractText, getDocumentProxy } = await import("unpdf")
@@ -62,6 +69,35 @@ const failureReason = (error: unknown): string => {
   }
   return "Couldn't read this file. Re-export it and try again."
 }
+
+// Intake autofill: extract a just-uploaded file and run it through the
+// pack's scope extraction, before any practice exists. Reuses the one
+// extraction path (practices.extractScope carries the honesty rule and the
+// usage meter); the storage id is unguessable and the blob is read once,
+// server-side — raw text never reaches the client.
+export const scopeFromUpload = action({
+  args: {
+    storageId: v.id("_storage"),
+    fileName: v.string(),
+    packId: v.string(),
+  },
+  handler: async (ctx, args): Promise<Scope> => {
+    await requireIdentity(ctx)
+    const fileType = materialFileType(args.fileName)
+    if (!fileType) throw new Error("Unsupported file type")
+    const blob = await ctx.storage.get(args.storageId)
+    if (!blob) throw new Error("The upload didn't reach storage")
+    const text = clampExtractedText(await EXTRACTORS[fileType](await blob.arrayBuffer()))
+    if (text.replace(/\[(page|slide|sheet)[^\]]*\]/g, "").trim().length === 0) {
+      throw new Error("No readable text found")
+    }
+    return await ctx.runAction(api.practices.extractScope, {
+      packId: args.packId,
+      pitch: text,
+      source: "deck",
+    })
+  },
+})
 
 export const extract = internalAction({
   args: { materialId: v.id("materials") },

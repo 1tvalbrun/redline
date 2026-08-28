@@ -131,6 +131,7 @@ export const salesPack: DomainPack = {
       ],
       materialsTitle: "Materials",
       materialsMeta: "optional · PDF PPTX XLSX DOCX",
+      materialsPrompt: "Add your documents.",
     },
     preview: {
       title: "What Cole will read",

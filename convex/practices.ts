@@ -13,7 +13,7 @@ import type { Doc, Id } from "./_generated/dataModel"
 import { claimValidator, gapValidator, groundAudit } from "../src/lib/audit"
 import type { Blueprint } from "../src/lib/blueprint"
 import { materialFileType, validateMaterialFile } from "../src/lib/materials"
-import { parseExtractedScope } from "../src/lib/intake"
+import { DECK_EXTRACTION_CAUTION, parseExtractedScope } from "../src/lib/intake"
 import { createOpenAI, modelSettings } from "../src/lib/openai"
 import { getPack, isPackId } from "../src/domains/registry"
 import { scopeText, type Scope } from "../src/domains/types"
@@ -473,7 +473,9 @@ export const extractScope = action({
       messages: [
         {
           role: "system",
-          content: pack.prompts.extractScope({ source: args.source, pitch: args.pitch }),
+          content:
+            pack.prompts.extractScope({ source: args.source, pitch: args.pitch }) +
+            (args.source === "deck" ? DECK_EXTRACTION_CAUTION : ""),
         },
       ],
       response_format: { type: "json_object" },
