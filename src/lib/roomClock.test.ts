@@ -4,10 +4,12 @@ import {
   ROOM_MS,
   RESOLVE_MS,
   MIN_RECONNECT_MS,
+  CLOSE_LAND_GRACE_MS,
   roomTimePhase,
   remainingMs,
   shouldInvite,
   maxDurationSec,
+  shouldLandAfterClose,
   pickInvitation,
   INVITATIONS,
 } from "./roomClock.ts"
@@ -47,6 +49,17 @@ test("first connect gets the full budget; reconnect gets the remainder", () => {
 test("reconnect below the floor is refused with null", () => {
   assert.equal(maxDurationSec(T0, T0 + ROOM_MS - MIN_RECONNECT_MS + 1), null)
   assert.equal(maxDurationSec(T0, T0 + ROOM_MS + 1), null)
+})
+
+test("a delivered close lands the room only after the goodbye grace, never mid-speech", () => {
+  // No close on record: the clock rules alone.
+  assert.equal(shouldLandAfterClose(undefined, T0, false), false)
+  // Inside the grace the goodbye beat is still playing out.
+  assert.equal(shouldLandAfterClose(T0, T0 + CLOSE_LAND_GRACE_MS - 1, false), false)
+  // Grace passed but the persona is mid-sentence: hold.
+  assert.equal(shouldLandAfterClose(T0, T0 + CLOSE_LAND_GRACE_MS, true), false)
+  // Grace passed, room quiet: land.
+  assert.equal(shouldLandAfterClose(T0, T0 + CLOSE_LAND_GRACE_MS, false), true)
 })
 
 test("invitations rotate by seed, name the persona, and contain no digits or em dashes", () => {

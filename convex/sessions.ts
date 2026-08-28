@@ -229,8 +229,9 @@ export const addTranscriptEntry = mutation({
 // actually near its end (the slack covers the speech-grace floor landing at
 // T minus two seconds); "idle" needs the record actually quiet for the
 // prompt-plus-end window; "error" needs a one-sided record — the same
-// nothing-on-record rule generateDebrief enforces; "verdict" has had no
-// writer since the ending tools were removed, so it downgrades outright.
+// nothing-on-record rule generateDebrief enforces; "verdict" needs the
+// close the server itself stamped (closeDeliveredAt, written only by
+// orchestrator.decide) — the client can only claim what the record shows.
 const TIME_SLACK_MS = 20_000
 const IDLE_SLACK_MS = 10_000
 
@@ -257,6 +258,9 @@ const verifiedEndedReason = (
     const hasUserTurn = session.transcript.some((e) => e.type === "user")
     const hasPanelistTurn = session.transcript.some((e) => e.type === "panelist")
     return !hasUserTurn || !hasPanelistTurn ? "error" : "user"
+  }
+  if (claimed === "verdict") {
+    return session.closeDeliveredAt !== undefined ? "verdict" : "user"
   }
   return "user"
 }
@@ -314,6 +318,18 @@ export const claimOrchestrate = internalMutation({
     }
     await ctx.db.patch(args.id, { lastOrchestratedAt: now })
     return true
+  },
+})
+
+// Internal: written only by orchestrator.decide. First stamp wins — the
+// detector reports conversation state, so later decides re-affirming the
+// same close must not move the landing clock.
+export const markCloseDelivered = internalMutation({
+  args: { id: v.id("sessions") },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.id)
+    if (!session || session.status !== "live" || session.closeDeliveredAt !== undefined) return
+    await ctx.db.patch(args.id, { closeDeliveredAt: Date.now() })
   },
 })
 

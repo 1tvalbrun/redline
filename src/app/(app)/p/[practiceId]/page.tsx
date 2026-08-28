@@ -16,6 +16,96 @@ import { LaneBadge } from "@/components/shared/LaneBadge"
 import { PersonaAvatar } from "@/components/shared/PersonaAvatar"
 import { ToWorkOn } from "@/components/workspace/ToWorkOn"
 import { VerdictBadge } from "@/components/workspace/VerdictBadge"
+import { useAutoHideScrollbar } from "@/components/shared/useAutoHideScrollbar"
+
+type SessionRow = {
+  sessionId: string
+  status: string
+  startedAt: number
+  turns: number
+  userTurns: number
+  panelistTurns: number
+  title: string | null
+  verdict: string | null
+  quote: string | null
+}
+
+const sessionLabel = (session: SessionRow): string =>
+  session.title ??
+  (session.status === "live"
+    ? "Live now"
+    : session.userTurns === 0 || session.panelistTurns === 0
+      ? "Nothing recorded"
+      : "Session")
+
+const sessionNote = (session: SessionRow): string =>
+  session.status === "live"
+    ? "In the room now."
+    : session.userTurns === 0 || session.panelistTurns === 0
+      ? "This one never became a conversation. Nothing counts against you."
+      : "Debrief pending."
+
+// The earlier-sessions ledger: uniform two-line rows (quote when the
+// session has one, an honest note when it doesn't) inside a capped scroll
+// area, so a hundred sessions never grow the page. Its own component so
+// the scrollbar hook's mount effect runs when the ledger exists — sessions
+// load after the page's first paint.
+const EarlierSessions = ({
+  practiceId,
+  sessions,
+}: {
+  practiceId: string
+  sessions: SessionRow[]
+}) => {
+  const scrollRef = useAutoHideScrollbar<HTMLDivElement>()
+  return (
+    <div className="overflow-hidden rounded-xl border border-line bg-surface-raised shadow-card">
+      <div
+        ref={scrollRef}
+        className="scrollbar-subtle max-h-[304px] overflow-y-auto overscroll-contain"
+      >
+        {sessions.map((session) => (
+          <Link
+            key={session.sessionId}
+            href={`/p/${practiceId}/s/${session.sessionId}`}
+            className="flex items-start gap-3 border-b border-line px-4 py-2.5 transition-colors last:border-b-0 hover:bg-surface-2"
+          >
+            <span className="w-[74px] flex-none pt-0.5 font-mono text-[11px] text-on-surface-3">
+              {relativeDay(session.startedAt)}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="flex items-center gap-2.5">
+                <span
+                  className={cn(
+                    "truncate text-[13.5px]",
+                    session.title ? "font-semibold tracking-[-.005em]" : "text-on-surface-2"
+                  )}
+                >
+                  {sessionLabel(session)}
+                </span>
+                {session.verdict && <VerdictBadge decision={session.verdict} />}
+              </span>
+              {session.quote ? (
+                <span className="mt-0.5 block truncate font-serif text-[13px] italic leading-normal text-on-surface-2">
+                  &ldquo;{session.quote}&rdquo;
+                </span>
+              ) : (
+                <span className="mt-0.5 block truncate text-[12.5px] text-on-surface-3">
+                  {sessionNote(session)}
+                </span>
+              )}
+            </span>
+            {session.turns > 0 && (
+              <span className="flex-none pt-0.5 font-mono text-[11px] text-on-surface-3">
+                {session.turns} {session.turns === 1 ? "turn" : "turns"}
+              </span>
+            )}
+          </Link>
+        ))}
+      </div>
+    </div>
+  )
+}
 
 const PracticePage = ({ params }: { params: Promise<{ practiceId: string }> }) => {
   const { practiceId } = use(params)
@@ -70,7 +160,7 @@ const PracticePage = ({ params }: { params: Promise<{ practiceId: string }> }) =
   }
 
   return (
-    <div className="mx-auto max-w-[1200px] px-12 pb-20 pt-10 max-md:px-5 max-md:pt-7 xl:grid xl:grid-cols-[minmax(0,1fr)_348px] xl:gap-x-16">
+    <div className="mx-auto max-w-[1320px] px-12 pb-20 pt-10 max-md:px-5 max-md:pt-7 xl:grid xl:grid-cols-[minmax(0,1fr)_348px] xl:gap-x-28">
       <header className="mb-8 flex items-start gap-3.5 max-md:flex-wrap xl:col-span-2">
         {persona && (
           <PersonaAvatar name={persona.name} available />
@@ -113,67 +203,79 @@ const PracticePage = ({ params }: { params: Promise<{ practiceId: string }> }) =
         />
 
         <section>
-          <div className="mb-2.5 flex items-baseline justify-between px-0.5">
-            <h2 className="text-[11px] font-semibold uppercase tracking-[.09em] text-on-surface-3">
-              Sessions
-            </h2>
-            {sessions && sessions.length > 1 && (
-              <p className="text-xs text-on-surface-3">newest first</p>
-            )}
-          </div>
           {sessions === undefined ? null : sessions.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-line-2 px-5 py-8 text-center text-[13px] text-on-surface-3">
-              No sessions yet. Hit Continue to face {personaFirst ?? "your panelist"} for the
-              first time.
-            </div>
+            <>
+              <div className="mb-2.5 flex items-baseline justify-between px-0.5">
+                <h2 className="text-[11px] font-semibold uppercase tracking-[.09em] text-on-surface-3">
+                  Sessions
+                </h2>
+              </div>
+              <div className="rounded-xl border border-dashed border-line-2 px-5 py-8 text-center text-[13px] text-on-surface-3">
+                No sessions yet. Hit Continue to face {personaFirst ?? "your panelist"} for the
+                first time.
+              </div>
+            </>
           ) : (
-            <div className="flex flex-col gap-2">
-              {sessions.map((session) => (
-                <Link
-                  key={session.sessionId}
-                  href={`/p/${practiceId}/s/${session.sessionId}`}
-                  className="rounded-xl border border-line bg-surface-raised px-4 py-3 shadow-card transition-colors hover:bg-surface-2"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <span
-                      className={cn(
-                        "flex-1 truncate text-[13.5px]",
-                        session.title
-                          ? "font-semibold tracking-[-.005em]"
-                          : "text-on-surface-2"
-                      )}
-                    >
-                      {session.title ??
-                        (session.status === "live"
-                          ? "Live now"
-                          : session.userTurns === 0 || session.panelistTurns === 0
-                            ? "Nothing recorded"
-                            : "Session")}
-                    </span>
-                    {session.verdict && <VerdictBadge decision={session.verdict} />}
-                    {session.status === "live" && (
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-ok-bg px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[.07em] text-ok">
-                        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-ok" />
-                        Live
-                      </span>
+            <>
+              <div className="mb-2.5 flex items-baseline justify-between px-0.5">
+                <h2 className="text-[11px] font-semibold uppercase tracking-[.09em] text-on-surface-3">
+                  Latest session
+                </h2>
+                <p className="text-xs text-on-surface-3">{relativeDay(sessions[0].startedAt)}</p>
+              </div>
+              <Link
+                href={`/p/${practiceId}/s/${sessions[0].sessionId}`}
+                className="block rounded-xl border border-line bg-surface-raised px-4 py-3 shadow-card transition-colors hover:bg-surface-2"
+              >
+                <div className="flex items-center gap-2.5">
+                  <span
+                    className={cn(
+                      "flex-1 truncate text-[13.5px]",
+                      sessions[0].title
+                        ? "font-semibold tracking-[-.005em]"
+                        : "text-on-surface-2"
                     )}
-                    <span className="font-mono text-[11px] text-on-surface-3">
-                      {relativeDay(session.startedAt)}
+                  >
+                    {sessionLabel(sessions[0])}
+                  </span>
+                  {sessions[0].verdict && <VerdictBadge decision={sessions[0].verdict} />}
+                  {sessions[0].status === "live" && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-ok-bg px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[.07em] text-ok">
+                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-ok" />
+                      Live
                     </span>
+                  )}
+                </div>
+                {sessions[0].quote ? (
+                  <p className="mt-1.5 font-serif text-[14.5px] italic leading-normal text-on-surface-2">
+                    &ldquo;{sessions[0].quote}&rdquo;
+                  </p>
+                ) : (
+                  <p className="mt-1.5 text-[13px] text-on-surface-3">
+                    {sessionNote(sessions[0])}
+                  </p>
+                )}
+                {sessions[0].turns > 0 && (
+                  <p className="mt-1 text-xs text-on-surface-3">
+                    {sessions[0].turns} {sessions[0].turns === 1 ? "turn" : "turns"}
+                  </p>
+                )}
+              </Link>
+              {sessions.length > 1 && (
+                <>
+                  <div className="mb-2.5 mt-7 flex items-baseline justify-between px-0.5">
+                    <h2 className="text-[11px] font-semibold uppercase tracking-[.09em] text-on-surface-3">
+                      Earlier
+                    </h2>
+                    <p className="text-xs text-on-surface-3">
+                      {sessions.length - 1} {sessions.length === 2 ? "session" : "sessions"} ·
+                      newest first
+                    </p>
                   </div>
-                  {session.quote && (
-                    <p className="mt-1.5 font-serif text-[14.5px] italic leading-normal text-on-surface-2">
-                      &ldquo;{session.quote}&rdquo;
-                    </p>
-                  )}
-                  {session.turns > 0 && (
-                    <p className="mt-1 text-xs text-on-surface-3">
-                      {session.turns} {session.turns === 1 ? "turn" : "turns"}
-                    </p>
-                  )}
-                </Link>
-              ))}
-            </div>
+                  <EarlierSessions practiceId={practiceId} sessions={sessions.slice(1)} />
+                </>
+              )}
+            </>
           )}
         </section>
       </div>

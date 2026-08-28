@@ -6,6 +6,11 @@
 export const ROOM_MS = 300_000
 export const RESOLVE_MS = 10_000
 export const MIN_RECONNECT_MS = 30_000
+// The goodbye beat after a detected close. Detection itself runs a turn
+// late (an avatar final commits only when her next turn starts), so by the
+// time this grace starts the user has heard the close and the persona's
+// warm sign-off is already underway.
+export const CLOSE_LAND_GRACE_MS = 12_000
 
 const CLOSING_FRACTION = 0.8
 const INVITE_FRACTION = 0.93
@@ -31,6 +36,19 @@ export const shouldInvite = (roomStartedAt: number, now: number, roomMs = ROOM_M
   const elapsed = now - roomStartedAt
   return elapsed >= roomMs * INVITE_FRACTION && elapsed < roomMs - RESOLVE_MS
 }
+
+// Once the panelist has delivered the closing read (closeDeliveredAt is
+// stamped server-side by orchestrator.decide), the room lands after the
+// goodbye grace — dead air past a close is thrown-away paid time, observed
+// live as a minute of silence into the clock. Never mid-speech.
+export const shouldLandAfterClose = (
+  closeDeliveredAt: number | undefined,
+  now: number,
+  avatarSpeaking: boolean
+): boolean =>
+  closeDeliveredAt !== undefined &&
+  !avatarSpeaking &&
+  now - closeDeliveredAt >= CLOSE_LAND_GRACE_MS
 
 // undefined roomStartedAt = first connect (full budget). Below the floor,
 // null: the room is effectively over — go to the debrief, don't mint.
