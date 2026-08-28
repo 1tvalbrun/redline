@@ -7,11 +7,13 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --test src/lib/*.test.ts src/domains/*.test.ts src/domains/*/*.test.ts"
+    "test": "node --test src/lib/*.test.ts src/domains/*.test.ts src/domains/*/*.test.ts",
+    "render:pdf": "esbuild scripts/render-pdf-fixtures.tsx --bundle --platform=node --format=cjs --external:@react-pdf/renderer --outfile=.pdf-fixtures/render.cjs --log-level=error && node .pdf-fixtures/render.cjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
     "@clerk/nextjs": "^7.6.4",
+    "@react-pdf/renderer": "^4.8.1",
     "@runwayml/avatars-react": "^0.15.0",
     "@runwayml/sdk": "^3.21.0",
     "class-variance-authority": "^0.7.1",
@@ -36,6 +38,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "esbuild": "^0.28.2",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
     "tailwindcss": "^4",
