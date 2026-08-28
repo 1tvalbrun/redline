@@ -1,8 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect } from "react"
 import { ArrowRight, Upload } from "lucide-react"
-import type { DomainPack, Scope, ScopeValue } from "@/domains/types"
+import { useAction } from "convex/react"
+import { api } from "@convex/_generated/api"
+import type { DomainPack, Scope } from "@/domains/types"
+import type { IntakeFormAction, IntakeFormState } from "@/lib/intakeForm"
 import { BTN_PRIMARY } from "@/components/shared/buttons"
 import { ScopeFields } from "./ScopeFields"
 import { BriefPreview, EvidenceRail } from "./BriefPreview"
@@ -41,7 +44,10 @@ const SectionHead = ({ title, meta }: { title: string; meta?: string }) => (
 
 type TypedFormProps = {
   pack: DomainPack
-  initialScope?: Scope
+  // Owned by the page, keyed per lane, so filled fields and markers survive
+  // lane switches and mode toggles until the page is left.
+  form: IntakeFormState
+  dispatch: (action: IntakeFormAction) => void
   uploads: ReturnType<typeof useMaterialUploads>
   submitting: boolean
   submitError: string | null
@@ -50,49 +56,68 @@ type TypedFormProps = {
 
 // The structured typed path: same fields the voice path extracts into,
 // grouped into the pack's sections, with the reader's live preview beside
-// them. The viewport stays fixed: the form column is the scroll container,
-// the rail stands still. Skips the confirm beat — the user is the source.
+// them. Materials lead the form — an uploaded deck fills whatever untouched
+// fields it actually states (ingest.scopeFromUpload, the honesty-ruled
+// extraction). The viewport stays fixed: the form column is the scroll
+// container, the rail stands still. Skips the confirm beat — the user is
+// the source.
 export const TypedForm = ({
   pack,
-  initialScope,
+  form,
+  dispatch,
   uploads,
   submitting,
   submitError,
   onSubmit,
 }: TypedFormProps) => {
-  const [scope, setScope] = useState<Scope>(initialScope ?? {})
-  // Text fields reach the preview rail only once blurred — watching your
-  // own keystrokes echo in two places reads uncanny. Chips are always
-  // shown, so only text commits need marking; the preview derives from
-  // the one scope.
-  const [committedKeys, setCommittedKeys] = useState<ReadonlySet<string>>(
-    () => new Set(Object.keys(initialScope ?? {}))
-  )
-  const [missing, setMissing] = useState<string[]>([])
+  const scopeFromUpload = useAction(api.ingest.scopeFromUpload)
   const formScroll = useAutoHideScrollbar<HTMLDivElement>()
   const railScroll = useAutoHideScrollbar<HTMLElement>()
   const fieldsByKey = new Map(pack.scopeFields.map((field) => [field.key, field]))
 
-  const handleChange = (key: string, value: ScopeValue) => {
-    setScope((prev) => ({ ...prev, [key]: value }))
-    setMissing((prev) => prev.filter((k) => k !== key))
-  }
-
-  const handleFieldBlur = (key: string) => {
-    setCommittedKeys((prev) => (prev.has(key) ? prev : new Set(prev).add(key)))
-  }
+  // Autofill synchronizes with the upload transport: each upload that
+  // reaches storage gets one extraction run, deduped by the lane state's
+  // extracted list (readStart is idempotent), so a re-mounted form can't
+  // re-read a processed upload. Late responses are safe by construction —
+  // the merge only ever fills still-empty, untouched fields.
+  useEffect(() => {
+    for (const material of uploads.readyMaterials) {
+      if (form.extracted.includes(material.storageId)) continue
+      dispatch({ type: "readStart", storageId: material.storageId, fileName: material.name })
+      scopeFromUpload({
+        storageId: material.storageId,
+        fileName: material.name,
+        packId: pack.id,
+      })
+        .then((extracted) =>
+          dispatch({
+            type: "autofill",
+            storageId: material.storageId,
+            fileName: material.name,
+            extracted,
+          })
+        )
+        .catch(() =>
+          dispatch({
+            type: "readFailed",
+            storageId: material.storageId,
+            fileName: material.name,
+          })
+        )
+    }
+  }, [uploads.readyMaterials, form.extracted, dispatch, scopeFromUpload, pack.id])
 
   const previewScope: Scope = Object.fromEntries(
-    Object.entries(scope).filter(([key]) => {
+    Object.entries(form.scope).filter(([key]) => {
       const kind = fieldsByKey.get(key)?.kind
-      return kind === "chips" || kind === "multi" || committedKeys.has(key)
+      return kind === "chips" || kind === "multi" || form.committed.has(key)
     })
   )
 
   const handleSubmit = () => {
-    const gaps = missingRequired(pack, scope)
-    if (gaps.length > 0) return setMissing(gaps)
-    onSubmit(scope)
+    const gaps = missingRequired(pack, form.scope)
+    if (gaps.length > 0) return dispatch({ type: "setMissing", keys: gaps })
+    onSubmit(form.scope)
   }
 
   return (
@@ -103,40 +128,22 @@ export const TypedForm = ({
         ref={formScroll}
         className="scrollbar-subtle -ml-1.5 -mt-1.5 h-full min-h-0 overflow-y-auto overscroll-contain pb-16 pl-1.5 pr-2 pt-1.5"
       >
-          {pack.copy.form.sections.map((section) => (
-            <section key={section.title} className="mb-10">
-              <SectionHead title={section.title} meta={section.meta} />
-              <div className="space-y-6">
-                <ScopeFields
-                  pack={pack}
-                  fields={section.keys.flatMap((key) => {
-                    const field = fieldsByKey.get(key)
-                    return field ? [field] : []
-                  })}
-                  scope={scope}
-                  missingKeys={missing}
-                  plainLabels
-                  showEvidence={false}
-                  onChange={handleChange}
-                  onFieldBlur={handleFieldBlur}
-                />
-              </div>
-            </section>
-          ))}
-
-          {pack.evidenceRequests && (
-            <div className="mb-10 lg:hidden">
-              <EvidenceRail pack={pack} scope={scope} />
-            </div>
-          )}
-
-          <section className="mb-8">
+          <section className="mb-10">
             <SectionHead title={pack.copy.form.materialsTitle} meta={pack.copy.form.materialsMeta} />
-            <label className="focus-ring flex w-full cursor-pointer items-center justify-center gap-2.5 rounded-xl border-[1.5px] border-dashed border-line-2 px-4 py-3.5 text-[13px] text-on-surface-3 transition-colors hover:border-accent-line hover:bg-surface-2 hover:text-accent-blue">
-              <Upload className="size-[15px]" />
-              {pack.personas.length > 1
-                ? "Add your deck or one-pager. Your panel reads it before the session."
-                : `Add your documents. ${firstNameOf(pack.personas[0].name)} reads them before the session.`}
+            {/* Two fixed lines in every lane: the lane's own noun on top,
+                the uniform behavior line beneath — never one line here and
+                two there depending on copy length. */}
+            <label className="focus-ring flex w-full cursor-pointer flex-col items-center gap-1 rounded-xl border-[1.5px] border-dashed border-line-2 bg-surface-raised px-4 py-3.5 shadow-card transition-colors hover:border-accent-line hover:bg-surface-2">
+              <span className="flex items-center gap-2.5 text-[13.5px] font-medium text-on-surface-2">
+                <Upload className="size-[15px]" />
+                {pack.copy.form.materialsPrompt}
+              </span>
+              <span className="text-[12px] text-on-surface-3">
+                {pack.personas.length > 1
+                  ? "Your panel reads"
+                  : `${firstNameOf(pack.personas[0].name)} reads`}{" "}
+                everything before the session and fills in what it can below.
+              </span>
               <input
                 type="file"
                 multiple
@@ -149,9 +156,57 @@ export const TypedForm = ({
               />
             </label>
             <UploadList uploads={uploads.uploads} onRemove={uploads.removeUpload} />
+            <div role="status" className="mt-2.5 space-y-1.5 text-[12.5px] text-on-surface-3">
+              {form.reading.map((entry) => (
+                <p key={entry.storageId} className="flex items-center gap-2">
+                  <span
+                    aria-hidden="true"
+                    className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent-blue"
+                  />
+                  Reading {entry.fileName} to fill in what it can…
+                </p>
+              ))}
+              {form.notice &&
+                form.reading.length === 0 &&
+                (form.notice.filled ? (
+                  <p className="rounded-lg border border-accent-line bg-accent-bg px-3 py-2 text-accent-blue">
+                    {form.notice.text}
+                  </p>
+                ) : (
+                  <p>{form.notice.text}</p>
+                ))}
+            </div>
           </section>
 
-          {missing.length > 0 && (
+          {pack.copy.form.sections.map((section) => (
+            <section key={section.title} className="mb-10">
+              <SectionHead title={section.title} meta={section.meta} />
+              <div className="space-y-6">
+                <ScopeFields
+                  pack={pack}
+                  fields={section.keys.flatMap((key) => {
+                    const field = fieldsByKey.get(key)
+                    return field ? [field] : []
+                  })}
+                  scope={form.scope}
+                  missingKeys={form.missingKeys}
+                  inferredKeys={form.inferred}
+                  plainLabels
+                  showEvidence={false}
+                  onChange={(key, value) => dispatch({ type: "change", key, value })}
+                  onFieldBlur={(key) => dispatch({ type: "blur", key })}
+                />
+              </div>
+            </section>
+          ))}
+
+          {pack.evidenceRequests && (
+            <div className="mb-10 lg:hidden">
+              <EvidenceRail pack={pack} scope={form.scope} />
+            </div>
+          )}
+
+          {form.missingKeys.length > 0 && (
             <p role="alert" className="mb-4 text-[13px] text-red-fg">
               Fill in the highlighted fields to continue.
             </p>

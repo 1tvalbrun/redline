@@ -169,6 +169,7 @@ export const interviewPack: DomainPack = {
       ],
       materialsTitle: "Materials",
       materialsMeta: "optional · resume or JD · PDF PPTX XLSX DOCX",
+      materialsPrompt: "Add your resume or the job description.",
     },
     preview: {
       title: "What your interviewer will read",

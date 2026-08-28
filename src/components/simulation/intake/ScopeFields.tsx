@@ -88,6 +88,9 @@ type ScopeFieldsProps = {
   fields: ScopeField[]
   scope: Scope
   missingKeys?: string[]
+  // Fields whose value came from a deck extraction, not the user — marked
+  // for review until the user edits them.
+  inferredKeys?: ReadonlySet<string>
   plainLabels?: boolean
   // The sectioned form shows the evidence list in its rail instead.
   showEvidence?: boolean
@@ -105,6 +108,7 @@ export const ScopeFields = ({
   fields,
   scope,
   missingKeys,
+  inferredKeys,
   plainLabels,
   showEvidence = true,
   onChange,
@@ -119,7 +123,14 @@ export const ScopeFields = ({
           plain={plainLabels}
           className={cn(missing && "text-red-fg")}
         >
-          {scopeField.label}
+          <span className="flex items-baseline gap-2">
+            {scopeField.label}
+            {inferredKeys?.has(scopeField.key) && (
+              <span className="rounded-full border border-accent-line bg-accent-bg px-2 py-px font-mono text-[9.5px] font-medium uppercase tracking-[.05em] text-accent-blue">
+                from your deck · check this
+              </span>
+            )}
+          </span>
         </FieldLabel>
       )
       if (scopeField.kind === "text" || scopeField.kind === "textarea") {

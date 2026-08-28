@@ -150,6 +150,7 @@ export const founderPack: DomainPack = {
       ],
       materialsTitle: "Materials",
       materialsMeta: "optional · PDF PPTX XLSX DOCX",
+      materialsPrompt: "Add your deck or one-pager.",
     },
     preview: {
       title: "What your panel will read",
