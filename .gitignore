@@ -12,6 +12,7 @@
 
 # testing
 /coverage
+/.pdf-fixtures/
 
 # next.js
 /.next/

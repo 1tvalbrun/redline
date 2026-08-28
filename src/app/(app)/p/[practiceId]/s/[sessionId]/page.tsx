@@ -3,7 +3,7 @@
 import { use, useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Check, Video } from "lucide-react"
+import { ArrowLeft, Check, FileDown, Video } from "lucide-react"
 import { useAction, useMutation, useQuery } from "convex/react"
 import { api } from "@convex/_generated/api"
 import type { Id } from "@convex/_generated/dataModel"
@@ -163,6 +163,15 @@ const SessionPage = ({
         </h1>
         <div className="flex items-center gap-1">
           <TranscriptDialog transcript={transcript} personaName={session.persona.name} />
+          {debrief && (
+            <a
+              href={`/api/export?sessionId=${sessionId}`}
+              className="focus-ring flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[13px] text-on-surface-3 transition-colors hover:bg-surface-2 hover:text-accent-blue"
+            >
+              <FileDown className="size-3.5" />
+              Export PDF
+            </a>
+          )}
           <Link
             href={`/p/${practiceId}`}
             className="focus-ring flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[13px] text-on-surface-3 transition-colors hover:bg-surface-2 hover:text-accent-blue"

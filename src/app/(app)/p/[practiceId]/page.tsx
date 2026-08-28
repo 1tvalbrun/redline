@@ -3,11 +3,12 @@
 import { use, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ChevronDown, Video } from "lucide-react"
+import { ChevronDown, FileDown, Video } from "lucide-react"
 import { useMutation, useQuery } from "convex/react"
 import { api } from "@convex/_generated/api"
 import type { Id } from "@convex/_generated/dataModel"
 import { cn, relativeDay } from "@/lib/utils"
+import { parseOpenQuestions } from "@/lib/export"
 import { getPack } from "@/domains/registry"
 import { firstNameOf } from "@/domains/types"
 import { BTN_PRIMARY } from "@/components/shared/buttons"
@@ -55,14 +56,9 @@ const PracticePage = ({ params }: { params: Promise<{ practiceId: string }> }) =
     : null
   const personaFirst = persona ? firstNameOf(persona.name) : null
   const gaps = practice.audit?.status === "ready" ? practice.audit.gaps : []
-  // Only real questions make the rail — the analyze model writes prose like
-  // "Not provided in pitch scope." for missing info, which is honest data
-  // but not an open question.
-  const openQuestions = (practice.context?.openQuestions ?? "")
-    .split(/\n|(?<=\?)\s+/)
-    .map((line) => line.trim())
-    .filter((line) => line.endsWith("?"))
+  const openQuestions = parseOpenQuestions(practice.context?.openQuestions)
   const visibleQuestions = showAllQuestions ? openQuestions : openQuestions.slice(0, 4)
+  const hasExportContent = practice.audit?.status === "ready" || (sessions ?? []).length > 0
 
   const handleContinue = async () => {
     try {
@@ -93,6 +89,15 @@ const PracticePage = ({ params }: { params: Promise<{ practiceId: string }> }) =
             </p>
           )}
         </div>
+        {hasExportContent && (
+          <a
+            href={`/api/export?practiceId=${id}`}
+            className="focus-ring mt-1 flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[13px] text-on-surface-3 transition-colors hover:bg-surface-2 hover:text-accent-blue"
+          >
+            <FileDown className="size-3.5" />
+            Export PDF
+          </a>
+        )}
         <button type="button" onClick={handleContinue} className={cn(BTN_PRIMARY, "pt-2")}>
           <Video className="size-[15px]" />
           Continue
