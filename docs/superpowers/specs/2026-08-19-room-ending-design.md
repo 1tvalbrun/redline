@@ -292,3 +292,41 @@ re-derived beat fractions (fewer probes, earlier close).
 3. Transcript tail wait duration (spike 3).
 4. Exact visual treatment of the resolve-out transition and deliberation beat
    (design-pass detail during Phase 1 implementation).
+
+## Revision 2026-08-28 — Close-detection landing
+
+Live sessions showed the model closing far earlier than the exchange floor
+mandates (observed: final question announced after 5 of 10 required
+exchanges, close at 2:35 of a 5:00 room, then one deflection and 60+
+seconds of dead air until the clock). Real exchange pace measured 13–17s
+across every recorded session, not the ~30s the floor assumed — and the
+model under-runs whatever floor it is given, so prompt-side pacing is
+best-effort pressure, never a timing mechanism.
+
+**The mechanism:** orchestrator.decide (which already runs after every
+committed turn) makes a second, single-task model call: the close check
+(`CLOSE_CHECK_PROMPT` + `closeCheckWindow`, src/lib/ending.ts) — last
+eight turns, USER/PANELIST labels, one question: has the panelist ended
+the session? "Ended" deliberately includes post-close deflections, so
+every turn after the close is a fresh detection chance and a check
+debounced away at the close itself still catches. A true verdict stamps
+`closeDeliveredAt` once (sessions.markCloseDelivered, first stamp wins);
+the check stops running once stamped. The room's tick lands on the stamp
+after a 12s goodbye grace, never mid-speech (`shouldLandAfterClose`,
+src/lib/roomClock.ts), with `endedReason: "verdict"` — revived, and
+corroborated server-side by the stamp itself.
+
+**Validated offline before wiring, twice.** A first design rode the
+detection question on the note-taking prompt; a live session missed
+(close spoken, room ran to the clock), and replay showed why: the strong
+windows were debounced away and deep windows failed — the dual-task
+prompt lost a historical close under post-close chatter, across every
+wording tried. The dedicated single-task check went 39/39 across all
+thirteen windows of both recorded sessions (both lanes), zero false
+positives on every pre-close window, with the clock as unchanged
+backstop. Lesson recorded: validate detector prompts standalone, against
+real transcripts, at the windows production will actually see.
+
+Also in this revision: probe floor recalibrated ×2 → ×4 (best-effort, per
+measured pace), and the spoken contract now promises "up to five minutes"
+so an early landing keeps the promise instead of breaking it.

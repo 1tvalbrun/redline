@@ -58,6 +58,19 @@ implicated; `realtimeSessions.create` mints sessions correctly. "Never
 invalidated" means within a page's lifetime; a full reload starts a fresh
 module and a fresh map.
 
+**Regression 2026-08-28:** the connectUrl nonce was silently lost when
+connect became a custom callback (for error-code surfacing) — the callback
+is not part of the cache key, so the key collapsed to
+`credentials:<avatarId>:undefined:...`, identical for every session with
+the same persona. Observed live: "Go again" joined the previous session's
+dead LiveKit room ("already connected" spam, participant identity from the
+old token) and the connect route was never called (no mint on the server).
+Guard reinstated in RoomShell: `connectUrl` is passed alongside `connect`
+purely as the cache key's per-session/per-attempt component —
+`fetchCredentials` prefers `connect` (dist/index.js L113 before L117), so
+the URL is inert. If the workaround is ever refactored again, the key
+variance must survive: without it, same-persona re-entry breaks.
+
 ---
 
 ## 2. The avatar status reports "ended" before a connect has started

@@ -2,7 +2,9 @@
 // session personality override by /api/avatar/connect. One string, tone
 // first: every deflection routes the user toward something they are about
 // to receive. Purely spoken guidance: the room's ending authority is the
-// server clock, speech grace, and the idle rule — never a model signal.
+// server clock, speech grace, the idle rule — and the detected close,
+// which the orchestrator stamps server-side (closeDeliveredAt) so a
+// delivered verdict lands the room instead of stranding it.
 const MINUTE_WORDS: Record<number, string> = {
   1: "one",
   2: "two",
@@ -13,10 +15,13 @@ const MINUTE_WORDS: Record<number, string> = {
 
 export const endingContract = (personaFirstName: string, roomMinutes: number): string => {
   const minutes = MINUTE_WORDS[roomMinutes] ?? String(roomMinutes)
-  // Roughly two full exchanges per minute in live sessions; the floor keeps
-  // the probing middle from collapsing into "a few questions then a close" —
-  // the model cannot see a clock, so exchange count is its only pacing tool.
-  const probeFloor = roomMinutes * 2
+  // Measured live pace is 13-17s per exchange (~4/minute), and the model
+  // under-runs whatever floor it is given (observed: closed at 5 of a
+  // mandated 10). The floor is best-effort pressure to keep probing, not a
+  // timing mechanism — the room's ending is owned by the clock and by
+  // close-detection landing (closeDeliveredAt), which make an early close
+  // end the room instead of stranding it.
+  const probeFloor = roomMinutes * 4
   return `
 
 TIME AND ENDING (strict):
@@ -38,8 +43,10 @@ After your close, never reopen the discussion. Respond warmly and briefly, and p
 // is short.
 export const withTimeContract = (startScript: string): string => {
   // Promises the time limit without priming a rush: "on the clock" read as
-  // urgency and showed up live as a three minute close.
-  const contract = ` We have the room for five minutes, so let's use every one of them.`
+  // urgency and showed up live as a three minute close. "Up to", not a flat
+  // five, and "make them count", not "use every one" — the room lands when
+  // the close is delivered, so nothing spoken may promise the full five.
+  const contract = ` We have the room for up to five minutes, so let's make them count.`
   const combined = `${startScript}${contract}`
   return combined.length <= 2_000 ? combined : startScript
 }
@@ -48,3 +55,27 @@ export const withTimeContract = (startScript: string): string => {
 // written verdict never contradicts a close the user already heard.
 export const VERDICT_RESTATE_DIRECTIVE = `
 If the transcript ends with the panelist delivering a closing verdict, your spokenVerdict and verdictSummary must restate that same close in the same spirit. Do not compose a rival verdict that contradicts what was said aloud.`
+
+// The close check runs as its own model call (orchestrator.decide), never
+// as a rider on the note-taking prompt: piggybacked, detection failed on
+// the recorded sessions once post-close chatter filled the window; as a
+// single-task question it went 39/39 across every window of both. The
+// ended/not-ended definition covers deflections on purpose — every
+// post-close turn is then a fresh detection chance, so a check debounced
+// away at the close itself still catches on the next turn.
+export const CLOSE_CHECK_PROMPT = `You are watching a live practice session between a USER and a PANELIST who interviews them. Decide one thing: has the panelist ENDED the session?
+
+Ended (true): the panelist has delivered a wrap-up or final read on how the user did, said goodbye or "see you next time", or is now declining new questions by pointing to a future session or the written debrief.
+Not ended (false): the panelist is still working — asking questions, probing answers, reacting to what the user says — or has only announced that a final question is coming without wrapping up afterward.
+
+Answer with JSON only: {"sessionEnded": true|false}`
+
+// The exact window shape the prompt was validated against: last eight
+// turns, USER/PANELIST labels — persona- and pack-agnostic.
+export const closeCheckWindow = (
+  turns: { type: "user" | "panelist"; text: string }[]
+): string =>
+  turns
+    .slice(-8)
+    .map((turn) => (turn.type === "user" ? `USER: ${turn.text}` : `PANELIST: ${turn.text}`))
+    .join("\n")

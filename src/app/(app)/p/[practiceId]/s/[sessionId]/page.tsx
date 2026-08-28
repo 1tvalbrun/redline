@@ -156,7 +156,7 @@ const SessionPage = ({
   const transcript = bySpokenTime(session.transcript)
 
   return (
-    <div className="mx-auto max-w-[1200px] px-12 pb-24 pt-11 max-md:px-5 max-md:pt-8">
+    <div className="mx-auto max-w-[1320px] px-12 pb-24 pt-11 max-md:px-5 max-md:pt-8">
       <div className="mb-2 flex items-center justify-between">
         <h1 className="font-mono text-[11px] font-normal uppercase tracking-[.06em] text-on-surface-3">
           The debrief · <b className="font-medium text-on-surface-2">{practice.name}</b>
@@ -212,7 +212,7 @@ const SessionPage = ({
             </div>
           </header>
 
-          <div className="grid animate-rise grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)] items-start gap-x-16 [animation-delay:200ms] max-lg:grid-cols-1 motion-reduce:animate-none">
+          <div className="grid animate-rise grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)] items-start gap-x-28 [animation-delay:200ms] max-lg:grid-cols-1 motion-reduce:animate-none">
             <div className="min-w-0">
               {debrief.whatHappened && (
                 <section className="mb-8">

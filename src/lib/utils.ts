@@ -17,7 +17,14 @@ export const relativeDay = (at: number | null): string => {
   const days = Math.floor((Date.now() - at) / 86_400_000)
   if (days <= 0) return "Today"
   if (days === 1) return "Yesterday"
-  return new Date(at).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+  const date = new Date(at)
+  // The year rides along only once it stops being implied — "Sep 12" from
+  // a previous calendar year would read as this year's.
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    ...(date.getFullYear() !== new Date().getFullYear() && { year: "numeric" }),
+  })
 }
 
 export const prefersReducedMotion = () =>

@@ -22,7 +22,13 @@ import {
 import { firstNameOf, initialsOf } from "@/domains/types"
 import { getPack } from "@/domains/registry"
 import { idleState } from "@/lib/idleRule"
-import { pickInvitation, roomTimePhase, shouldInvite, ROOM_MS } from "@/lib/roomClock"
+import {
+  pickInvitation,
+  roomTimePhase,
+  shouldInvite,
+  shouldLandAfterClose,
+  ROOM_MS,
+} from "@/lib/roomClock"
 import { markRoomLanding } from "@/lib/roomLanding"
 import { isSessionStale, lastActivityAt } from "@/lib/session"
 import { useNow } from "@/lib/useNow"
@@ -252,7 +258,7 @@ const RoomShellBody = ({
   // lands or this component (avatar session and transcript bridge included)
   // unmounts mid-landing.
   const handleLand = useCallback(
-    (reason: "time" | "idle") => {
+    (reason: "time" | "idle" | "verdict") => {
       if (endedRef.current) return
       endedRef.current = true
       onLanding()
@@ -525,9 +531,10 @@ const RoomShellBody = ({
   const [idlePrompt, setIdlePrompt] = useState(false)
 
   // The wall clock is the external system this room synchronizes with. One
-  // tick does three jobs: advance `now` so the rendered phase and idle state
-  // move, land the room the moment the clock runs out, and land it again if
-  // the room has sat idle too long. Absolute timestamps, so a throttled
+  // tick does four jobs: advance `now` so the rendered phase and idle state
+  // move, land the room the moment the clock runs out, land it if the room
+  // has sat idle too long, and land it once a delivered close has had its
+  // goodbye grace. Absolute timestamps, so a throttled
   // background tab still lands at the right wall-clock moment. The idle-end
   // check hits the same react-hooks/set-state-in-effect rule the time check
   // does, so it recomputes fresh (not from the render-derived `idle`) inside
@@ -544,12 +551,25 @@ const RoomShellBody = ({
           handleLand("time")
         }
       }
+      // A delivered close ends the session it belongs to: dead air past the
+      // closing read is paid time spent on prompted brush-offs (observed
+      // live as a minute of silence into the clock).
+      if (shouldLandAfterClose(session.closeDeliveredAt, at, isAvatarSpeaking)) {
+        handleLand("verdict")
+      }
       const idle = idleState(roomActivityAt(), at, idleSuspended)
       setIdlePrompt(idle === "prompt")
       if (idle === "end") handleLand("idle")
     }, 1000)
     return () => clearInterval(tick)
-  }, [roomStartedAt, handleLand, idleSuspended, isAvatarSpeaking, roomActivityAt])
+  }, [
+    roomStartedAt,
+    handleLand,
+    idleSuspended,
+    isAvatarSpeaking,
+    roomActivityAt,
+    session.closeDeliveredAt,
+  ])
 
   return (
     <div
@@ -689,6 +709,18 @@ const RoomShellBody = ({
             key={connectAttempt}
             avatarId={persona.avatarId}
             connect={handleConnect}
+            // The SDK caches credentials by (avatarId, sessionId, sessionKey,
+            // connectUrl, baseUrl) and never invalidates (findings doc §1) —
+            // the connect callback is NOT in the key. Without a per-attempt
+            // component in the key, a second session with the same persona in
+            // one page lifetime silently reuses the first session's
+            // credentials: connect is never called, no avatar is minted, and
+            // the room joins the previous, dead LiveKit room (observed live,
+            // 2026-08-28). connectUrl is inert while `connect` is set
+            // (fetchCredentials prefers connect), so it serves purely as the
+            // cache key's freshness — the same guard the original connectUrl
+            // nonce provided before the custom-connect refactor dropped it.
+            connectUrl={`/api/avatar/connect?cacheKey=${session._id}-${connectAttempt}`}
             audio
             video={false}
             onError={setAvatarError}

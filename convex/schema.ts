@@ -37,6 +37,7 @@ export const usageKindValidator = v.union(
   v.literal("blueprint"),
   v.literal("blueprint_refine"),
   v.literal("orchestrate"),
+  v.literal("close_check"),
   v.literal("debrief"),
   v.literal("avatar_connect")
 )
@@ -45,7 +46,7 @@ export type UsageKind = Infer<typeof usageKindValidator>
 // How a session's room ended (spec: Care Rules). Stamped at conclusion;
 // the future quota policy reads it (short/error sessions may not count).
 export const endedReasonValidator = v.union(
-  v.literal("verdict"), // historical only: no writer since the ending tools were removed (2026-08-25)
+  v.literal("verdict"), // close-detection landing: the panelist delivered the closing read and the room landed on it
   v.literal("time"),
   v.literal("user"),
   v.literal("idle"),
@@ -212,6 +213,10 @@ export default defineSchema({
     // orchestrator reads the last 12 turns anyway, so one look per window
     // is enough (sessions.claimOrchestrate).
     lastOrchestratedAt: v.optional(v.number()),
+    // Stamped once by orchestrator.decide when it sees the panelist's closing
+    // read in the transcript. The room lands on it after a goodbye grace
+    // (shouldLandAfterClose), and it corroborates a "verdict" endedReason.
+    closeDeliveredAt: v.optional(v.number()),
     // Room clock anchor: stamped once at the first successful avatar connect
     // claim, never updated. All landing math derives from it (src/lib/roomClock).
     roomStartedAt: v.optional(v.number()),
