@@ -1,11 +1,18 @@
 // All landing math in one place. Times derive from absolute timestamps so
 // background-tab timer throttling can't skew the landing (spec: Room Clock).
-// roomStartedAt is stamped at the connect claim, which happens BEFORE
-// Runway's session create — the client clock always leads Runway's window,
-// so no margin is needed.
+// roomStartedAt is stamped when Runway reports the avatar READY — AFTER
+// Runway's session create, so Runway's own maxDuration window leads our
+// clock by however long the READY poll took. CONNECT_GRACE_SEC is the
+// margin that keeps Runway from cutting the avatar before our clock lands
+// the room.
 export const ROOM_MS = 300_000
 export const RESOLVE_MS = 10_000
 export const MIN_RECONNECT_MS = 30_000
+// Runway's window opens at create; ours at READY. The connect route polls
+// READY for up to 60s, so the sessions we ask Runway for run this much
+// longer than the briefed room budget — the room's own clock still lands
+// on time, the slack only exists so Runway never hangs up first.
+export const CONNECT_GRACE_SEC = 90
 // The goodbye beat after a detected close. Detection itself runs a turn
 // late (an avatar final commits only when her next turn starts), so by the
 // time this grace starts the user has heard the close and the persona's

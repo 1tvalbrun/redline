@@ -281,6 +281,30 @@ export const end = mutation({
       endedAt: now,
       endedReason: verifiedEndedReason(session, args.reason, now),
     })
+    // A concluded session must not keep holding the org's Runway concurrency
+    // slot — the next room would queue behind it until its window expires.
+    if (session.runwaySessionId) {
+      await ctx.scheduler.runAfter(0, internal.avatars.release, {
+        runwaySessionId: session.runwaySessionId,
+      })
+    }
+  },
+})
+
+// Starts the server-owned room clock. Called by the connect route the
+// moment Runway reports the avatar READY — never at the claim — so failed
+// connect attempts don't burn room time. Idempotent: a reconnect keeps the
+// original start. Public because the route runs with the caller's own
+// token; a direct caller can only start their own live session's clock
+// early, which costs them time, not us.
+export const markRoomStarted = mutation({
+  args: { id: v.id("sessions") },
+  handler: async (ctx, args) => {
+    const identity = await requireIdentity(ctx)
+    const session = ownedOrNull(identity, await ctx.db.get(args.id))
+    if (!session || session.status !== "live") return
+    if (session.roomStartedAt !== undefined) return
+    await ctx.db.patch(args.id, { roomStartedAt: Date.now() })
   },
 })
 

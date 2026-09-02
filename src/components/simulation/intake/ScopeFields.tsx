@@ -7,7 +7,7 @@ import { EvidenceSection } from "./BriefPreview"
 import { useAutoHideScrollbar } from "@/components/shared/useAutoHideScrollbar"
 
 export const FIELD_INPUT =
-  "focus-ring w-full rounded-[11px] border border-line-2 bg-surface-raised px-3.5 py-[11px] text-sm text-on-surface placeholder:text-ink-4 transition-colors focus:border-accent-line"
+  "focus-ring w-full rounded-[11px] border border-line-2 bg-surface-raised px-3.5 py-[11px] text-sm text-on-surface placeholder:text-ink-4 transition-colors focus:border-accent-line max-md:text-[16px]"
 
 export const FieldLabel = ({
   children,
@@ -24,7 +24,7 @@ export const FieldLabel = ({
 }) => (
   <p
     className={cn(
-      "flex items-baseline justify-between",
+      "flex items-baseline justify-between max-md:flex-wrap max-md:gap-x-2",
       plain
         ? "mb-2 text-sm font-medium text-on-surface"
         : "mb-2 mt-[22px] text-[11px] font-semibold uppercase tracking-[.09em] text-on-surface-3 first:mt-0",
@@ -50,7 +50,7 @@ export const Chip = ({
     aria-pressed={selected}
     onClick={onClick}
     className={cn(
-      "focus-ring rounded-full border px-3.5 py-1.5 text-[12.5px] transition-colors",
+      "focus-ring rounded-full border px-3.5 py-1.5 text-[12.5px] transition-colors max-md:py-2.5",
       selected
         ? "border-accent-line bg-accent-bg font-medium text-accent-blue"
         : "border-line-2 bg-surface-raised text-on-surface-2 hover:bg-surface-2"
@@ -123,7 +123,7 @@ export const ScopeFields = ({
           plain={plainLabels}
           className={cn(missing && "text-red-fg")}
         >
-          <span className="flex items-baseline gap-2">
+          <span className="flex items-baseline gap-2 max-md:flex-wrap">
             {scopeField.label}
             {inferredKeys?.has(scopeField.key) && (
               <span className="rounded-full border border-accent-line bg-accent-bg px-2 py-px font-mono text-[9.5px] font-medium uppercase tracking-[.05em] text-accent-blue">

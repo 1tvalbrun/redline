@@ -1,4 +1,4 @@
-import type { Metadata } from "next"
+import type { Metadata, Viewport } from "next"
 import { Instrument_Sans, Source_Serif_4, Spline_Sans_Mono } from "next/font/google"
 import { ClerkProvider } from "@clerk/nextjs"
 import { ThemeProvider } from "next-themes"
@@ -25,6 +25,14 @@ const splineMono = Spline_Sans_Mono({
   weight: ["400", "500"],
   variable: "--font-spline-mono",
 })
+
+// cover: the room's full-bleed dark chrome must paint under the iPhone
+// notch and home-indicator instead of leaving white bands there.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+}
 
 export const metadata: Metadata = {
   title: "Prestage AI · Practice with a live AI panel",

@@ -14,7 +14,7 @@ export const ThemeToggle = () => {
   const hydrated = useHydrated()
   const { resolvedTheme, setTheme } = useTheme()
 
-  if (!hydrated) return <span className="size-8" />
+  if (!hydrated) return <span className="size-8 max-md:size-10" />
 
   const isDark = resolvedTheme === "dark"
   const handleToggle = () => setTheme(isDark ? "light" : "dark")
@@ -24,7 +24,7 @@ export const ThemeToggle = () => {
       type="button"
       onClick={handleToggle}
       aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
-      className="grid size-8 shrink-0 place-items-center rounded-lg text-on-surface-3 transition-colors hover:bg-surface-2 hover:text-on-surface-2 focus-ring"
+      className="grid size-8 shrink-0 place-items-center rounded-lg text-on-surface-3 transition-colors hover:bg-surface-2 hover:text-on-surface-2 focus-ring max-md:size-10"
     >
       {isDark ? <Sun className="size-4" /> : <Moon className="size-4" />}
     </button>

@@ -8,6 +8,12 @@ import type { Id } from "@convex/_generated/dataModel"
 
 const RUNWAY_API = "https://api.dev.runwayml.com"
 
+// This handler legitimately holds the request open: mint plus a READY poll
+// of up to 60s. On hosts with a shorter serverless default the platform
+// kills it mid-poll and the client sees an opaque gateway error instead of
+// the route's honest queued/timeout codes.
+export const maxDuration = 120
+
 const BodySchema = z.object({ avatarId: z.string().min(1) })
 
 // Runway's consume response is an external boundary like any other: a
@@ -141,6 +147,16 @@ export const POST = async (req: NextRequest) => {
     }
     return NextResponse.json({ error: "Session timed out", code: "timeout" }, { status: 504 })
   }
+
+  // The avatar is READY: start the server-owned room clock now, not at the
+  // claim — failed attempts before this point must not burn room time.
+  // Best-effort: an unstamped clock means the room never time-lands, and
+  // the idle rule still ends it.
+  await convex
+    .mutation(api.sessions.markRoomStarted, { id: convexSessionId as Id<"sessions"> })
+    .catch((err) => {
+      console.warn("[/api/avatar/connect] room clock stamp failed:", err)
+    })
 
   const consumeRes = await fetch(`${RUNWAY_API}/v1/realtime_sessions/${runwaySessionId}/consume`, {
     method: "POST",

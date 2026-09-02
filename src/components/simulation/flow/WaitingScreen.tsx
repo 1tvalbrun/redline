@@ -107,7 +107,7 @@ export const WaitingScreen = ({ kicker, heading, lead, rows, work, ticker, stepM
       </h1>
       <p className="mt-3.5 max-w-[56ch] text-[15.5px] leading-[1.55] text-on-surface-2">{lead}</p>
 
-      <div className="mt-9 grid grid-cols-[1fr_320px] items-start gap-[34px] max-md:grid-cols-1">
+      <div className="mt-9 grid grid-cols-[1fr_320px] items-start gap-[34px] max-lg:grid-cols-1">
         <div aria-hidden="true" className="border-t border-line-2">
           {rows.map((row, i) => {
             const state =
@@ -116,13 +116,13 @@ export const WaitingScreen = ({ kicker, heading, lead, rows, work, ticker, stepM
               <div
                 key={row.label}
                 className={cn(
-                  "grid grid-cols-[150px_1fr_22px] items-center gap-[18px] border-b border-line py-[18px] transition-opacity duration-500 ease-brand",
+                  "grid grid-cols-[150px_1fr_22px] items-center gap-[18px] border-b border-line py-[18px] transition-opacity duration-500 ease-brand max-lg:grid-cols-[1fr_22px] max-lg:gap-x-3 max-lg:gap-y-1.5 max-lg:py-3.5",
                   state === "pending" && "opacity-30"
                 )}
               >
                 <div
                   className={cn(
-                    "font-mono text-[10px] uppercase tracking-[.14em] transition-colors",
+                    "font-mono text-[10px] uppercase tracking-[.14em] transition-colors max-lg:col-span-2",
                     state === "pending" && "text-on-surface-3",
                     state === "reading" && "text-accent-blue",
                     state === "done" && "text-on-surface-2"
@@ -157,7 +157,7 @@ export const WaitingScreen = ({ kicker, heading, lead, rows, work, ticker, stepM
 
         <aside
           aria-hidden="true"
-          className="sticky top-[88px] rounded-xl border border-line bg-surface-raised p-5 shadow-card max-md:static"
+          className="sticky top-[88px] rounded-xl border border-line bg-surface-raised p-5 shadow-card max-lg:static"
         >
           <p className="mb-4 font-mono text-[10px] uppercase tracking-[.16em] text-on-surface-2">
             Working

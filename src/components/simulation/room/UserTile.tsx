@@ -19,9 +19,10 @@ type UserTileProps = {
   userName: string
   micState: MicState
   onToggleMic: () => void
+  className?: string
 }
 
-export const UserTile = ({ userName, micState, onToggleMic }: UserTileProps) => {
+export const UserTile = ({ userName, micState, onToggleMic, className }: UserTileProps) => {
   const [cameraState, setCameraState] = useState<CameraState>("starting")
   const videoRef = useRef<HTMLVideoElement>(null)
 
@@ -56,7 +57,7 @@ export const UserTile = ({ userName, micState, onToggleMic }: UserTileProps) => 
   const micDisabled = micState === "blocked" || micState === "ended"
 
   return (
-    <div>
+    <div className={className}>
       <section
         aria-label="Your camera"
         className="relative aspect-[4/3] overflow-hidden border border-line-2 bg-[linear-gradient(165deg,#3a352e,#1a1713)]"

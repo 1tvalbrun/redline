@@ -173,7 +173,7 @@ export const PanelSetup = ({ simulationId }: PanelSetupProps) => {
       </p>
 
       {trio ? (
-        <div className="grid grid-cols-3 items-stretch gap-4 text-left max-md:grid-cols-1">
+        <div className="grid grid-cols-3 items-stretch gap-4 text-left max-lg:mx-auto max-lg:max-w-[440px] max-lg:grid-cols-1">
           {pack.personas.map((persona) => {
             const isRecommended = persona.id === recommended.persona.id
             const isSelected = (selectedId ?? recommended.persona.id) === persona.id
@@ -231,7 +231,7 @@ export const PanelSetup = ({ simulationId }: PanelSetupProps) => {
         </div>
       ) : (
         <div className="mx-auto max-w-[660px] overflow-hidden rounded-2xl border border-line bg-surface-raised text-left shadow-card">
-          <div className="flex gap-6 p-7 pb-5 max-md:flex-col">
+          <div className="flex gap-6 p-7 pb-5 max-md:flex-col max-md:p-5 max-md:pb-4">
             <PortraitTile
               persona={pack.personas[0]}
               className="h-24 w-24 flex-none rounded-xl max-md:h-40 max-md:w-full"
@@ -255,7 +255,7 @@ export const PanelSetup = ({ simulationId }: PanelSetupProps) => {
               </p>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2 border-t border-line bg-surface px-7 py-3.5">
+          <div className="flex flex-wrap items-center gap-2 border-t border-line bg-surface px-7 py-3.5 max-md:px-5">
             <span className="text-xs text-on-surface-3">
               {firstNameOf(pack.personas[0].name)}&apos;s read:
             </span>
@@ -265,7 +265,7 @@ export const PanelSetup = ({ simulationId }: PanelSetupProps) => {
             ))}
             {gapCount > 0 && <ReceiptChip label={`The gap map · ${gapCount} open`} />}
           </div>
-          <div className="flex flex-wrap items-center gap-3.5 border-t border-line px-7 py-4">
+          <div className="flex flex-wrap items-center gap-3.5 border-t border-line px-7 py-4 max-md:px-5">
             <button
               type="button"
               onClick={() => handleEnterRoom(pack.personas[0].id)}

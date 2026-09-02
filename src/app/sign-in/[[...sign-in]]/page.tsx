@@ -82,13 +82,13 @@ const SignInPage = () => (
         <p className="flex gap-5">
           <Link
             href="/terms"
-            className="focus-ring font-mono text-[10px] uppercase tracking-[.09em] text-on-surface-3 hover:text-on-surface-2"
+            className="focus-ring font-mono text-[10px] uppercase tracking-[.09em] text-on-surface-3 hover:text-on-surface-2 max-md:px-2 max-md:py-2"
           >
             Terms
           </Link>
           <Link
             href="/privacy"
-            className="focus-ring font-mono text-[10px] uppercase tracking-[.09em] text-on-surface-3 hover:text-on-surface-2"
+            className="focus-ring font-mono text-[10px] uppercase tracking-[.09em] text-on-surface-3 hover:text-on-surface-2 max-md:px-2 max-md:py-2"
           >
             Privacy
           </Link>

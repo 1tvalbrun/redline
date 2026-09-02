@@ -7,7 +7,7 @@ import type { FunctionReturnType } from "convex/server"
 import { api } from "@convex/_generated/api"
 import { Doc, Id } from "@convex/_generated/dataModel"
 import { AvatarProvider, AvatarVideo } from "@runwayml/avatars-react"
-import { Check } from "lucide-react"
+import { Check, X } from "lucide-react"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -100,6 +100,14 @@ type ConnectCode = (typeof CONNECT_CODE_VALUES)[number]
 
 const CONNECT_CODES: ReadonlySet<string> = new Set(CONNECT_CODE_VALUES)
 
+// Codes a retry can never clear: the connect cap is spent, or the
+// session's time is up. Gates both the failure view's Retry button and the
+// silent first-attempt retry.
+const TERMINAL_CONNECT_CODES: ReadonlySet<string> = new Set([
+  "cap",
+  "complete",
+] satisfies ConnectCode[])
+
 // Elapsed for THIS sitting, anchored at mount — a resumed room is far older
 // than the session being recorded (anchoring at session creation once read
 // "22560:17"). A mid-session refresh restarts the readout; the transcript
@@ -160,6 +168,11 @@ const RoomShellBody = ({
   // queue behind it. Cleared the moment the avatar is ready — a live session
   // is never abandoned.
   const pendingRunwaySessionRef = useRef<string | null>(null)
+  // The in-flight connect request. The route holds it open for up to a
+  // minute; a retry or an unmount must cancel it, or its late success lands
+  // in a room that moved on — observed on mobile as an orphaned Runway
+  // session holding the org's single concurrency slot, queueing every retry.
+  const connectAbortRef = useRef<AbortController | null>(null)
   // Last moment the transcription stream heard the user at all — interims
   // included, long before a final commits. Feeds the idle rule only; a ref
   // because it changes on every spoken word and must not cause renders.
@@ -192,6 +205,9 @@ const RoomShellBody = ({
   // that happen to arrive. All landing math derives from it in render.
   const [now, setNow] = useState(() => Date.now())
   const [landing, setLanding] = useState(false)
+  // Below lg the transcript column doesn't exist; this opens it as a sheet
+  // over the stage instead.
+  const [mobilePanelOpen, setMobilePanelOpen] = useState(false)
   // The settle: the wrap chrome has passed, the conversation is over, and the
   // room holds a quiet deliberation scene until the debrief exists. Always
   // set with (or after) landing — every gate keyed on landing still holds.
@@ -235,18 +251,6 @@ const RoomShellBody = ({
       body: JSON.stringify({ sessionId: session._id, runwaySessionId: id }),
     }).catch(() => {})
   }, [session._id])
-
-  // The session can hang without ever erroring (observed live: LiveKit
-  // connects but the avatar worker never joins, so onError never fires).
-  // A user must not be trapped staring at an empty room — after the
-  // deadline the failure view offers retry or a graceful exit.
-  useEffect(() => {
-    const timer = setTimeout(
-      () => setTimedOutAttempt(connectAttempt),
-      AVATAR_CONNECT_TIMEOUT_MS
-    )
-    return () => clearTimeout(timer)
-  }, [connectAttempt])
 
   // The room ends itself: conclude, hold for the transcription tail so the
   // user's last words make the record, then settle the room while the
@@ -358,12 +362,16 @@ const RoomShellBody = ({
   // LiveKit logs and avatar sessions that never joined.
   const handleConnect = useCallback(
     async (avatarId: string) => {
+      connectAbortRef.current?.abort()
+      const controller = new AbortController()
+      connectAbortRef.current = controller
       const res = await fetch(
         `/api/avatar/connect?sessionId=${session._id}&clientId=${clientId}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ avatarId }),
+          signal: controller.signal,
         }
       )
       const data = await res.json().catch(() => null)
@@ -373,6 +381,54 @@ const RoomShellBody = ({
     },
     [session._id, clientId]
   )
+
+  // The abort must also fire when the whole room unmounts mid-connect (a
+  // navigation, a refresh) — otherwise the request outlives its room.
+  useEffect(() => () => connectAbortRef.current?.abort(), [])
+
+  const handleRetryConnect = useCallback(() => {
+    connectAbortRef.current?.abort()
+    abandonPendingSession()
+    setAvatarError(null)
+    setHasConnected(false)
+    setAttemptStarted(false)
+    setAvatarStatus("connecting")
+    setConnectAttempt((n) => n + 1)
+  }, [abandonPendingSession])
+
+  // A first attempt that dies retryably gets one silent retry before any
+  // failure view — observed live: first mints fail against a cold or
+  // still-held Runway slot, while a fresh attempt reliably lands (retry
+  // abandons the stuck session, mint sweeps the rest). A second failure is
+  // shown honestly.
+  const trySilentRetry = useCallback(() => {
+    if (connectAttempt !== 0 || hasConnected || sessionOver) return false
+    handleRetryConnect()
+    return true
+  }, [connectAttempt, hasConnected, sessionOver, handleRetryConnect])
+
+  // An aborted connect is this room cancelling itself — never a failure to
+  // show the user. Everything else is the attempt's truth.
+  const handleAvatarError = useCallback(
+    (err: Error) => {
+      if (err.name === "AbortError") return
+      if (!TERMINAL_CONNECT_CODES.has(err.message) && trySilentRetry()) return
+      setAvatarError(err)
+    },
+    [trySilentRetry]
+  )
+
+  // The session can hang without ever erroring (observed live: LiveKit
+  // connects but the avatar worker never joins, so onError never fires).
+  // A user must not be trapped staring at an empty room — after the
+  // deadline the failure view offers retry or a graceful exit.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (trySilentRetry()) return
+      setTimedOutAttempt(connectAttempt)
+    }, AVATAR_CONNECT_TIMEOUT_MS)
+    return () => clearTimeout(timer)
+  }, [connectAttempt, trySilentRetry])
 
   const handleEndSession = () => {
     if (endedRef.current) return
@@ -408,23 +464,17 @@ const RoomShellBody = ({
     router.push(`/p/${simulationId}`)
   }
 
-  const handleRetryConnect = () => {
-    abandonPendingSession()
-    setAvatarError(null)
-    setHasConnected(false)
-    setAttemptStarted(false)
-    setAvatarStatus("connecting")
-    setConnectAttempt((n) => n + 1)
-  }
-
   // Everything that means "this attempt no longer has a live avatar": an
   // explicit error, a session that closed after starting to connect but
   // before becoming ready, a connected session that later died (the SDK has
   // no session-level reconnect — "ended" after connect is final), or the
   // deadline passing with no avatar. (The SDK never reports an "error"
   // status — errors arrive via onError.)
-  const avatarFailure =
-    sessionOver || avatarError
+  // A landing room is over by choice: ending it releases the Runway session
+  // server-side, and the "ended" that comes back must not read as failure.
+  const avatarFailure = landing
+    ? null
+    : sessionOver || avatarError
       ? avatarError?.message ?? null
       : hasConnected
         ? avatarStatus === "ended"
@@ -440,7 +490,7 @@ const RoomShellBody = ({
     avatarError && CONNECT_CODES.has(avatarError.message)
       ? (avatarError.message as ConnectCode)
       : null
-  const retryImpossible = connectCode === "cap" || connectCode === "complete"
+  const retryImpossible = connectCode !== null && TERMINAL_CONNECT_CODES.has(connectCode)
 
   // There is nothing to debrief and nothing to promise the user about a
   // record that can't produce one. Mirrors generateDebrief's guard exactly:
@@ -456,6 +506,12 @@ const RoomShellBody = ({
   // that spoke its opening and then died DID join, so that headline is
   // reserved for a genuinely empty record.
   const neverJoined = session.transcript.length === 0
+
+  // A room that failed with nothing on record must never land itself: the
+  // debrief it would navigate to can't exist (generateDebrief refuses an
+  // empty record), and the clock it would land on may have been burned by
+  // failed connect attempts. The failure view's own buttons are the exits.
+  const failedEmptyRoom = avatarFailure !== null && nothingOnRecord
 
   const failureHeadline =
     connectCode === "queued"
@@ -543,7 +599,7 @@ const RoomShellBody = ({
     const tick = setInterval(() => {
       const at = Date.now()
       setNow(at)
-      if (roomStartedAt !== undefined) {
+      if (roomStartedAt !== undefined && !failedEmptyRoom) {
         const reached = roomTimePhase(roomStartedAt, at)
         // The persona's close is never cut by our clock except at the floor.
         const atFloor = at - roomStartedAt >= ROOM_MS - 2_000
@@ -554,7 +610,7 @@ const RoomShellBody = ({
       // A delivered close ends the session it belongs to: dead air past the
       // closing read is paid time spent on prompted brush-offs (observed
       // live as a minute of silence into the clock).
-      if (shouldLandAfterClose(session.closeDeliveredAt, at, isAvatarSpeaking)) {
+      if (!failedEmptyRoom && shouldLandAfterClose(session.closeDeliveredAt, at, isAvatarSpeaking)) {
         handleLand("verdict")
       }
       const idle = idleState(roomActivityAt(), at, idleSuspended)
@@ -569,12 +625,16 @@ const RoomShellBody = ({
     isAvatarSpeaking,
     roomActivityAt,
     session.closeDeliveredAt,
+    failedEmptyRoom,
   ])
 
   return (
+    // Below lg the 580px of fixed side tracks can't exist: the room stacks —
+    // stage, self-view strip, control bar — and the transcript moves behind
+    // the bar's toggle.
     <div
       data-surface="dark"
-      className="relative grid h-full min-h-0 grid-cols-[244px_1fr_336px] grid-rows-[1fr_auto] bg-surface text-on-surface"
+      className="relative grid h-full min-h-0 grid-cols-[244px_1fr_336px] grid-rows-[1fr_auto] bg-surface text-on-surface max-lg:flex max-lg:flex-col max-lg:overflow-hidden"
     >
       <div aria-hidden="true" className="grain-overlay absolute inset-0 z-50 opacity-5" />
       {/* Recording a room with no interviewer present is a privacy problem
@@ -595,14 +655,24 @@ const RoomShellBody = ({
       )}
 
       <aside
-        className={`col-start-1 row-span-2 row-start-1 flex flex-col gap-[18px] border-r border-line bg-surface-raised px-4 py-5 transition-opacity duration-700 motion-reduce:transition-none ${settled ? "pointer-events-none opacity-0" : ""}`}
+        className={`col-start-1 row-span-2 row-start-1 flex flex-col gap-[18px] border-r border-line bg-surface-raised px-4 py-5 transition-opacity duration-700 motion-reduce:transition-none max-lg:order-2 max-lg:max-h-[26dvh] max-lg:flex-none max-lg:flex-row max-lg:items-stretch max-lg:gap-3 max-lg:border-r-0 max-lg:border-t max-lg:px-3 max-lg:py-2.5 ${settled ? "pointer-events-none opacity-0" : ""}`}
       >
-        <UserTile userName={pack.userTitle} micState={micState} onToggleMic={handleToggleMic} />
-        <PromptHelpers prompts={pack.copy.promptHelpers} />
-        <Disclosure className="mt-auto" />
+        <UserTile
+          userName={pack.userTitle}
+          micState={micState}
+          onToggleMic={handleToggleMic}
+          className="max-lg:w-[136px] max-lg:flex-none"
+        />
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-[18px] max-lg:gap-1.5">
+          <PromptHelpers
+            prompts={pack.copy.promptHelpers}
+            className="max-lg:min-h-0 max-lg:flex-1 max-lg:overflow-y-auto"
+          />
+          <Disclosure className="mt-auto max-lg:mt-0" />
+        </div>
       </aside>
 
-      <main className="relative col-start-2 row-start-1 overflow-hidden bg-[#0e0c0a]">
+      <main className="relative col-start-2 row-start-1 overflow-hidden bg-[#0e0c0a] max-lg:order-1 max-lg:min-h-0 max-lg:flex-1">
         {/* The settle: the conversation is over, so the avatar subtree
             unmounts (no stray audio under the scene) and the room's dark
             ground holds a quiet deliberation line until the debrief exists
@@ -657,7 +727,7 @@ const RoomShellBody = ({
             </div>
           </div>
         ) : takenOver ? (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 max-lg:px-5">
             <p className="font-mono text-[11px] uppercase tracking-[.14em] text-on-surface-2">
               Open in another window
             </p>
@@ -667,7 +737,7 @@ const RoomShellBody = ({
             </p>
           </div>
         ) : sessionOver ? (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 max-lg:px-5">
             <p className="font-mono text-[11px] uppercase tracking-[.14em] text-on-surface-2">
               Session ended
             </p>
@@ -677,14 +747,14 @@ const RoomShellBody = ({
             </p>
           </div>
         ) : avatarFailure ? (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
-            <p className="font-mono text-[11px] uppercase tracking-[.14em] text-red-fg">
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 max-lg:px-5">
+            <p className="text-center font-mono text-[11px] uppercase tracking-[.14em] text-red-fg">
               {failureHeadline}
             </p>
             <p className="max-w-[42ch] text-center text-[13.5px] text-on-surface-2">
               {failureBody}
             </p>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 max-lg:flex-wrap max-lg:justify-center">
               {!retryImpossible && (
                 <button
                   type="button"
@@ -723,11 +793,11 @@ const RoomShellBody = ({
             connectUrl={`/api/avatar/connect?cacheKey=${session._id}-${connectAttempt}`}
             audio
             video={false}
-            onError={setAvatarError}
+            onError={handleAvatarError}
             fallback={
               <div className="absolute inset-0 bg-[linear-gradient(180deg,#c8c6be,#a6a49c_58%,#8f8d85)]">
                 <div className="absolute inset-0 bg-[radial-gradient(62%_46%_at_50%_20%,rgba(255,255,255,.4),transparent_62%)]" />
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2.5">
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2.5 max-lg:px-6 max-lg:text-center">
                   <p className="font-mono text-[11px] uppercase tracking-[.14em] text-[#544f45] motion-safe:animate-pulse">
                     Connecting {persona.name}…
                   </p>
@@ -779,7 +849,7 @@ const RoomShellBody = ({
         </div>
 
         {invitation && !landing && (
-          <div className="absolute bottom-[110px] left-6 z-[5]">
+          <div className="absolute bottom-[110px] left-6 z-[5] max-lg:bottom-[124px] max-lg:left-4">
             <p className="max-w-[34ch] font-mono text-[11px] uppercase tracking-[.12em] text-white/85 [text-shadow:0_1px_4px_rgba(0,0,0,.5)] motion-safe:animate-pulse">
               {invitation}
             </p>
@@ -787,7 +857,7 @@ const RoomShellBody = ({
         )}
 
         {idlePrompt && !landing && (
-          <div className="absolute left-1/2 top-[18px] z-[5] -translate-x-1/2 rounded-[10px] border border-line-2 bg-black/60 px-4 py-2">
+          <div className="absolute left-1/2 top-[18px] z-[5] -translate-x-1/2 rounded-[10px] border border-line-2 bg-black/60 px-4 py-2 max-lg:top-12 max-lg:w-[calc(100%-32px)]">
             <p className="font-mono text-[11px] uppercase tracking-[.12em] text-white/85">
               Still there? The session wraps up shortly if the room stays quiet.
             </p>
@@ -797,7 +867,7 @@ const RoomShellBody = ({
         {(micState === "muted" || micState === "blocked" || (micLive && transcriptionFailed)) &&
           !landing &&
           !sessionOver && (
-            <div className="absolute left-1/2 top-[18px] z-[5] -translate-x-1/2 rounded-[10px] border border-line-2 bg-black/60 px-4 py-2">
+            <div className="absolute left-1/2 top-[18px] z-[5] -translate-x-1/2 rounded-[10px] border border-line-2 bg-black/60 px-4 py-2 max-lg:top-12 max-lg:w-[calc(100%-32px)]">
               <p className="font-mono text-[11px] uppercase tracking-[.12em] text-white/85">
                 {micState === "blocked"
                   ? `We can't reach your microphone. ${firstNameOf(persona.name)} can't hear you.`
@@ -810,9 +880,9 @@ const RoomShellBody = ({
 
         {!avatarFailure && (
           <div
-            className={`absolute bottom-[22px] left-6 z-[5] transition-opacity duration-700 motion-reduce:transition-none ${settled ? "opacity-0" : ""}`}
+            className={`absolute bottom-[22px] left-6 z-[5] transition-opacity duration-700 motion-reduce:transition-none max-lg:bottom-4 max-lg:left-4 ${settled ? "opacity-0" : ""}`}
           >
-            <p className="font-display text-[30px] font-bold tracking-[-.01em] text-white [text-shadow:0_2px_8px_rgba(0,0,0,.4)]">
+            <p className="font-display text-[30px] font-bold tracking-[-.01em] text-white [text-shadow:0_2px_8px_rgba(0,0,0,.4)] max-lg:text-[21px]">
               {persona.name}
             </p>
             <p className="mt-[5px] font-mono text-[11px] uppercase tracking-[.1em] text-white/80 [text-shadow:0_1px_4px_rgba(0,0,0,.4)]">
@@ -840,10 +910,17 @@ const RoomShellBody = ({
           so swapping the button for the landing text never resizes the video
           area above — observed live as the room "growing" at the wrap. */}
       <div
-        className={`col-start-2 row-start-2 flex min-h-[67px] items-center gap-4 border-t border-line bg-surface-2 px-[22px] py-[13px] transition-opacity duration-700 motion-reduce:transition-none ${settled ? "pointer-events-none opacity-0" : ""}`}
+        className={`col-start-2 row-start-2 flex min-h-[67px] items-center gap-4 border-t border-line bg-surface-2 px-[22px] py-[13px] transition-opacity duration-700 motion-reduce:transition-none max-lg:order-3 max-lg:gap-3 max-lg:px-4 max-lg:pb-[max(13px,env(safe-area-inset-bottom))] ${settled ? "pointer-events-none opacity-0" : ""}`}
       >
+        <button
+          type="button"
+          onClick={() => setMobilePanelOpen(true)}
+          className="focus-ring flex items-center gap-2 rounded-[10px] border border-line-2 px-3 py-3 text-[12.5px] font-medium text-on-surface-2 transition-colors hover:bg-white/5 lg:hidden"
+        >
+          Transcript
+        </button>
         {(phase !== "open" || Boolean(session.currentTopic)) && (
-          <span className="font-mono text-[11px] uppercase tracking-[.1em] text-on-surface-2">
+          <span className="min-w-0 truncate font-mono text-[11px] uppercase tracking-[.1em] text-on-surface-2 max-lg:hidden">
             {phase === "open" ? `${session.currentTopic} under discussion` : "Closing"}
           </span>
         )}
@@ -856,7 +933,7 @@ const RoomShellBody = ({
             Get the debrief <span aria-hidden="true">→</span>
           </button>
         ) : landing ? (
-          <span className="ml-auto font-mono text-[11px] uppercase tracking-[.1em] text-on-surface-2">
+          <span className="ml-auto font-mono text-[11px] uppercase tracking-[.1em] text-on-surface-2 max-lg:min-w-0 max-lg:truncate">
             Wrapping up. Your debrief is next.
           </span>
         ) : (
@@ -883,7 +960,7 @@ const RoomShellBody = ({
       </div>
 
       <aside
-        className={`col-start-3 row-span-2 row-start-1 flex min-h-0 flex-col border-l border-line bg-surface-raised transition-opacity duration-700 motion-reduce:transition-none ${settled ? "pointer-events-none opacity-0" : ""}`}
+        className={`col-start-3 row-span-2 row-start-1 flex min-h-0 flex-col border-l border-line bg-surface-raised transition-opacity duration-700 motion-reduce:transition-none max-lg:hidden ${settled ? "pointer-events-none opacity-0" : ""}`}
       >
         <div className="min-h-0 flex-[1.25] border-b border-line">
           <TranscriptPanel
@@ -896,6 +973,43 @@ const RoomShellBody = ({
           <LiveNotes notes={session.liveNotes} startedAt={session._creationTime} />
         </div>
       </aside>
+
+      {/* The transcript column, as a sheet, for viewports that lost it. */}
+      {mobilePanelOpen && !settled && (
+        <div className="fixed inset-0 z-[60] lg:hidden">
+          <button
+            type="button"
+            aria-label="Close transcript"
+            onClick={() => setMobilePanelOpen(false)}
+            className="absolute inset-0 bg-black/50"
+          />
+          <div className="absolute inset-x-0 bottom-0 flex h-[72dvh] flex-col border-t border-line bg-surface-raised pb-[env(safe-area-inset-bottom)] [@media(max-height:520px)]:h-[92dvh]">
+            <div className="flex flex-none items-center justify-between border-b border-line py-1 pl-[18px] pr-2.5">
+              <span className="font-mono text-[10.5px] uppercase tracking-[.16em] text-on-surface-2">
+                Transcript &amp; notes
+              </span>
+              <button
+                type="button"
+                onClick={() => setMobilePanelOpen(false)}
+                aria-label="Close transcript"
+                className="focus-ring grid size-11 place-items-center rounded-lg text-on-surface-3 transition-colors hover:bg-white/5"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+            <div className="min-h-0 flex-[1.25] border-b border-line">
+              <TranscriptPanel
+                transcript={session.transcript}
+                startedAt={session._creationTime}
+                delayUserMs={sessionOver ? undefined : USER_TRANSCRIPT_DELAY_MS}
+              />
+            </div>
+            <div className="min-h-0 flex-1">
+              <LiveNotes notes={session.liveNotes} startedAt={session._creationTime} />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

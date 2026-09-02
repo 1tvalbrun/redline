@@ -123,7 +123,7 @@ export const ConfirmBrief = ({
                 )}
               </div>
               {isMissing && !editing && (
-                <span className="rounded-full border border-warn-line bg-warn-bg px-2.5 py-[3px] text-[10.5px] font-semibold text-warn">
+                <span className="flex-none whitespace-nowrap rounded-full border border-warn-line bg-warn-bg px-2.5 py-[3px] text-[10.5px] font-semibold text-warn">
                   Not heard
                 </span>
               )}
@@ -132,7 +132,7 @@ export const ConfirmBrief = ({
                   type="button"
                   onClick={() => setEditingKey(field.key)}
                   aria-label={`Edit ${field.label}`}
-                  className="focus-ring flex-none rounded-md p-1.5 text-ink-4 transition-colors hover:bg-surface-2 hover:text-on-surface-2"
+                  className="focus-ring flex-none rounded-md p-1.5 text-ink-4 transition-colors hover:bg-surface-2 hover:text-on-surface-2 max-md:-m-1.5 max-md:p-3"
                 >
                   <Pencil className="size-3.5" />
                 </button>
@@ -184,12 +184,12 @@ export const ConfirmBrief = ({
         </p>
       )}
 
-      <div className="mt-7 flex items-center gap-3.5">
+      <div className="mt-7 flex items-center gap-3.5 max-md:flex-col max-md:items-stretch max-md:gap-2.5">
         <button
           type="button"
           onClick={handleSubmit}
           disabled={submitting || uploads.isUploading}
-          className={BTN_PRIMARY}
+          className={cn(BTN_PRIMARY, "flex-none max-md:justify-center")}
         >
           {submitting
             ? "Setting up"

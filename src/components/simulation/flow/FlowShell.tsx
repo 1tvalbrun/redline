@@ -96,7 +96,7 @@ export const FlowShell = ({
   }, [stage])
 
   const exitClass =
-    "focus-ring rounded-lg px-2.5 py-1.5 text-[13px] text-on-surface-3 transition-colors hover:bg-surface-2"
+    "focus-ring rounded-lg px-2.5 py-1.5 text-[13px] text-on-surface-3 transition-colors hover:bg-surface-2 max-md:py-2.5"
 
   return (
     <div
@@ -105,22 +105,33 @@ export const FlowShell = ({
     >
       <header
         className={cn(
-          "flex flex-none items-center gap-[26px] border-b border-line bg-surface-rail px-6 py-3.5 transition-opacity duration-700 motion-reduce:transition-none",
+          "flex flex-none items-center gap-[26px] border-b border-line bg-surface-rail px-6 py-3.5 transition-opacity duration-700 motion-reduce:transition-none max-md:gap-3 max-md:px-4 max-md:py-3",
           chromeFaded && "pointer-events-none opacity-0"
         )}
       >
-        <Link href="/" className="focus-ring flex items-center gap-2">
+        <Link href="/" className="focus-ring flex flex-none items-center gap-2">
           <LogoMark size="sm" />
-          <span className="text-sm font-semibold">
+          <span className="text-sm font-semibold max-md:hidden">
             <BrandName />
           </span>
         </Link>
 
         {centerSlot ? (
-          <div className="flex flex-1 justify-center">{centerSlot}</div>
+          <div className="flex min-w-0 flex-1 justify-center">{centerSlot}</div>
         ) : (
-        <nav aria-label="Practice progress" className="flex flex-1 justify-center">
-          <ol className="flex items-center">
+        <nav aria-label="Practice progress" className="flex min-w-0 flex-1 justify-center">
+          {/* The four-step rail needs ~340px it will never get on a phone —
+              below md the current step stands alone with its position. */}
+          <p className="hidden items-center gap-2 font-mono text-[11px] uppercase tracking-[.04em] max-md:flex">
+            <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-accent-blue" />
+            <span className="truncate text-accent-blue">
+              {displaySteps[currentIndex]?.label}
+            </span>
+            <span className="flex-none tabular-nums text-ink-4">
+              {currentIndex + 1}/{displaySteps.length}
+            </span>
+          </p>
+          <ol className="flex items-center max-md:hidden">
             {displaySteps.map((displayStep, i) => {
               const state = i < currentIndex ? "done" : i === currentIndex ? "active" : "upcoming"
               const lastKey = displayStep.keys[displayStep.keys.length - 1]
@@ -168,7 +179,7 @@ export const FlowShell = ({
           <AlertDialog>
             {/* A stateful exit earns a real button — plain text is too easy
                 to miss as the only door out of the room. */}
-            <AlertDialogTrigger className={cn(BTN_SECONDARY, "px-3.5 py-2 text-[13px] hover:text-on-surface")}>
+            <AlertDialogTrigger className={cn(BTN_SECONDARY, "flex-none whitespace-nowrap px-3.5 py-2 text-[13px] hover:text-on-surface max-md:py-2.5")}>
               <LogOut className="size-[14px]" />
               {confirmExit.label ?? "Save & exit"}
             </AlertDialogTrigger>
@@ -186,7 +197,7 @@ export const FlowShell = ({
             </AlertDialogContent>
           </AlertDialog>
         ) : (
-          <Link href="/" className={exitClass}>
+          <Link href="/" className={cn(exitClass, "flex-none whitespace-nowrap")}>
             Save &amp; exit
           </Link>
         )}
@@ -200,7 +211,7 @@ export const FlowShell = ({
         {fullBleed ? (
           children
         ) : (
-          <div className="mx-auto w-full max-w-[1080px] px-10 pb-[90px] pt-10">{children}</div>
+          <div className="mx-auto w-full max-w-[1080px] px-10 pb-[90px] pt-10 max-md:px-5 max-md:pb-16 max-md:pt-7">{children}</div>
         )}
       </main>
     </div>

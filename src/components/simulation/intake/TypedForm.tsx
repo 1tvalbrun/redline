@@ -2,6 +2,7 @@
 
 import { useEffect } from "react"
 import { ArrowRight, Upload } from "lucide-react"
+import { cn } from "@/lib/utils"
 import { useAction } from "convex/react"
 import { api } from "@convex/_generated/api"
 import type { DomainPack, Scope } from "@/domains/types"
@@ -36,9 +37,11 @@ const SectionHead = ({ title, meta }: { title: string; meta?: string }) => (
       {title}
     </h2>
     {meta && (
-      <span className="flex-none font-mono text-[10.5px] tracking-[.02em] text-ink-4">{meta}</span>
+      <span className="flex-none font-mono text-[10.5px] tracking-[.02em] text-ink-4 max-md:min-w-0 max-md:flex-1 max-md:truncate">
+        {meta}
+      </span>
     )}
-    <span aria-hidden="true" className="h-px flex-1 self-center bg-line" />
+    <span aria-hidden="true" className="h-px flex-1 self-center bg-line max-md:hidden" />
   </div>
 )
 
@@ -126,7 +129,7 @@ export const TypedForm = ({
           by that much (offset by margin) so it never clips the ring. */}
       <div
         ref={formScroll}
-        className="scrollbar-subtle -ml-1.5 -mt-1.5 h-full min-h-0 overflow-y-auto overscroll-contain pb-16 pl-1.5 pr-2 pt-1.5"
+        className="scrollbar-subtle -ml-1.5 -mt-1.5 h-full min-h-0 overflow-y-auto overscroll-contain pb-16 pl-1.5 pr-2 pt-1.5 max-lg:h-auto max-lg:overflow-visible"
       >
           <section className="mb-10">
             <SectionHead title={pack.copy.form.materialsTitle} meta={pack.copy.form.materialsMeta} />
@@ -217,12 +220,12 @@ export const TypedForm = ({
             </p>
           )}
 
-          <div className="flex items-center gap-3.5">
+          <div className="flex items-center gap-3.5 max-md:flex-col max-md:items-stretch max-md:gap-2.5">
             <button
               type="button"
               onClick={handleSubmit}
               disabled={submitting || uploads.isUploading}
-              className={BTN_PRIMARY}
+              className={cn(BTN_PRIMARY, "flex-none max-md:justify-center")}
             >
               {submitting ? "Setting up" : ctaLabel(pack)}
               <ArrowRight className="size-3.5" />

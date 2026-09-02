@@ -1,10 +1,11 @@
 import { v } from "convex/values"
-import { action, internalMutation, query } from "./_generated/server"
+import { action, internalAction, internalMutation, query } from "./_generated/server"
 import { api, internal } from "./_generated/api"
 import { requireIdentity } from "./guard"
 import { getPack, isPackId } from "../src/domains/registry"
 import { firstNameOf } from "../src/domains/types"
 import { endingContract, withTimeContract } from "../src/lib/ending"
+import { CONNECT_GRACE_SEC } from "../src/lib/roomClock"
 
 // Adopts a Runway Character for a pack persona (upsert). Internal on
 // purpose: only the developer registers avatars, via
@@ -156,6 +157,26 @@ export const mint = action({
       return { ok: false, code: "unknown_avatar" }
     }
 
+    // A previous attempt's Runway session may still be running: a client
+    // that died mid-connect, a response lost in transport, a tab that never
+    // got to abandon it. It holds the org's single concurrency slot, so
+    // every new session would sit queued behind it until the ghost's five
+    // minutes run out — observed on mobile as retries that never succeed.
+    // The claim above was won, so whatever the doc recorded belongs to an
+    // attempt this one supersedes; sweep it before creating. Best-effort:
+    // deleting an already-finished session just 4xxes.
+    if (session.runwaySessionId) {
+      await fetch(`${RUNWAY_API}/v1/realtime_sessions/${session.runwaySessionId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "X-Runway-Version": RUNWAY_VERSION,
+        },
+      }).catch((err) => {
+        console.warn("[avatars.mint] stale session sweep failed:", err)
+      })
+    }
+
     const pack = getPack(practice.packId)
     const briefing = pack.briefing({
       scope: practice.scope,
@@ -198,7 +219,11 @@ export const mint = action({
       },
       body: JSON.stringify({
         model: "gwm1_avatars",
-        maxDuration: claim.maxDurationSec,
+        // The room clock starts at READY (sessions.markRoomStarted), but
+        // Runway's window opens here at create — the grace keeps Runway
+        // from hanging up before our clock lands the room. The briefed
+        // minutes stay on the real budget.
+        maxDuration: claim.maxDurationSec + CONNECT_GRACE_SEC,
         avatar: { type: "custom", avatarId: args.avatarId },
         ...(personality ? { personality } : {}),
         // Replaces the Character's canned opener, which otherwise repeats
@@ -233,5 +258,26 @@ export const mint = action({
       })
 
     return { ok: true, runwaySessionId: payload.id }
+  },
+})
+
+// Frees the org's single concurrency slot the moment a session ends,
+// instead of letting the Runway session run out its window — a lingering
+// one makes the next room's mint queue behind it until it expires.
+// Best-effort: an already-finished session just 4xxes.
+export const release = internalAction({
+  args: { runwaySessionId: v.string() },
+  handler: async (_ctx, args) => {
+    const apiKey = process.env.RUNWAYML_API_SECRET
+    if (!apiKey) return
+    await fetch(`${RUNWAY_API}/v1/realtime_sessions/${args.runwaySessionId}`, {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "X-Runway-Version": RUNWAY_VERSION,
+      },
+    }).catch((err) => {
+      console.warn("[avatars.release] runway session delete failed:", err)
+    })
   },
 })

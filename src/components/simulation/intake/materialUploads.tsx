@@ -112,7 +112,7 @@ export const UploadList = ({
             </span>
           )}
           {entry.state === "rejected" && (
-            <span role="alert" className="text-[11.5px] text-red-fg">
+            <span role="alert" className="min-w-0 text-[11.5px] text-red-fg max-md:break-words">
               {entry.reason}
             </span>
           )}
@@ -120,7 +120,7 @@ export const UploadList = ({
             type="button"
             onClick={() => onRemove(entry.key)}
             aria-label={`Remove ${entry.name}`}
-            className="focus-ring flex-none text-on-surface-3 hover:text-red-fg"
+            className="focus-ring flex-none text-on-surface-3 hover:text-red-fg max-md:-m-3 max-md:p-3"
           >
             <X className="h-3.5 w-3.5" />
           </button>

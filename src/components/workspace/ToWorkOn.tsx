@@ -160,7 +160,7 @@ export const ToWorkOn = ({
 
   return (
     <section className="mb-8">
-      <div className="mb-2.5 flex items-baseline justify-between px-0.5">
+      <div className="mb-2.5 flex items-baseline justify-between px-0.5 max-md:flex-wrap max-md:gap-x-3 max-md:gap-y-1">
         <h2 className="text-[11px] font-semibold uppercase tracking-[.09em] text-on-surface-3">
           To work on
         </h2>
@@ -246,7 +246,7 @@ export const ToWorkOn = ({
                       )}
                     >
                       <div className="overflow-hidden">
-                        <div className="flex items-start gap-3 bg-surface px-4 py-3">
+                        <div className="flex items-start gap-3 bg-surface px-4 py-3 max-md:flex-wrap">
                           {item.status === "done" ? (
                             <span className="mt-px grid h-[18px] w-[18px] flex-none place-items-center rounded-md border-[1.5px] border-ok bg-ok">
                               <Check className="size-[11px] text-white" strokeWidth={3.4} />
@@ -265,7 +265,7 @@ export const ToWorkOn = ({
                             aria-label={`Reopen: ${item.text}`}
                             disabled={leaving || entering}
                             onClick={() => handleReopen(item.id)}
-                            className="focus-ring flex-none rounded-full border border-line-2 bg-surface-raised px-[11px] py-[3px] text-[11.5px] text-on-surface-3 transition-colors hover:border-accent-line hover:bg-accent-bg hover:text-accent-blue"
+                            className="focus-ring flex-none rounded-full border border-line-2 bg-surface-raised px-[11px] py-[3px] text-[11.5px] text-on-surface-3 transition-colors hover:border-accent-line hover:bg-accent-bg hover:text-accent-blue max-md:px-3.5 max-md:py-2"
                           >
                             Reopen
                           </button>

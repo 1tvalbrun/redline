@@ -96,7 +96,7 @@ const EarlierSessions = ({
               )}
             </span>
             {session.turns > 0 && (
-              <span className="flex-none pt-0.5 font-mono text-[11px] text-on-surface-3">
+              <span className="flex-none pt-0.5 font-mono text-[11px] text-on-surface-3 max-md:hidden">
                 {session.turns} {session.turns === 1 ? "turn" : "turns"}
               </span>
             )}
@@ -160,14 +160,14 @@ const PracticePage = ({ params }: { params: Promise<{ practiceId: string }> }) =
   }
 
   return (
-    <div className="mx-auto max-w-[1320px] px-12 pb-20 pt-10 max-md:px-5 max-md:pt-7 xl:grid xl:grid-cols-[minmax(0,1fr)_348px] xl:gap-x-28">
-      <header className="mb-8 flex items-start gap-3.5 max-md:flex-wrap xl:col-span-2">
+    <div className="mx-auto max-w-[1320px] px-12 pb-20 pt-10 max-lg:px-6 max-md:px-5 max-md:pt-7 xl:grid xl:grid-cols-[minmax(0,1fr)_348px] xl:gap-x-28">
+      <header className="mb-8 flex items-start gap-3.5 max-md:flex-wrap max-md:gap-y-4 xl:col-span-2">
         {persona && (
           <PersonaAvatar name={persona.name} available />
         )}
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2.5">
-            <h1 className="text-[19px] font-semibold leading-tight tracking-[-.015em]">
+            <h1 className="break-words text-[19px] font-semibold leading-tight tracking-[-.015em]">
               {practice.name}
             </h1>
             <LaneBadge packId={practice.packId} />
@@ -179,19 +179,28 @@ const PracticePage = ({ params }: { params: Promise<{ practiceId: string }> }) =
             </p>
           )}
         </div>
-        {hasExportContent && (
-          <a
-            href={`/api/export?practiceId=${id}`}
-            className="focus-ring mt-1 flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[13px] text-on-surface-3 transition-colors hover:bg-surface-2 hover:text-accent-blue"
+        {/* One flex item so the actions travel together: beside the title on
+            desktop, wrapping to their own full row below md instead of
+            squeezing the title into a sliver. */}
+        <div className="flex items-start gap-3.5 max-md:w-full max-md:items-center">
+          {hasExportContent && (
+            <a
+              href={`/api/export?practiceId=${id}`}
+              className="focus-ring mt-1 flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[13px] text-on-surface-3 transition-colors hover:bg-surface-2 hover:text-accent-blue max-md:mt-0 max-md:py-2.5"
+            >
+              <FileDown className="size-3.5" />
+              Export PDF
+            </a>
+          )}
+          <button
+            type="button"
+            onClick={handleContinue}
+            className={cn(BTN_PRIMARY, "pt-2 max-md:ml-auto max-md:pt-2.5")}
           >
-            <FileDown className="size-3.5" />
-            Export PDF
-          </a>
-        )}
-        <button type="button" onClick={handleContinue} className={cn(BTN_PRIMARY, "pt-2")}>
-          <Video className="size-[15px]" />
-          Continue
-        </button>
+            <Video className="size-[15px]" />
+            Continue
+          </button>
+        </div>
       </header>
 
       <div className="min-w-0">

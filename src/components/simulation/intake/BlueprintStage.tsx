@@ -169,7 +169,7 @@ export const BlueprintStage = ({ simulationId }: BlueprintStageProps) => {
       </p>
 
       <section aria-label="Interview themes" className="mb-9">
-        <h2 className="mb-3 flex items-baseline justify-between text-[11px] font-semibold uppercase tracking-[.09em] text-on-surface-3">
+        <h2 className="mb-3 flex items-baseline justify-between text-[11px] font-semibold uppercase tracking-[.09em] text-on-surface-3 max-md:flex-wrap max-md:gap-x-3 max-md:gap-y-1">
           <span>What your interview will probe</span>
           <span className="font-mono text-[10.5px] tracking-[.02em]">
             {keptThemes.length} theme{keptThemes.length === 1 ? "" : "s"} · questions sealed
@@ -186,10 +186,10 @@ export const BlueprintStage = ({ simulationId }: BlueprintStageProps) => {
                   cut && "opacity-45"
                 )}
               >
-                <div>
+                <div className="min-w-0">
                   <p
                     className={cn(
-                      "text-[14px] font-semibold leading-[1.4]",
+                      "break-words text-[14px] font-semibold leading-[1.4]",
                       cut && "line-through decoration-ink-4"
                     )}
                   >
@@ -205,7 +205,7 @@ export const BlueprintStage = ({ simulationId }: BlueprintStageProps) => {
                     onClick={() => handleToggleTheme(theme.title)}
                     aria-pressed={cut}
                     aria-label={cut ? `Keep ${theme.title}` : `Remove ${theme.title}`}
-                    className="focus-ring mt-0.5 flex-none rounded-md p-1 text-on-surface-3 transition-colors hover:bg-surface-2 hover:text-on-surface"
+                    className="focus-ring mt-0.5 flex-none rounded-md p-1 text-on-surface-3 transition-colors hover:bg-surface-2 hover:text-on-surface max-md:-m-2 max-md:p-3"
                   >
                     {cut ? (
                       <Check className="size-[15px]" />
