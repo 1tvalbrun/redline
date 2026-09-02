@@ -156,17 +156,17 @@ const SessionPage = ({
   const transcript = bySpokenTime(session.transcript)
 
   return (
-    <div className="mx-auto max-w-[1320px] px-12 pb-24 pt-11 max-md:px-5 max-md:pt-8">
-      <div className="mb-2 flex items-center justify-between">
-        <h1 className="font-mono text-[11px] font-normal uppercase tracking-[.06em] text-on-surface-3">
+    <div className="mx-auto max-w-[1320px] px-12 pb-24 pt-11 max-lg:px-6 max-md:px-5 max-md:pt-8">
+      <div className="mb-2 flex items-center justify-between gap-2 max-lg:flex-wrap">
+        <h1 className="min-w-0 break-words font-mono text-[11px] font-normal uppercase tracking-[.06em] text-on-surface-3">
           The debrief · <b className="font-medium text-on-surface-2">{practice.name}</b>
         </h1>
-        <div className="flex items-center gap-1">
+        <div className="flex flex-wrap items-center gap-1">
           <TranscriptDialog transcript={transcript} personaName={session.persona.name} />
           {debrief && (
             <a
               href={`/api/export?sessionId=${sessionId}`}
-              className="focus-ring flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[13px] text-on-surface-3 transition-colors hover:bg-surface-2 hover:text-accent-blue"
+              className="focus-ring flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[13px] text-on-surface-3 transition-colors hover:bg-surface-2 hover:text-accent-blue max-md:py-2.5"
             >
               <FileDown className="size-3.5" />
               Export PDF
@@ -174,7 +174,7 @@ const SessionPage = ({
           )}
           <Link
             href={`/p/${practiceId}`}
-            className="focus-ring flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[13px] text-on-surface-3 transition-colors hover:bg-surface-2 hover:text-accent-blue"
+            className="focus-ring flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[13px] text-on-surface-3 transition-colors hover:bg-surface-2 hover:text-accent-blue max-md:py-2.5"
           >
             <ArrowLeft className="size-3.5" />
             Back to practice
@@ -357,7 +357,7 @@ const SessionPage = ({
                     <div key={i} className="border-t border-line py-2.5 first:border-t-0">
                       <p className="text-[13px] leading-normal text-on-surface-2">{gap.text}</p>
                       {gap.ref && (
-                        <span className="mt-0.5 block font-mono text-[10.5px] text-red-fg">
+                        <span className="mt-0.5 block break-all font-mono text-[10.5px] text-red-fg">
                           {gap.ref}
                         </span>
                       )}

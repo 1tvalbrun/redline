@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { Check, ChevronDown, Pin, Plus, Settings, Trash2 } from "lucide-react"
+import { Check, ChevronDown, Menu, Pin, Plus, Settings, Trash2, X } from "lucide-react"
 import { UserButton } from "@clerk/nextjs"
 import { useMutation, useQuery } from "convex/react"
 import type { FunctionReturnType } from "convex/server"
@@ -123,8 +123,8 @@ const Thread = ({
           aria-label={practice.pinned ? `Unpin ${practice.name}` : `Pin ${practice.name}`}
           aria-pressed={practice.pinned}
           className={cn(
-            "focus-ring grid size-6 flex-none place-items-center rounded-md text-ink-4 transition-opacity hover:bg-surface-2 hover:text-on-surface-2 focus-visible:opacity-100",
-            practice.pinned ? "text-on-surface-3" : "opacity-0 group-hover/thread:opacity-100"
+            "focus-ring grid size-6 flex-none place-items-center rounded-md text-ink-4 transition-opacity hover:bg-surface-2 hover:text-on-surface-2 focus-visible:opacity-100 max-md:size-9",
+            practice.pinned ? "text-on-surface-3" : "opacity-0 group-hover/thread:opacity-100 pointer-coarse:opacity-100 max-md:opacity-100"
           )}
         >
           {practice.pinned ? <Pin className="size-3 fill-current" /> : <Pin className="size-3" />}
@@ -133,7 +133,7 @@ const Thread = ({
           type="button"
           onClick={onDelete}
           aria-label={`Delete ${practice.name}`}
-          className="focus-ring grid size-6 flex-none place-items-center rounded-md text-ink-4 opacity-0 transition-opacity hover:bg-surface-2 hover:text-red-fg focus-visible:opacity-100 group-hover/thread:opacity-100"
+          className="focus-ring grid size-6 flex-none place-items-center rounded-md text-ink-4 opacity-0 transition-opacity hover:bg-surface-2 hover:text-red-fg focus-visible:opacity-100 group-hover/thread:opacity-100 pointer-coarse:opacity-100 max-md:size-9 max-md:opacity-100"
         >
           <Trash2 className="size-3" />
         </button>
@@ -234,6 +234,10 @@ export const AppRail = () => {
   // lands (the mutation fires when the collapse ends).
   const [removing, setRemoving] = useState<ReadonlySet<string>>(new Set())
   const [deleteFailed, setDeleteFailed] = useState(false)
+  // Below md the rail is an off-canvas drawer behind the top bar's menu
+  // button; open state only ever matters there (the drawer classes are all
+  // max-md: variants).
+  const [drawerOpen, setDrawerOpen] = useState(false)
   const lanes = (user?.lanes ?? []).filter(isPackId)
   const displayName = user?.displayName ?? "You"
 
@@ -279,6 +283,23 @@ export const AppRail = () => {
     )
   }
 
+  // Navigating away is the drawer's natural close: every link inside it
+  // leads somewhere, and a drawer left open over the new page reads as
+  // stuck. Delegated from the drawer itself (see the aside's onClick) —
+  // any tapped link closes it.
+  const handleDrawerClick = (e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest("a")) setDrawerOpen(false)
+  }
+
+  useEffect(() => {
+    if (!drawerOpen) return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setDrawerOpen(false)
+    }
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [drawerOpen])
+
   // "N" starts a new practice from anywhere in the workspace.
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -292,22 +313,76 @@ export const AppRail = () => {
   }, [router])
 
   return (
-    <aside className="flex w-[264px] flex-none flex-col border-r border-line bg-surface-rail px-3.5 pb-3.5 pt-5">
-      <Link href="/" className="focus-ring flex items-center gap-2.5 px-2.5 pb-5 pt-0.5">
-        <LogoMark />
-        <span className="text-[15px] font-semibold tracking-[-.01em]">
-          <BrandName />
-        </span>
-      </Link>
+    <>
+      {/* Mobile top bar: the rail's front door below md. In flow (the app
+          layout stacks to a column there), so pages start below it. */}
+      <header className="flex flex-none items-center gap-2 border-b border-line bg-surface-rail px-3 py-2.5 md:hidden">
+        <button
+          type="button"
+          onClick={() => setDrawerOpen(true)}
+          aria-label="Open menu"
+          aria-expanded={drawerOpen}
+          className="focus-ring grid size-10 place-items-center rounded-lg text-on-surface-2 transition-colors hover:bg-surface-2"
+        >
+          <Menu className="size-5" />
+        </button>
+        <Link href="/" className="focus-ring flex items-center gap-2.5 px-1">
+          <LogoMark />
+          <span className="text-[15px] font-semibold tracking-[-.01em]">
+            <BrandName />
+          </span>
+        </Link>
+        <Link
+          href="/simulation/new"
+          aria-label="New practice"
+          className="focus-ring ml-auto grid size-10 place-items-center rounded-lg text-on-surface-2 transition-colors hover:bg-surface-2"
+        >
+          <Plus className="size-5" />
+        </Link>
+      </header>
 
-      <Link
+      {drawerOpen && (
+        <button
+          type="button"
+          aria-label="Close menu"
+          onClick={() => setDrawerOpen(false)}
+          className="fixed inset-0 z-40 bg-black/40 md:hidden"
+        />
+      )}
+
+      <aside
+        onClick={handleDrawerClick}
+        className={cn(
+          "flex w-[264px] flex-none flex-col border-r border-line bg-surface-rail px-3.5 pb-3.5 pt-5",
+          "max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-50 max-md:w-[280px] max-md:shadow-xl max-md:transition-[transform,visibility] max-md:duration-300 motion-reduce:max-md:transition-none",
+          !drawerOpen && "max-md:invisible max-md:-translate-x-full"
+        )}
+      >
+        <div className="flex items-center justify-between pb-5 pt-0.5">
+          <Link href="/" className="focus-ring flex items-center gap-2.5 px-2.5">
+            <LogoMark />
+            <span className="text-[15px] font-semibold tracking-[-.01em]">
+              <BrandName />
+            </span>
+          </Link>
+          <button
+            type="button"
+            onClick={() => setDrawerOpen(false)}
+            aria-label="Close menu"
+            className="focus-ring grid size-8 place-items-center rounded-lg text-on-surface-3 transition-colors hover:bg-surface-2 md:hidden max-md:size-10"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+
+        <Link
         id={NEW_PRACTICE_LINK_ID}
         href="/simulation/new"
         className="focus-ring mb-6 flex items-center gap-2 rounded-[10px] border border-line-2 bg-surface-raised px-3 py-[9px] text-[13.5px] font-medium shadow-btn transition-colors hover:bg-surface-2"
       >
         <Plus className="h-[15px] w-[15px]" />
         New practice
-        <kbd className="ml-auto rounded-[5px] border border-line-2 bg-surface px-1.5 py-px font-mono text-[10.5px] text-on-surface-3">
+        <kbd className="ml-auto rounded-[5px] border border-line-2 bg-surface px-1.5 py-px font-mono text-[10.5px] text-on-surface-3 max-md:hidden">
           N
         </kbd>
       </Link>
@@ -349,12 +424,13 @@ export const AppRail = () => {
           <Link
             href="/settings"
             aria-label="Settings"
-            className="focus-ring grid size-8 place-items-center rounded-lg text-on-surface-3 transition-colors hover:bg-surface-2 hover:text-on-surface-2"
+            className="focus-ring grid size-8 place-items-center rounded-lg text-on-surface-3 transition-colors hover:bg-surface-2 hover:text-on-surface-2 max-md:size-10"
           >
             <Settings className="size-4" />
           </Link>
         </div>
       </div>
-    </aside>
+      </aside>
+    </>
   )
 }

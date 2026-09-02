@@ -124,7 +124,7 @@ const NewPracticePage = ({
     <FlowShell stage="brief" packId={pack.id} fullBleed>
       <div className="flex h-full min-h-0 flex-col px-10 pt-7 max-md:px-5">
       {lanes.length > 1 && !prefilled && (
-        <nav aria-label="Practice lane" className="mb-7 flex flex-none justify-center gap-2">
+        <nav aria-label="Practice lane" className="mb-7 flex flex-none flex-wrap justify-center gap-2">
           {lanes.map((laneId) => (
             <button
               key={laneId}
@@ -132,7 +132,7 @@ const NewPracticePage = ({
               onClick={() => handleLaneSwitch(laneId)}
               aria-current={laneId === pack.id ? "page" : undefined}
               className={cn(
-                "focus-ring flex items-center gap-[7px] rounded-full border px-4 py-[7px] text-[12.5px] font-medium transition-colors",
+                "focus-ring flex items-center gap-[7px] rounded-full border px-4 py-[7px] text-[12.5px] font-medium transition-colors max-md:py-2.5",
                 laneId === pack.id
                   ? "border-accent-line bg-accent-bg text-accent-blue"
                   : "border-line-2 bg-surface-raised text-on-surface-2 hover:bg-surface-2"
@@ -182,7 +182,7 @@ const NewPracticePage = ({
             <button
               type="button"
               onClick={() => setBeat({ kind: "tell" })}
-              className="focus-ring mb-6 mt-3 inline-flex items-center gap-2 rounded-full border border-line-2 bg-surface-raised px-3.5 py-[6px] text-[12.5px] text-on-surface-3 transition-colors hover:bg-surface-2 hover:text-accent-blue"
+              className="focus-ring mb-6 mt-3 inline-flex items-center gap-2 rounded-full border border-line-2 bg-surface-raised px-3.5 py-[6px] text-[12.5px] text-on-surface-3 transition-colors hover:bg-surface-2 hover:text-accent-blue max-md:py-2.5"
             >
               <Mic className="size-[13px]" />
               Talk it instead. A minute is plenty

@@ -26,7 +26,7 @@ const TranscriptTurns = ({ transcript }: { transcript: TranscriptEntry[] }) => {
   return (
     <div
       ref={scrollRef}
-      className="scrollbar-subtle min-h-0 space-y-4 overflow-y-auto overscroll-contain px-6 py-5"
+      className="scrollbar-subtle min-h-0 space-y-4 overflow-y-auto overscroll-contain px-6 py-5 max-md:px-4"
     >
       {transcript.map((entry, i) => (
         <div key={i}>
@@ -40,7 +40,7 @@ const TranscriptTurns = ({ transcript }: { transcript: TranscriptEntry[] }) => {
           </p>
           <p
             className={cn(
-              "text-[13px] leading-relaxed text-on-surface-2",
+              "break-words text-[13px] leading-relaxed text-on-surface-2",
               entry.type === "panelist" && "font-serif text-sm italic text-on-surface"
             )}
           >
@@ -63,11 +63,11 @@ export const TranscriptDialog = ({
   const turnCount = `${transcript.length} ${transcript.length === 1 ? "turn" : "turns"}`
   return (
     <Dialog>
-      <DialogTrigger className="focus-ring flex items-center gap-1.5 rounded-lg border border-dashed border-accent-line px-2.5 py-1.5 text-[13px] text-on-surface-3 transition-colors hover:bg-surface-2 hover:text-accent-blue">
+      <DialogTrigger className="focus-ring flex items-center gap-1.5 rounded-lg border border-dashed border-accent-line px-2.5 py-1.5 text-[13px] text-on-surface-3 transition-colors hover:bg-surface-2 hover:text-accent-blue max-md:py-2.5">
         <FileText className="size-3.5" />
         Transcript · {turnCount}
       </DialogTrigger>
-      <DialogContent className="flex max-h-[80vh] w-[calc(100%-2.5rem)] max-w-[680px] flex-col">
+      <DialogContent className="flex max-h-[80dvh] w-[calc(100%-2.5rem)] max-w-[680px] flex-col">
         <div className="flex items-start justify-between border-b border-line px-6 py-4">
           <div>
             <DialogTitle className="text-[15px] font-semibold">The transcript</DialogTitle>
@@ -77,7 +77,7 @@ export const TranscriptDialog = ({
           </div>
           <DialogClose
             aria-label="Close"
-            className="focus-ring -mr-2 -mt-1 grid place-items-center rounded-lg p-1.5 text-on-surface-3 transition-colors hover:bg-surface-2 hover:text-on-surface"
+            className="focus-ring -mr-2 -mt-1 grid place-items-center rounded-lg p-1.5 text-on-surface-3 transition-colors hover:bg-surface-2 hover:text-on-surface max-md:p-3"
           >
             <X className="size-[15px]" />
           </DialogClose>

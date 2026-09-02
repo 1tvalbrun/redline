@@ -48,7 +48,7 @@ export const DeletePracticeDialog = ({
   <AlertDialog open={open} onOpenChange={onOpenChange}>
     <AlertDialogContent size="sm">
       <AlertDialogHeader>
-        <AlertDialogTitle>Delete {name}?</AlertDialogTitle>
+        <AlertDialogTitle className="break-words">Delete {name}?</AlertDialogTitle>
         <AlertDialogDescription>
           This permanently removes the practice with its sessions, transcripts, debriefs,
           and uploads. There&apos;s no undo.

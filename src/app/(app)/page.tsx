@@ -55,11 +55,15 @@ const ResumeHero = ({ practice }: { practice: PracticeRow }) => {
       <h2 className="mb-3 px-0.5 text-[11px] font-semibold uppercase tracking-[.09em] text-on-surface-3">
         Pick up where you left off
       </h2>
-      <div className="flex items-center gap-[18px] rounded-2xl border border-line bg-surface-raised px-6 py-5 shadow-card max-md:flex-wrap">
+      {/* Below md the text keeps the whole line beside the avatar (min-w
+          forces the button off the row) and the CTA becomes a full-width
+          bottom row — three items squeezed side by side left the title
+          wrapping one word per line. */}
+      <div className="flex items-center gap-[18px] rounded-2xl border border-line bg-surface-raised px-6 py-5 shadow-card max-lg:flex-wrap max-lg:gap-y-4 max-lg:px-5 max-lg:py-4">
         {persona && (
           <PersonaAvatar name={persona.name} size="lg" available />
         )}
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 max-lg:min-w-[65%]">
           <div className="flex flex-wrap items-center gap-2.5">
             <span className="text-[16px] font-semibold tracking-[-.01em]">{practice.name}</span>
             <LaneBadge packId={practice.packId} />
@@ -74,7 +78,11 @@ const ResumeHero = ({ practice }: { practice: PracticeRow }) => {
             </p>
           )}
         </div>
-        <button type="button" onClick={handleContinue} className={BTN_PRIMARY}>
+        <button
+          type="button"
+          onClick={handleContinue}
+          className={cn(BTN_PRIMARY, "max-lg:w-full max-lg:justify-center")}
+        >
           <Video className="size-[15px]" />
           {persona ? `Continue with ${firstNameOf(persona.name)}` : "Continue"}
         </button>
@@ -108,7 +116,7 @@ const PracticeCard = ({ practice, onDelete }: { practice: PracticeRow; onDelete:
           type="button"
           onClick={onDelete}
           aria-label={`Delete ${practice.name}`}
-          className="focus-ring relative grid size-6 flex-none place-items-center rounded-md text-ink-4 opacity-0 transition-opacity hover:bg-surface-3 hover:text-red-fg focus-visible:opacity-100 group-hover:opacity-100"
+          className="focus-ring relative grid size-6 flex-none place-items-center rounded-md text-ink-4 opacity-0 transition-opacity hover:bg-surface-3 hover:text-red-fg focus-visible:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-100 max-md:size-9 max-md:opacity-100"
         >
           <Trash2 className="size-3" />
         </button>
@@ -132,7 +140,7 @@ const PracticeCard = ({ practice, onDelete }: { practice: PracticeRow; onDelete:
         {practice.lastQuote ? `“${statusLine}”` : statusLine}
       </p>
       <div className="mt-3 flex items-center gap-2 border-t border-line pt-[11px]">
-        <span className="flex-1 text-xs text-on-surface-3">
+        <span className="min-w-0 flex-1 truncate text-xs text-on-surface-3">
           {practice.sessionCount === 0
             ? "No sessions yet"
             : `${practice.sessionCount} session${practice.sessionCount === 1 ? "" : "s"} · ${relativeDay(practice.lastSessionAt)}`}
@@ -152,7 +160,7 @@ const PracticeCard = ({ practice, onDelete }: { practice: PracticeRow; onDelete:
 // rendered as Home so the (empty) sidebar stays in view.
 const FirstRun = ({ lanes }: { lanes: string[] }) => (
   <>
-    <div className="mb-9 grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] justify-center gap-4">
+    <div className="mb-9 grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] justify-center gap-4 max-md:grid-cols-1">
       {lanes.map((laneId) => {
         const pack = getPack(laneId)
         return (
@@ -251,7 +259,7 @@ const HomePage = () => {
 
   if (practices.length === 0) {
     return (
-      <div className="mx-auto flex min-h-full max-w-[1060px] flex-col justify-center px-12 py-14 max-md:px-5">
+      <div className="mx-auto flex min-h-full max-w-[1060px] flex-col justify-center px-12 py-14 max-lg:px-6 max-md:px-5">
         <p className="mb-2 font-mono text-[11px] uppercase tracking-[.04em] text-on-surface-3">
           {date}
         </p>
@@ -272,7 +280,7 @@ const HomePage = () => {
   }
 
   return (
-    <div className="mx-auto max-w-[1200px] px-12 pb-20 pt-[52px] max-md:px-5 max-md:pt-8">
+    <div className="mx-auto max-w-[1200px] px-12 pb-20 pt-[52px] max-lg:px-6 max-md:px-5 max-md:pt-8">
       <p className="mb-1.5 font-mono text-[11px] uppercase tracking-[.04em] text-on-surface-3">
         {date}
       </p>
@@ -295,7 +303,7 @@ const HomePage = () => {
           )}
         </div>
         {deleteFailed && <DeletePracticeError className="mb-3 px-0.5" />}
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-3.5">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-3.5 max-md:grid-cols-1">
           {practices.map((practice) => (
             <PracticeCard
               key={practice.practiceId as Id<"practices">}

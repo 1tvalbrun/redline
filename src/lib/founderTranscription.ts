@@ -73,6 +73,9 @@ export const startFounderTranscription = (
   let socket: WebSocket | null = null
   let flushTimeout: ReturnType<typeof setTimeout> | null = null
   let resolveStop: (() => void) | null = null
+  // Unhooks the resume-on-gesture listeners (see start); teardown must call
+  // it or a stream disposed while still suspended leaks them on document.
+  let detachGestureResume: (() => void) | null = null
 
   // Word offsets are relative to the audio this socket's session has
   // received, which begins with the first PCM chunk actually sent while the
@@ -113,6 +116,8 @@ export const startFounderTranscription = (
   // (browser recording indicator included) immediately, while the socket
   // stays open for the server flush.
   const releaseCapture = () => {
+    detachGestureResume?.()
+    detachGestureResume = null
     workletNode?.disconnect()
     workletNode = null
     audioContext?.close().catch(() => {})
@@ -272,6 +277,26 @@ export const startFounderTranscription = (
         audioContext = new AudioContext()
       }
       void audioContext.resume().catch(() => {})
+      // iOS Safari keeps a context created outside a user gesture suspended
+      // no matter what resume() asks — the worklet then hears nothing and
+      // the user's whole side of the transcript silently never happens.
+      // Retry the resume on the next real gesture (any tap counts), and
+      // keep listening until it sticks.
+      const resumeOnGesture = () => {
+        const context = audioContext
+        if (!context || context.state !== "suspended") {
+          detachGestureResume?.()
+          detachGestureResume = null
+          return
+        }
+        void context.resume().catch(() => {})
+      }
+      detachGestureResume = () => {
+        document.removeEventListener("pointerdown", resumeOnGesture)
+        document.removeEventListener("touchend", resumeOnGesture)
+      }
+      document.addEventListener("pointerdown", resumeOnGesture)
+      document.addEventListener("touchend", resumeOnGesture)
       await audioContext.audioWorklet.addModule("/pcm-recorder.worklet.js")
       // Same late-arrival race as above: capture opened during the await
       // must be released if the stream was stopped meanwhile.

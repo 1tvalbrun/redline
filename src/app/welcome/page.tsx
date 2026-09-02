@@ -33,7 +33,7 @@ const WelcomePage = () => {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-surface px-5 py-10">
+    <main className="flex min-h-dvh items-center justify-center bg-surface px-5 py-10">
       <form onSubmit={handleSubmit} className="w-full max-w-[480px]">
         <p className="text-[26px] font-semibold tracking-[-.02em]">
           <BrandName />

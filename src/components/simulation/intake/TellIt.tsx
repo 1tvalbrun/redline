@@ -146,7 +146,7 @@ export const TellIt = ({ pack, onTranscript, onTypeInstead, onAddDocuments }: Te
         <button
           type="button"
           onClick={onTypeInstead}
-          className="focus-ring flex items-center gap-2 rounded-md px-1 py-1 text-on-surface-2 transition-colors hover:text-accent-blue"
+          className="focus-ring flex items-center gap-2 rounded-md px-1 py-1 text-on-surface-2 transition-colors hover:text-accent-blue max-md:px-2 max-md:py-2.5"
         >
           <Keyboard className="size-[15px] text-on-surface-3" />
           Type it instead
@@ -154,7 +154,7 @@ export const TellIt = ({ pack, onTranscript, onTypeInstead, onAddDocuments }: Te
         <button
           type="button"
           onClick={onAddDocuments}
-          className="focus-ring flex items-center gap-2 rounded-md px-1 py-1 text-on-surface-2 transition-colors hover:text-accent-blue"
+          className="focus-ring flex items-center gap-2 rounded-md px-1 py-1 text-on-surface-2 transition-colors hover:text-accent-blue max-md:px-2 max-md:py-2.5"
         >
           <Upload className="size-[15px] text-on-surface-3" />
           Add documents

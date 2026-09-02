@@ -84,7 +84,11 @@ export const claimAvatarConnect = mutation({
     if (!session) return { allowed: false, reason: "not_found" }
     const now = Date.now()
     // Server-owned room clock: reconnects get the remainder; below the
-    // floor the room is over — refuse before anything is billed.
+    // floor the room is over — refuse before anything is billed. The clock
+    // itself starts elsewhere (sessions.markRoomStarted, once Runway
+    // reports the avatar READY): a claim stamped it here once, which meant
+    // every failed connect attempt burned room time — a user who couldn't
+    // connect five times arrived at "complete" without one spoken word.
     const budget = maxDurationSec(session.roomStartedAt, now)
     if (budget === null) return { allowed: false, reason: "complete" }
     const prior = await ctx.db
@@ -94,10 +98,7 @@ export const claimAvatarConnect = mutation({
       )
       .take(MAX_CONNECTS_PER_SESSION)
     if (prior.length >= MAX_CONNECTS_PER_SESSION) return { allowed: false, reason: "cap" }
-    await ctx.db.patch(args.sessionId, {
-      roomStartedAt: session.roomStartedAt ?? now,
-      roomClientId: args.clientId,
-    })
+    await ctx.db.patch(args.sessionId, { roomClientId: args.clientId })
     await ctx.db.insert("usageEvents", {
       userId: identity.subject,
       kind: "avatar_connect",

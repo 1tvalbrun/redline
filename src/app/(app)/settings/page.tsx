@@ -84,7 +84,7 @@ const SettingsPage = () => {
                     onClick={() => handleEnableLane(pack.id)}
                     disabled={enablingLane !== null || user === undefined}
                     aria-label={`Enable ${pack.label}`}
-                    className={cn(BTN_SECONDARY, "flex-none px-3.5 py-2 text-[13px]")}
+                    className={cn(BTN_SECONDARY, "flex-none px-3.5 py-2 text-[13px] max-md:py-2.5")}
                   >
                     {enablingLane === pack.id ? "Enabling…" : "Enable"}
                   </button>
@@ -136,7 +136,7 @@ const SettingsPage = () => {
               type="button"
               onClick={() => setConfirming(false)}
               disabled={deleting}
-              className="focus-ring rounded-lg px-2.5 py-1.5 text-[13px] text-on-surface-2 transition-colors hover:bg-surface-2 hover:text-on-surface"
+              className="focus-ring rounded-lg px-2.5 py-1.5 text-[13px] text-on-surface-2 transition-colors hover:bg-surface-2 hover:text-on-surface max-md:py-2.5"
             >
               Cancel
             </button>

@@ -9,7 +9,7 @@ import { BTN_PRIMARY, BTN_SECONDARY } from "@/components/shared/buttons"
 const CODE_LENGTH = 6
 
 const MONO_LINK =
-  "focus-ring font-mono text-[10px] uppercase tracking-[.09em] text-on-surface-3 hover:text-on-surface-2"
+  "focus-ring font-mono text-[10px] uppercase tracking-[.09em] text-on-surface-3 hover:text-on-surface-2 max-md:py-2"
 
 const GoogleIcon = () => (
   <svg aria-hidden="true" width="18" height="18" viewBox="0 0 18 18">
@@ -98,7 +98,7 @@ export const SignInFlow = () => {
       <div className="flex w-full flex-col items-center gap-7">
         <div className="flex flex-col items-center gap-2 text-center">
           <h2 className="text-[20px] font-semibold tracking-[-.015em]">Check your email</h2>
-          <p className="font-mono text-[11px] tracking-[.02em] text-on-surface-3">
+          <p className="font-mono text-[11px] tracking-[.02em] text-on-surface-3 [overflow-wrap:anywhere]">
             We sent a code to {email}
           </p>
         </div>
@@ -118,12 +118,12 @@ export const SignInFlow = () => {
               onChange={(event) => setCode(event.target.value.replace(/\D/g, ""))}
               className="absolute inset-0 opacity-0"
             />
-            <div aria-hidden="true" className="pointer-events-none flex gap-2.5">
+            <div aria-hidden="true" className="pointer-events-none flex gap-2.5 max-md:gap-1.5">
               {Array.from({ length: CODE_LENGTH }, (_, i) => (
                 <span
                   key={i}
                   className={cn(
-                    "grid h-14 w-12 place-items-center rounded-[10px] border border-line-2 bg-surface-raised font-mono text-[20px] font-medium",
+                    "grid h-14 w-12 place-items-center rounded-[10px] border border-line-2 bg-surface-raised font-mono text-[20px] font-medium max-md:h-12 max-md:w-10",
                     i === code.length &&
                       "group-focus-within:border-accent-blue group-focus-within:ring-[3px] group-focus-within:ring-accent-blue/20"
                   )}

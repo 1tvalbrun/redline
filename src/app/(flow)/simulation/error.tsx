@@ -7,7 +7,7 @@ import Link from "next/link"
 // before any component can branch on it. Without this boundary that's the
 // framework's raw "Application error" screen.
 const SimulationError = ({ reset }: { error: Error; reset: () => void }) => (
-  <div className="flex min-h-screen items-center justify-center bg-surface p-8">
+  <div className="flex min-h-dvh items-center justify-center bg-surface p-8 max-md:p-5">
     <p className="text-[13.5px] text-on-surface-2">
       This practice doesn&apos;t exist, or the link is broken.{" "}
       <button

@@ -29,9 +29,12 @@ const RoomPage = ({ params }: { params: Promise<{ id: string }> }) => {
       : null
   const meta =
     practice && sessions?.length ? (
-      <p className="font-mono text-[11px] uppercase tracking-[.04em] text-on-surface-3">
-        Session {sessions.length} ·{" "}
-        <b className="font-medium text-on-surface-2">{practice.name}</b> · {focus}
+      <p className="min-w-0 truncate font-mono text-[11px] uppercase tracking-[.04em] text-on-surface-3">
+        Session {sessions.length}
+        <span className="max-md:hidden">
+          {" "}
+          · <b className="font-medium text-on-surface-2">{practice.name}</b> · {focus}
+        </span>
       </p>
     ) : undefined
 
